@@ -32,6 +32,14 @@ export { Callout, type CalloutProps } from './callout/Callout';
 export { ComingSoon, type ComingSoonProps } from './coming-soon/ComingSoon';
 export { Container } from './container/Container';
 export { Dialog, type DialogProps } from './dialog/Dialog';
+export {
+  EditorLayout,
+  type EditorLayoutProps,
+  type EditorPane,
+  type EditorPaneTab,
+} from './editor/EditorLayout';
+export { ResizeHandle, type ResizeHandleProps } from './editor/ResizeHandle';
+export { SaveStatus, type SaveStatusProps, type SaveStatusValue } from './editor/SaveStatus';
 export { EmptyState, type EmptyStateProps } from './empty-state/EmptyState';
 export { CtaBand, type CtaBandProps } from './cta-band/CtaBand';
 export { Faq, type FaqItem } from './faq/Faq';

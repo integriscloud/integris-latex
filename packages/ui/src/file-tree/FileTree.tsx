@@ -19,6 +19,12 @@ export interface FileTreeProps {
   lockedLabel: string;
   renderFileActions?: (file: TreeFile) => ReactNode;
   renderFolderActions?: (folder: FileTreeFolder) => ReactNode;
+  /** Link opening a file (text files in the editor); files without one are plain text. */
+  fileHref?: (file: TreeFile) => string | undefined;
+  /** Opens a linked file in place (a plain click; Ctrl/⌘-click still follows the link). */
+  onOpenFile?: (file: TreeFile) => void;
+  /** File shown as open. */
+  activeId?: string;
 }
 
 /** Files of a project (mockup "Fichiers"): folders can be folded, each row has its actions. */
@@ -29,6 +35,9 @@ export function FileTree({
   lockedLabel,
   renderFileActions,
   renderFolderActions,
+  fileHref,
+  onOpenFile,
+  activeId,
 }: FileTreeProps) {
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
 
@@ -39,6 +48,27 @@ export function FileTree({
       else next.add(path);
       return next;
     });
+
+  const linkOf = (file: TreeFile, name: string) => {
+    const href = fileHref?.(file);
+    if (!href) return <span className={styles.name}>{name}</span>;
+    return (
+      <a
+        className={`${styles.name} ${styles.link}`}
+        href={href}
+        aria-current={file.id === activeId ? 'page' : undefined}
+        onClick={(event) => {
+          if (!onOpenFile || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+            return;
+          }
+          event.preventDefault();
+          onOpenFile(file);
+        }}
+      >
+        {name}
+      </a>
+    );
+  };
 
   const render = (items: readonly FileTreeEntry[], depth: number): ReactNode => (
     <ul className={styles.list}>
@@ -70,12 +100,16 @@ export function FileTree({
           </li>
         ) : (
           <li key={`f:${entry.file.id}`}>
-            <div className={styles.row} data-depth={Math.min(depth, 6)}>
+            <div
+              className={styles.row}
+              data-depth={Math.min(depth, 6)}
+              data-active={entry.file.id === activeId || undefined}
+            >
               <span className={styles.file}>
                 <span className={styles.type} aria-hidden="true">
                   {fileTypeLabel(entry.name)}
                 </span>
-                <span className={styles.name}>{entry.name}</span>
+                {linkOf(entry.file, entry.name)}
                 {entry.file.main && (
                   <span className={styles.marker} title={mainLabel}>
                     <Star size={14} strokeWidth={1.75} aria-hidden="true" />

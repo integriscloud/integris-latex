@@ -1,7 +1,0 @@
-import { comingSoonPage } from '../../../components/ComingSoonPage';
-
-// Placeholder until the real screen exists (see the step plan in docs/spec.md).
-const { generateMetadata, Page } = comingSoonPage('terms');
-
-export { generateMetadata };
-export default Page;

@@ -34,6 +34,18 @@ describe('projects API', () => {
         )
           .set('Content-Type', 'application/octet-stream')
           .send(Buffer.from(bytes)),
+      read: (projectId: string, fileId: string) =>
+        server()
+          .get(`/api/projects/${projectId}/files/${fileId}/content`)
+          .set(TEST_USER_HEADER, user.id),
+      save: (projectId: string, fileId: string, text: string | Uint8Array, ifMatch?: string) => {
+        const req = write(server().put(`/api/projects/${projectId}/files/${fileId}/content`)).set(
+          'Content-Type',
+          'application/octet-stream',
+        );
+        if (ifMatch !== undefined) req.set('If-Match', ifMatch);
+        return req.send(Buffer.from(typeof text === 'string' ? strToU8(text) : text));
+      },
       import: (name: string, archive: Uint8Array) =>
         write(server().post(`/api/projects/import?name=${encodeURIComponent(name)}`))
           .set('Content-Type', 'application/zip')
@@ -270,6 +282,131 @@ describe('projects API', () => {
       await as(owner).upload(id, 'refs.bib', strToU8('@x')).expect(200);
       await as(owner).patch(`projects/${id}`, { mainFilePath: 'refs.bib' }).expect(400);
       await as(owner).patch(`projects/${id}`, { mainFilePath: 'none.tex' }).expect(400);
+    });
+  });
+
+  describe('editor content', () => {
+    const mainOf = (projectId: string) =>
+      ctx.db.files.find((file) => file.projectId === projectId && file.path === 'main.tex')!;
+
+    it('reads a text file with its version and saves it with If-Match', async () => {
+      const id = await create(owner);
+      const main = mainOf(id);
+      const read = await as(owner).read(id, main.id).expect(200);
+      expect(read.headers['content-type']).toBe('text/plain; charset=utf-8');
+      expect(read.headers['cache-control']).toBe('no-store');
+      expect(read.headers['x-file-writable']).toBe('true');
+      expect(read.headers['content-security-policy']).toBe("default-src 'none'; sandbox");
+      expect(read.headers['content-disposition']).toBe('attachment');
+      expect(read.headers['cross-origin-resource-policy']).toBe('same-origin');
+      expect(read.text).toContain('\\begin{document}');
+      const etag = read.headers.etag as string;
+
+      const saved = (await as(owner).save(id, main.id, 'Thèse ∑ é', etag).expect(200)).body;
+      expect(saved.etag).not.toBe(etag);
+      expect(saved.sizeBytes).toBe(strToU8('Thèse ∑ é').length);
+      const again = await as(owner).read(id, main.id).expect(200);
+      expect(again.text).toBe('Thèse ∑ é');
+      expect(again.headers.etag).toBe(saved.etag);
+      // The old object is gone: one object per file.
+      expect(ctx.storage.objects.size).toBe(1);
+      // A weak tag (compressing proxy) is accepted.
+      await as(owner).save(id, main.id, 'v3', `W/${saved.etag}`).expect(200);
+    });
+
+    it('refuses a save based on an old version instead of overwriting', async () => {
+      const id = await create(owner);
+      ctx.db.share(id, other.id, 'EDITOR');
+      const main = mainOf(id);
+      const etag = (await as(owner).read(id, main.id)).headers.etag as string;
+      await as(other).save(id, main.id, 'from the editor', etag).expect(200);
+      await as(owner).save(id, main.id, 'stale tab', etag).expect(409, { code: 'edit_conflict' });
+      expect((await as(owner).read(id, main.id)).text).toBe('from the editor');
+      await as(owner).save(id, main.id, 'no tag').expect(400, { code: 'invalid_request' });
+    });
+
+    it('keeps the version across a rename', async () => {
+      const id = await create(owner);
+      const main = mainOf(id);
+      const etag = (await as(owner).read(id, main.id)).headers.etag as string;
+      await as(owner).patch(`projects/${id}/files/${main.id}`, { path: 'these.tex' }).expect(200);
+      await as(owner).save(id, main.id, 'renamed', etag).expect(200);
+    });
+
+    it.each(['SUPERVISOR', 'REVIEWER', 'VIEWER'] as const)(
+      'lets a %s read but not save',
+      async (role) => {
+        const id = await create(owner);
+        ctx.db.share(id, other.id, role);
+        const main = mainOf(id);
+        const read = await as(other).read(id, main.id).expect(200);
+        expect(read.headers['x-file-writable']).toBe('false');
+        await as(other)
+          .save(id, main.id, 'x', read.headers.etag as string)
+          .expect(403, { code: 'forbidden' });
+      },
+    );
+
+    it('hides the content from a user without a role and from a trashed project', async () => {
+      const id = await create(owner);
+      const main = mainOf(id);
+      await as(other).read(id, main.id).expect(404, { code: 'not_found' });
+      await as(other).save(id, main.id, 'x', '"x"').expect(404);
+      await as(owner).post(`projects/${id}/trash`).expect(204);
+      await as(owner).read(id, main.id).expect(404);
+    });
+
+    it('refuses saves on a read-only project and on a locked file', async () => {
+      const id = await create(owner);
+      const main = mainOf(id);
+      const etag = (await as(owner).read(id, main.id)).headers.etag as string;
+      main.lockedBySubmissionId = 'submission';
+      expect((await as(owner).read(id, main.id)).headers['x-file-writable']).toBe('false');
+      await as(owner).save(id, main.id, 'x', etag).expect(409, { code: 'file_locked' });
+      main.lockedBySubmissionId = null;
+      ctx.db.projects[0]!.readOnlyReason = 'OVER_FREE_LIMIT';
+      await as(owner).save(id, main.id, 'x', etag).expect(403, { code: 'read_only' });
+    });
+
+    it('only opens text files and only saves valid UTF-8', async () => {
+      const id = await create(owner);
+      await as(owner).upload(id, 'logo.png', PNG).expect(200);
+      const logo = ctx.db.files.find((file) => file.path === 'logo.png')!;
+      await as(owner).read(id, logo.id).expect(415, { code: 'not_text' });
+      await as(owner).save(id, logo.id, PNG, '"x"').expect(422, { code: 'invalid_encoding' });
+      const main = mainOf(id);
+      const etag = (await as(owner).read(id, main.id)).headers.etag as string;
+      await as(owner)
+        .save(id, main.id, new Uint8Array([0xe9]), etag)
+        .expect(422, { code: 'invalid_encoding' });
+      await as(owner).read(id, 'unknown').expect(404);
+    });
+
+    it('limits the size and charges the storage to the project owner', async () => {
+      const id = await create(owner);
+      ctx.db.share(id, other.id, 'EDITOR');
+      const main = mainOf(id);
+      const etag = (await as(other).read(id, main.id)).headers.etag as string;
+      const big = new Uint8Array(10 * 1024 * 1024 + 1).fill(0x61);
+      await as(other).save(id, main.id, big, etag).expect(413, { code: 'file_too_large' });
+      ctx.db.plans.find((plan) => plan.code === 'FREE')!.storageBytes = 2000n;
+      // The new content replaces the old one: only a total over the quota is refused.
+      await as(other).save(id, main.id, new Uint8Array(1900).fill(0x61), etag).expect(200);
+      const tag = (await as(other).read(id, main.id)).headers.etag as string;
+      const text = new Uint8Array(2001).fill(0x61);
+      await as(other).save(id, main.id, text, tag).expect(402, { code: 'storage_limit' });
+    });
+
+    it('refuses a save without an allowed origin', async () => {
+      const id = await create(owner);
+      const main = mainOf(id);
+      await request(ctx.app.getHttpServer())
+        .put(`/api/projects/${id}/files/${main.id}/content`)
+        .set(TEST_USER_HEADER, owner.id)
+        .set('If-Match', '"x"')
+        .set('Content-Type', 'text/plain')
+        .send('x')
+        .expect(403, { code: 'forbidden_origin' });
     });
   });
 

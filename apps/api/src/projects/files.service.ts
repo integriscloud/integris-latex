@@ -1,6 +1,7 @@
 import type { ProjectFile } from '@integris/db';
 import {
   allowedExtensionOf,
+  type FileSaved,
   isTextExtension,
   MAX_PROJECT_FILE_BYTES,
   normalizeFilePath,
@@ -10,11 +11,12 @@ import {
   PROJECTS_BUCKET,
 } from '@integris/shared';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { ApiError } from '../common/api-error.js';
 import { ApiConfig } from '../config/api-config.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
-import { checkContent } from './file-content.js';
+import { checkContent, isUtf8Text } from './file-content.js';
 import { fail, ProjectsService } from './projects.service.js';
 
 /** Binary formats that may be renamed into each other (same content). */
@@ -24,6 +26,23 @@ const sameFormat = (a: string, b: string) => {
 };
 
 const inFolder = (path: string, folder: string) => path.startsWith(`${folder}/`);
+
+/**
+ * Version of a file's content, sent as `ETag` and expected back in `If-Match`. Every write stores
+ * the content under a new object key, so the key identifies the content (a rename keeps it).
+ */
+export const contentTag = (file: Pick<ProjectFile, 'storageKey'>) =>
+  `"${createHash('sha256')
+    .update(file.storageKey ?? '')
+    .digest('base64url')
+    .slice(0, 32)}"`;
+
+/** `If-Match` as sent by a browser or a proxy: compressing proxies turn strong tags into weak ones. */
+const sameTag = (header: string, tag: string) =>
+  header
+    .split(',')
+    .map((value) => value.trim().replace(/^W\//, ''))
+    .includes(tag);
 
 /** A path taken by a parallel request (unique constraint) answers 409 like any other clash. */
 const uniqueConflict = (error: unknown) =>
@@ -137,23 +156,107 @@ export class FilesService {
         bytes.length - (previous?.sizeBytes ?? 0),
       );
 
-      const storageKey = this.projects.newKey(projectId);
-      await this.storage.put(PROJECTS_BUCKET, storageKey, bytes);
-      try {
-        const data = { kind: check.kind, storageKey, sizeBytes: bytes.length };
-        if (previous) {
-          await this.prisma.client.projectFile.update({ where: { id: previous.id }, data });
-        } else {
-          await this.prisma.client.projectFile.create({ data: { projectId, path, ...data } });
-        }
-      } catch (error) {
-        await this.storage.deleteKeys(PROJECTS_BUCKET, [storageKey]);
-        throw uniqueConflict(error);
-      }
-      if (previous?.storageKey) await this.removeObjects([previous.storageKey]);
+      await this.store(projectId, path, previous, check.kind, bytes);
     });
     await this.projects.touch(projectId);
     return this.projects.detail(userId, projectId);
+  }
+
+  /**
+   * Writes the content under a new object key, then points the row (new or `previous`) to it.
+   * Called under the owner lock, after the quota check.
+   */
+  private async store(
+    projectId: string,
+    path: string,
+    previous: ProjectFile | undefined,
+    kind: ProjectFile['kind'],
+    bytes: Uint8Array,
+  ): Promise<ProjectFile> {
+    const storageKey = this.projects.newKey(projectId);
+    await this.storage.put(PROJECTS_BUCKET, storageKey, bytes);
+    let row: ProjectFile;
+    try {
+      const data = { kind, storageKey, sizeBytes: bytes.length };
+      row = previous
+        ? await this.prisma.client.projectFile.update({ where: { id: previous.id }, data })
+        : await this.prisma.client.projectFile.create({ data: { projectId, path, ...data } });
+    } catch (error) {
+      await this.storage.deleteKeys(PROJECTS_BUCKET, [storageKey]);
+      throw uniqueConflict(error);
+    }
+    if (previous?.storageKey) await this.removeObjects([previous.storageKey]);
+    return row;
+  }
+
+  /** Content of a text file for the editor, with its version tag. Any role on the project reads. */
+  async readText(
+    userId: string,
+    projectId: string,
+    fileId: string,
+  ): Promise<{ bytes: Uint8Array; tag: string; writable: boolean }> {
+    const { project, rights } = await this.projects.access(userId, projectId);
+    const find = () =>
+      this.prisma.client.projectFile.findFirst({ where: { id: fileId, projectId } });
+    let file = await find();
+    if (!file) return fail(HttpStatus.NOT_FOUND, 'not_found');
+    if (file.kind !== 'TEXT') fail(HttpStatus.UNSUPPORTED_MEDIA_TYPE, 'not_text');
+    let bytes: Uint8Array;
+    try {
+      bytes = file.storageKey
+        ? await this.storage.get(PROJECTS_BUCKET, file.storageKey)
+        : new Uint8Array();
+    } catch {
+      // A save replaced the object between the two reads: read the new version once.
+      file = await find();
+      if (!file) return fail(HttpStatus.NOT_FOUND, 'not_found');
+      bytes = file.storageKey
+        ? await this.storage.get(PROJECTS_BUCKET, file.storageKey)
+        : new Uint8Array();
+    }
+    return {
+      bytes,
+      tag: contentTag(file),
+      writable: rights.edit && !project.readOnlyReason && !file.lockedBySubmissionId,
+    };
+  }
+
+  /**
+   * Saves the content of a text file from the editor. `ifMatch` must be the version the editor
+   * loaded or last saved: a file changed meanwhile (another tab, another member) answers 409
+   * `edit_conflict` instead of being overwritten.
+   */
+  async writeText(
+    userId: string,
+    projectId: string,
+    fileId: string,
+    bytes: Uint8Array,
+    ifMatch: string,
+  ): Promise<FileSaved> {
+    const { project } = await this.projects.require(userId, projectId, 'edit');
+    if (bytes.length > MAX_PROJECT_FILE_BYTES) fail(HttpStatus.PAYLOAD_TOO_LARGE, 'file_too_large');
+    if (!isUtf8Text(bytes)) fail(HttpStatus.UNPROCESSABLE_ENTITY, 'invalid_encoding');
+    const saved = await this.projects.runLocked(project.ownerId, async () => {
+      // Read again under the lock: the tag check and the write cannot interleave with another
+      // save, and a project made read-only or trashed while this save waited is not written.
+      const current = await this.prisma.client.project.findUnique({
+        where: { id: projectId },
+        select: { readOnlyReason: true, deletedAt: true },
+      });
+      if (!current || current.deletedAt) fail(HttpStatus.NOT_FOUND, 'not_found');
+      if (current?.readOnlyReason) fail(HttpStatus.FORBIDDEN, 'read_only');
+      const file = await this.file(projectId, fileId);
+      if (file.kind !== 'TEXT') fail(HttpStatus.UNSUPPORTED_MEDIA_TYPE, 'not_text');
+      if (!sameTag(ifMatch, contentTag(file))) fail(HttpStatus.CONFLICT, 'edit_conflict');
+      await this.projects.checkStorageFor(project.ownerId, bytes.length - file.sizeBytes);
+      return this.store(projectId, file.path, file, 'TEXT', bytes);
+    });
+    await this.projects.touch(projectId);
+    return {
+      etag: contentTag(saved),
+      sizeBytes: saved.sizeBytes,
+      updatedAt: saved.updatedAt.toISOString(),
+    };
   }
 
   /** Renames or moves a file. A binary file keeps its format; a text file stays text. */

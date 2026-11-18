@@ -4,6 +4,7 @@ import {
   createProjectSchema,
   deleteFolderSchema,
   duplicateProjectSchema,
+  type FileSaved,
   type ImportResult,
   MAX_PROJECT_FILE_BYTES,
   moveFileSchema,
@@ -21,17 +22,22 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
   Put,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { ApiError } from '../common/api-error.js';
 import type { z } from 'zod';
 import { ApiConfig } from '../config/api-config.js';
 import { readRawBody } from '../common/raw-body.js';
@@ -176,6 +182,55 @@ export class ProjectsController {
         'file_too_large',
       );
       return this.files.upload(auth.user.id, id, query.path, bytes, query.replace === 'true');
+    });
+  }
+
+  /** Content of a text file for the editor; `ETag` is the version to send back in `If-Match`. */
+  @Get(':id/files/:fileId/content')
+  async readContent(
+    @Auth() auth: AuthContext,
+    @Param('id') id: string,
+    @Param('fileId') fileId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const { bytes, tag, writable } = await this.files.readText(auth.user.id, id, fileId);
+    response.set({
+      ETag: tag,
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      // API data read by fetch(), never a page: inert and not readable by other sites if opened.
+      'Content-Security-Policy': "default-src 'none'; sandbox",
+      'Content-Disposition': 'attachment',
+      'Cross-Origin-Resource-Policy': 'same-origin',
+      'X-File-Writable': String(writable),
+    });
+    return new StreamableFile(bytes, { type: 'text/plain; charset=utf-8' });
+  }
+
+  /**
+   * Saves a text file from the editor: UTF-8 sent as the raw body (`application/octet-stream`),
+   * 10 MB at most, with `If-Match` set to the version loaded. 409 `edit_conflict` when it changed.
+   */
+  @Put(':id/files/:fileId/content')
+  @ApiConsumes('application/octet-stream')
+  async writeContent(
+    @Auth() auth: AuthContext,
+    @Param('id') id: string,
+    @Param('fileId') fileId: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Req() request: Request,
+  ): Promise<FileSaved> {
+    if (!ifMatch) throw new ApiError(HttpStatus.BAD_REQUEST, 'invalid_request');
+    // Rights first: a user without the edit right never gets the body read.
+    await this.projects.require(auth.user.id, id, 'edit');
+    return this.projects.withUploadSlot(auth.user.id, async () => {
+      const bytes = await readRawBody(
+        request,
+        'application/octet-stream',
+        MAX_PROJECT_FILE_BYTES,
+        'file_too_large',
+      );
+      return this.files.writeText(auth.user.id, id, fileId, bytes, ifMatch);
     });
   }
 

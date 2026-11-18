@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@integris/ui'],
   // The dev server is reached through the Nginx preview host on latex-dev.
   allowedDevOrigins: ['test-latex.integriscloud.com'],
+  // The floating dev badge would cover the bottom tabs of the editor on phones.
+  devIndicators: false,
   // Browser calls go to the same origin. Nginx routes /api/ to the API before Next.js; this
   // rewrite does the same when the web app is reached directly (local runs, Playwright).
   async rewrites() {

@@ -1,0 +1,4 @@
+/* No Source Serif 4 on the editor page: titles use the UI face. */
+.body {
+  --font-doc: var(--font-ui);
+}

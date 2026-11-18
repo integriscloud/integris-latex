@@ -9,17 +9,17 @@ import {
 import {
   Alert,
   Button,
+  ButtonLink,
   buildFileTree,
   FileDrop,
   type FileTreeFolder,
   FileTree,
   IconButton,
-  Notice,
   PageHeader,
   Panel,
   type TreeFile,
 } from '@integris/ui';
-import { ArrowLeft, Copy, FilePlus, Pencil, Star, Trash2 } from 'lucide-react';
+import { ArrowLeft, Copy, FilePlus, FilePen, Pencil, Star, Trash2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getPathname, useRouter } from '../../i18n/navigation';
@@ -199,6 +199,14 @@ export function ProjectFiles({
 
   const close = () => setAction(null);
   const projectsHref = getPathname({ href: '/app', locale });
+  // The editor is a separate root layout (fonts of the editor only): plain links, full load.
+  const editorHref = getPathname({ href: `/app/projects/${project.id}/edit`, locale });
+  const textFiles = useMemo(
+    () => new Set(project.files.filter((file) => file.kind === 'TEXT').map((file) => file.id)),
+    [project.files],
+  );
+  const fileHref = (file: TreeFile) =>
+    textFiles.has(file.id) ? `${editorHref}?file=${encodeURIComponent(file.id)}` : undefined;
 
   return (
     <>
@@ -217,26 +225,33 @@ export function ProjectFiles({
           </span>
         }
         actions={
-          manage && (
-            <>
-              <Button variant="secondary" onClick={() => setAction({ kind: 'rename-project' })}>
-                <Pencil size={20} strokeWidth={1.75} aria-hidden="true" />
-                {t('rename')}
-              </Button>
-              <Button variant="secondary" onClick={() => setAction({ kind: 'duplicate' })}>
-                <Copy size={20} strokeWidth={1.75} aria-hidden="true" />
-                {t('duplicate')}
-              </Button>
-              <Button variant="secondary" onClick={() => setAction({ kind: 'trash' })}>
-                <Trash2 size={20} strokeWidth={1.75} aria-hidden="true" />
-                {t('trash')}
-              </Button>
-            </>
-          )
+          <>
+            {textFiles.size > 0 && (
+              <ButtonLink href={editorHref}>
+                <FilePen size={20} strokeWidth={1.75} aria-hidden="true" />
+                {t('open')}
+              </ButtonLink>
+            )}
+            {manage && (
+              <>
+                <Button variant="secondary" onClick={() => setAction({ kind: 'rename-project' })}>
+                  <Pencil size={20} strokeWidth={1.75} aria-hidden="true" />
+                  {t('rename')}
+                </Button>
+                <Button variant="secondary" onClick={() => setAction({ kind: 'duplicate' })}>
+                  <Copy size={20} strokeWidth={1.75} aria-hidden="true" />
+                  {t('duplicate')}
+                </Button>
+                <Button variant="secondary" onClick={() => setAction({ kind: 'trash' })}>
+                  <Trash2 size={20} strokeWidth={1.75} aria-hidden="true" />
+                  {t('trash')}
+                </Button>
+              </>
+            )}
+          </>
         }
       />
 
-      <Notice>{t('editorSoon')}</Notice>
       {!edit && (
         <Alert tone="info">{project.readOnly ? t('readOnlyProject') : t('readOnlyRole')}</Alert>
       )}
@@ -260,6 +275,7 @@ export function ProjectFiles({
           lockedLabel={t('locked')}
           renderFileActions={fileActions}
           renderFolderActions={folderActions}
+          fileHref={fileHref}
         />
       </Panel>
 

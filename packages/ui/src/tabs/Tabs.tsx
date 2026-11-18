@@ -55,7 +55,7 @@ export function Tabs({ label, items, value, onChange, idPrefix }: TabsProps) {
             onKeyDown={(event) => onKeyDown(index, event)}
           >
             {Icon && <Icon size={16} strokeWidth={1.75} aria-hidden="true" />}
-            {item.label}
+            <span className={styles.label}>{item.label}</span>
           </button>
         );
       })}

@@ -1,0 +1,260 @@
+/* Editor screen. Breakpoints of the design system: one pane at a time below 960 px, files |
+   code | PDF from 960 px (comments as a drawer), the four zones from 1280 px. */
+
+.root {
+  /* Defaults of pane-widths.ts: about 20 % files, 45 % code, 35 % PDF. */
+  --editor-files: 20%;
+  --editor-pdf: 35%;
+  --editor-side: 320px;
+
+  display: grid;
+  /* Named areas: the notice row may be absent without moving the others. */
+  grid-template-areas: 'bar' 'notice' 'workspace' 'tabs';
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100dvh;
+  overflow: clip;
+  background: var(--fond);
+}
+
+.bar {
+  grid-area: bar;
+  display: flex;
+  gap: var(--espace-2) var(--espace-3);
+  align-items: center;
+  min-width: 0;
+  padding: var(--espace-1) var(--espace-2);
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface);
+}
+
+.back {
+  flex: none;
+}
+
+.heading {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  margin: 0;
+  font: var(--t-texte);
+  font-weight: 600;
+  color: var(--texte);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtitle {
+  display: flex;
+  gap: var(--espace-2);
+  align-items: center;
+  min-width: 0;
+  font: var(--t-legende);
+  color: var(--texte-3);
+}
+
+.status,
+.presence,
+.actions {
+  display: flex;
+  flex: none;
+  gap: var(--espace-1);
+  align-items: center;
+}
+
+.notice {
+  grid-area: notice;
+}
+
+.workspace {
+  grid-area: workspace;
+  position: relative;
+  display: flex;
+  min-height: 0;
+  /* clip, not hidden: focusing an element near an edge can never scroll a pane sideways. */
+  overflow: clip;
+}
+
+.pane {
+  display: none;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: clip;
+  background: var(--surface);
+}
+
+/* Narrow screens: the pane chosen in the bottom tabs fills the space. */
+@media (max-width: 959.98px) {
+  .root[data-view='files'] .pane[data-pane='files'],
+  .root[data-view='code'] .pane[data-pane='code'],
+  .root[data-view='pdf'] .pane[data-pane='pdf'],
+  .root[data-view='side'] .pane[data-pane='side'] {
+    display: flex;
+    flex: 1 1 0;
+  }
+}
+
+.pane[data-pane='pdf'] {
+  background: var(--neutre-100);
+}
+
+.handle {
+  display: none;
+}
+
+.tabs {
+  grid-area: tabs;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--bordure);
+  background: var(--surface);
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: var(--espace-1);
+  border: 0;
+  border-top: 2px solid transparent;
+  background: transparent;
+  font: var(--t-legende);
+  color: var(--texte-3);
+  cursor: pointer;
+}
+
+.tab[aria-current='page'] {
+  border-top-color: var(--action);
+  color: var(--action);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: -2px;
+}
+
+.count {
+  position: absolute;
+  top: var(--espace-1);
+  left: calc(50% + 8px);
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  font: var(--t-legende);
+  font-size: 11px;
+  color: var(--neutre-0);
+}
+
+@media (min-width: 600px) {
+  .bar {
+    padding: var(--espace-2) var(--espace-4);
+  }
+}
+
+@media (min-width: 960px) {
+  .root {
+    grid-template-areas: 'bar' 'notice' 'workspace';
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .tabs {
+    display: none;
+  }
+
+  .root .pane[data-pane='files'],
+  .root .pane[data-pane='code'],
+  .root .pane[data-pane='pdf'] {
+    display: flex;
+  }
+
+  .pane[data-pane='files'] {
+    flex: 0 0 var(--editor-files);
+    min-width: 200px;
+    border-right: 1px solid var(--bordure);
+  }
+
+  .root .pane[data-pane='code'] {
+    flex: 1 1 0;
+    min-width: 280px;
+  }
+
+  .root .pane[data-pane='pdf'] {
+    flex: 0 1 var(--editor-pdf);
+    min-width: 200px;
+    border-left: 1px solid var(--bordure);
+  }
+
+  .handle {
+    position: relative;
+    z-index: 1;
+    display: block;
+    flex: none;
+    width: 6px;
+    margin: 0 -3px;
+    cursor: col-resize;
+    touch-action: none;
+  }
+
+  .handle::after {
+    content: '';
+    position: absolute;
+    inset: 0 2px;
+    background: transparent;
+    transition: background-color var(--duree-rapide) var(--courbe);
+  }
+
+  .handle:hover::after,
+  .handle:focus-visible::after {
+    background: var(--action);
+  }
+
+  .handle:focus-visible {
+    outline: none;
+  }
+
+  .handleSide {
+    display: none;
+  }
+
+  /* Comments and submissions: a drawer over the PDF until 1280 px. */
+  .root .pane[data-pane='side'] {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    width: min(var(--editor-side), 90%);
+    border-left: 1px solid var(--bordure);
+    box-shadow: var(--ombre-2);
+  }
+
+  .root[data-side='true'] .pane[data-pane='side'] {
+    display: flex;
+  }
+
+  .root[data-side='false'] .pane[data-pane='side'] {
+    display: none;
+  }
+}
+
+@media (min-width: 1280px) {
+  .root[data-side='true'] .handleSide {
+    display: block;
+  }
+
+  .root .pane[data-pane='side'] {
+    position: static;
+    flex: 0 0 var(--editor-side);
+    width: auto;
+    box-shadow: none;
+  }
+}

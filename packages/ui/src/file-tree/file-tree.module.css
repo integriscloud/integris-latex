@@ -21,6 +21,10 @@
   background: var(--surface-creuse);
 }
 
+.row[data-active] {
+  background: var(--action-doux);
+}
+
 /* Indentation per depth (6 levels shown, deeper ones stay at the last step). */
 .row[data-depth='1'] {
   padding-left: calc(var(--espace-2) + var(--espace-5));
@@ -95,6 +99,31 @@
   font-family: var(--font-code);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.link {
+  /* Block, not flex: the ellipsis of long names needs it. Full row height: 44 px target. */
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  line-height: var(--cible-tactile);
+  color: var(--texte);
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--action);
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.row[data-active] .link {
+  font-weight: 600;
+  color: var(--action);
 }
 
 .marker {

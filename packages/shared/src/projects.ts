@@ -31,6 +31,8 @@ export const PROJECT_ERROR_CODES = [
   'archive_too_many_files',
   'archive_too_big_uncompressed',
   'archive_empty',
+  'edit_conflict',
+  'not_text',
 ] as const;
 export type ProjectErrorCode = (typeof PROJECT_ERROR_CODES)[number];
 
@@ -210,6 +212,14 @@ export const importResultSchema = z.object({
   skippedCount: z.number().int().nonnegative(),
 });
 export type ImportResult = z.infer<typeof importResultSchema>;
+
+/** Answer of a saved text file: the version to send in `If-Match` on the next save. */
+export const fileSavedSchema = z.object({
+  etag: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  updatedAt: date,
+});
+export type FileSaved = z.infer<typeof fileSavedSchema>;
 
 /** Upload limits, from the API configuration and docs/spec.md. */
 export const projectLimitsSchema = z.object({

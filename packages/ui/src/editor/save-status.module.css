@@ -1,0 +1,59 @@
+.status {
+  display: inline-flex;
+  gap: var(--espace-1);
+  align-items: center;
+  min-height: var(--cible-tactile);
+  margin: 0;
+  font: var(--t-legende);
+  color: var(--texte-3);
+  white-space: nowrap;
+}
+
+.saved {
+  color: var(--succes);
+}
+
+.offline {
+  color: var(--alerte);
+}
+
+.conflict,
+.error {
+  color: var(--erreur);
+}
+
+/* The text is hidden on phones; the icon stays, the full text is in the notices. */
+.label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 600px) {
+  .label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
