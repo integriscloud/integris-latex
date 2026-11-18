@@ -6,5 +6,7 @@ export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
   test: {
     include: ['src/**/*.test.ts'],
+    // Auth tests share the Redis test database (db 15) and flush it.
+    fileParallelism: false,
   },
 });

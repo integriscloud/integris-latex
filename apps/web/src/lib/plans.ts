@@ -1,11 +1,5 @@
-import {
-  API_PREFIX,
-  parseEnv,
-  PORTS,
-  type PublicPlan,
-  publicPlansSchema,
-  webEnvSchema,
-} from '@integris/shared';
+import { API_PREFIX, type PublicPlan, publicPlansSchema } from '@integris/shared';
+import { apiBaseUrl } from './api-base';
 
 /** Seconds between two refreshes of the plans shown on public pages. */
 const PLANS_REVALIDATE_SECONDS = 60;
@@ -15,10 +9,8 @@ const PLANS_REVALIDATE_SECONDS = 60;
  * never hard-coded: the caller shows a "temporarily unavailable" message instead.
  */
 export async function fetchPublicPlans(): Promise<PublicPlan[] | null> {
-  const { API_INTERNAL_URL } = parseEnv(webEnvSchema, process.env);
-  const base = API_INTERNAL_URL ?? `http://127.0.0.1:${PORTS.api}`;
   try {
-    const response = await fetch(`${base}/${API_PREFIX}/plans`, {
+    const response = await fetch(`${apiBaseUrl()}/${API_PREFIX}/plans`, {
       next: { revalidate: PLANS_REVALIDATE_SECONDS },
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

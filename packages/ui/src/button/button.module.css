@@ -63,6 +63,34 @@
   font-weight: 600;
 }
 
+.fullWidth {
+  width: 100%;
+}
+
+.button[aria-busy='true'] {
+  cursor: progress;
+}
+
+/* Text button (secondary links inside forms: resend the code, change the number). */
+.ghost {
+  min-height: var(--cible-tactile);
+  padding: 0 var(--espace-2);
+  background: transparent;
+  color: var(--action);
+  font-weight: 600;
+}
+
+.ghost:hover:not(:disabled) {
+  color: var(--action-survol);
+  text-decoration: underline;
+}
+
+.ghost:disabled {
+  border-color: transparent;
+  background: transparent;
+  color: var(--texte-3);
+}
+
 .link {
   transition:
     transform var(--duree-base) var(--courbe),

@@ -2,16 +2,45 @@ import { ArrowRight } from 'lucide-react';
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
 import styles from './button.module.css';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'accent';
+export type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'ghost';
 export type ButtonSize = 'default' | 'large';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+  /** Action in progress: the button is disabled and announced as busy (label ends with "…"). */
+  busy?: boolean;
 }
 
-export function Button({ variant = 'primary', className, type = 'button', ...props }: ButtonProps) {
-  const classes = [styles.button, styles[variant], className].filter(Boolean).join(' ');
-  return <button type={type} className={classes} {...props} />;
+export function Button({
+  variant = 'primary',
+  size = 'default',
+  fullWidth = false,
+  busy = false,
+  className,
+  type = 'button',
+  disabled,
+  ...props
+}: ButtonProps) {
+  const classes = [
+    styles.button,
+    styles[variant],
+    size === 'large' && styles.large,
+    fullWidth && styles.fullWidth,
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    <button
+      type={type}
+      className={classes}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      {...props}
+    />
+  );
 }
 
 export interface ButtonLinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {

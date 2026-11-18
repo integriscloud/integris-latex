@@ -3,7 +3,7 @@ import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { plusJakartaSans, sourceSerif4 } from '../../fonts/fonts';
+import { jetBrainsMono, plusJakartaSans, sourceSerif4 } from '../../fonts/fonts';
 import { routing } from '../../i18n/routing';
 import '../globals.css';
 
@@ -29,7 +29,10 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   setRequestLocale(locale);
 
   return (
-    <html lang={locale} className={`${plusJakartaSans.variable} ${sourceSerif4.variable}`}>
+    <html
+      lang={locale}
+      className={`${plusJakartaSans.variable} ${sourceSerif4.variable} ${jetBrainsMono.variable}`}
+    >
       <body>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

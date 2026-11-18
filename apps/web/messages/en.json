@@ -221,9 +221,212 @@
   "ComingSoon": {
     "text": "This page will be available soon.",
     "back": "Back to the home page",
-    "login": "Log in",
-    "signup": "Sign up",
     "terms": "Terms of use",
     "privacy": "Privacy"
+  },
+  "Auth": {
+    "brandAside": {
+      "title": "The academic writing platform of your institution.",
+      "text": "One place to write, supervise, assess and print, from the first chapter to the exam.",
+      "institutions": {
+        "title": "Institutions",
+        "text": "One subscription for the whole school: accounts, classes, official templates, exam printing."
+      },
+      "teachers": {
+        "title": "Teachers",
+        "text": "Follow your students, comment in the right place, write your exam papers and send them to the secretariat."
+      },
+      "students": {
+        "title": "Students",
+        "text": "Write dissertations, reports and theses that follow your institution's standards."
+      }
+    },
+    "fields": {
+      "phone": "Phone number",
+      "phonePlaceholder": "70 00 00 00",
+      "dialCode": "Country code",
+      "email": "E-mail",
+      "emailPlaceholder": "name@example.com",
+      "password": "Password",
+      "newPassword": "New password",
+      "currentPassword": "Current password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "optional": "(optional)",
+      "code": "Code received by SMS",
+      "codeDigit": "Digit {index} of {length}",
+      "passwordHelp": "At least {min} characters. An easy-to-remember sentence is a good choice."
+    },
+    "login": {
+      "metaTitle": "Log in",
+      "title": "Log in",
+      "subtitle": "Student, teacher, secretariat or administration: one sign-in, then your space.",
+      "modes": "Sign-in method",
+      "phoneTab": "Phone",
+      "emailTab": "E-mail",
+      "codeHelp": "A {length}-digit code will be sent to you by SMS.",
+      "sendCode": "Get the code",
+      "sendingCode": "Sending the code…",
+      "submit": "Log in",
+      "submitting": "Logging in…",
+      "forgotPassword": "Forgot your password?",
+      "emailHelp": "E-mail sign-in works once your address is confirmed and a password is set in your account.",
+      "noAccount": "No account yet?",
+      "createAccount": "Create an account",
+      "noAccountForNumber": "There is no account for this number.",
+      "createWithNumber": "Create an account with this number"
+    },
+    "code": {
+      "sentTo": "Code sent by SMS to {phone}.",
+      "changeNumber": "Change the number",
+      "resend": "Send the code again",
+      "resendIn": "Send the code again in {seconds} s",
+      "resent": "A new code has been sent to you.",
+      "incomplete": "Enter the {length} digits of the code."
+    },
+    "signup": {
+      "metaTitle": "Create an account",
+      "title": "Create an account",
+      "stepOf": "Step {current} of {total} · {name}",
+      "steps": "Steps",
+      "stepProfile": "Your profile",
+      "stepVerify": "Number check",
+      "stepReady": "Your space is ready",
+      "stepDone": "done",
+      "stepCurrent": "current",
+      "alreadyRegistered": "Already registered?",
+      "login": "Log in",
+      "terms": "I accept the <terms>terms of use</terms> and the <privacy>personal data protection policy</privacy>.",
+      "termsRequired": "Accept the terms to create your account.",
+      "nameRequired": "Enter your first and last name.",
+      "sendCode": "Get the code by SMS",
+      "free": "Free, no bank card.",
+      "emailHelp": "To receive your receipts and log in by e-mail. A confirmation link will be sent to you.",
+      "verifySubtitle": "Enter the code received by SMS to confirm your number.",
+      "create": "Create my account",
+      "creating": "Creating the account…",
+      "readyTitle": "Your account is created.",
+      "readyText": "Welcome, {name}. Your space is ready.",
+      "emailSent": "A confirmation link has been sent to {email}. Open it to confirm your address.",
+      "open": "Open my space"
+    },
+    "captcha": {
+      "title": "Anti-robot check",
+      "text": "After several attempts, we check that the request comes from a person. Your device does a small computation; there is nothing to type.",
+      "solving": "Checking…",
+      "done": "Check passed",
+      "error": "The check failed. Try again."
+    },
+    "forgot": {
+      "metaTitle": "Forgot password",
+      "title": "Forgot your password",
+      "subtitle": "Enter the confirmed e-mail address of your account. We will send you a link to choose a new password.",
+      "submit": "Send the link",
+      "submitting": "Sending…",
+      "sent": "If an account matches this address, a link valid for 30 minutes has just been sent to it.",
+      "phoneHint": "No confirmed e-mail address? Log in with your phone number: a code will be sent to you by SMS.",
+      "backToLogin": "Back to log in"
+    },
+    "reset": {
+      "metaTitle": "New password",
+      "title": "Choose a new password",
+      "submit": "Save the password",
+      "submitting": "Saving…",
+      "done": "Your password has been changed. You have been logged out of all your devices.",
+      "missingToken": "This link is incomplete. Open the link received by e-mail or ask for a new one.",
+      "newLink": "Ask for a new link",
+      "login": "Log in"
+    },
+    "verifyEmail": {
+      "metaTitle": "E-mail confirmation",
+      "title": "Confirming your e-mail address",
+      "verifying": "Confirming…",
+      "done": "Your e-mail address is confirmed.",
+      "missingToken": "This link is incomplete. Open the link received by e-mail.",
+      "account": "Go to my account"
+    },
+    "errors": {
+      "invalid_request": "Check the information you entered.",
+      "forbidden_origin": "The request was refused. Reload the page and try again.",
+      "unauthenticated": "Your session has expired. Log in again.",
+      "captcha_required": "An anti-robot check is needed.",
+      "captcha_invalid": "The anti-robot check failed. Try again.",
+      "rate_limited": "Too many requests. Try again in {minutes, plural, one {# minute} other {# minutes}}.",
+      "locked": "Too many attempts. For your security, try again in {minutes, plural, one {# minute} other {# minutes}}.",
+      "invalid_phone": "This number is not valid. Check the country code and the number.",
+      "country_not_allowed": "Numbers from this country are not accepted yet.",
+      "invalid_code": "This code is not the right one. Check the SMS and try again.",
+      "code_expired": "This code has expired or was already used. Ask for a new code.",
+      "too_many_attempts": "Too many tries for this code. Ask for a new code.",
+      "no_account": "There is no account for this number.",
+      "account_disabled": "This account is disabled. Contact Integris support.",
+      "invalid_credentials": "Wrong e-mail or password.",
+      "weak_password": "The password is too short.",
+      "common_password": "This password is too common. Choose another one.",
+      "email_required": "Confirm an e-mail address first.",
+      "email_taken": "This e-mail address is already used by another account.",
+      "invalid_token": "This link is no longer valid. Ask for a new one.",
+      "space_not_allowed": "You do not have access to this space.",
+      "network": "Cannot connect. Check your Internet connection and try again.",
+      "unknown": "Something went wrong. Try again."
+    }
+  },
+  "Spaces": {
+    "metaTitle": "Choose your space",
+    "title": "Hello {name}, which space are you working in?",
+    "subtitle": "Your account has several spaces. You can switch space at any time, without logging in again.",
+    "current": "Current space",
+    "personal": "Personal space",
+    "personalText": "Your personal projects",
+    "kinds": {
+      "TEACHER": "Teacher space",
+      "STUDENT": "Student space",
+      "SECRETARY": "Secretariat space",
+      "OTHER": "Member space",
+      "admin": "Administration space"
+    },
+    "roles": {
+      "OWNER": "owner",
+      "ADMIN": "administrator",
+      "MEMBER": "member"
+    }
+  },
+  "Account": {
+    "metaTitle": "My account",
+    "title": "My account",
+    "menu": "Account",
+    "logout": "Log out",
+    "loggingOut": "Logging out…",
+    "profile": "Profile",
+    "name": "Name",
+    "phone": "Phone",
+    "emailTitle": "E-mail address",
+    "emailText": "It is used to log in with a password and to receive your receipts.",
+    "emailCurrent": "Confirmed address: {email}",
+    "emailNone": "No confirmed address.",
+    "emailPending": "Waiting for confirmation of {email}. Open the link received by e-mail.",
+    "emailSubmit": "Send the confirmation link",
+    "emailSubmitting": "Sending…",
+    "emailSent": "A confirmation link has been sent to {email}.",
+    "passwordTitle": "Password",
+    "passwordText": "Optional: to log in with your e-mail. Logging in with an SMS code always remains possible.",
+    "passwordNeedsEmail": "Confirm an e-mail address first to choose a password.",
+    "passwordSubmit": "Save the password",
+    "passwordSubmitting": "Saving…",
+    "passwordSaved": "Password saved. Your other devices have been logged out.",
+    "sessionsTitle": "Logged-in devices",
+    "sessionsText": "Log your account out of every device, including this one.",
+    "logoutAll": "Log out everywhere",
+    "back": "Back to my space"
+  },
+  "AppHome": {
+    "metaTitle": "My space",
+    "title": "Hello {name}",
+    "space": "Open space: {space}",
+    "comingSoon": "Your projects will soon appear here.",
+    "switchSpace": "Switch space",
+    "account": "My account"
   }
 }

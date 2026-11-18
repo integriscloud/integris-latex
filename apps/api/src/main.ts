@@ -6,6 +6,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
+import { configureApp } from './configure-app.js';
 
 async function bootstrap() {
   const env = parseEnv(apiEnvSchema, process.env);
@@ -13,7 +14,7 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   // Nginx on the same host is the only proxy in front of the API.
   app.set('trust proxy', 'loopback');
-  app.setGlobalPrefix(API_PREFIX);
+  configureApp(app);
   app.enableShutdownHooks();
 
   if (env.NODE_ENV !== 'production') {

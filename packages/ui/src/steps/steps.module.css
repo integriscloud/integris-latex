@@ -1,0 +1,54 @@
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  gap: var(--espace-3);
+  align-items: center;
+  font: var(--t-texte-sm);
+  color: var(--texte-3);
+}
+
+.number {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--bordure-forte);
+  border-radius: var(--r-full);
+  font-weight: 600;
+}
+
+.current {
+  font-weight: 600;
+  color: var(--texte);
+}
+
+.current .number {
+  border-color: var(--action);
+  background: var(--action);
+  color: var(--neutre-0);
+}
+
+.done .number {
+  border-color: var(--succes);
+  background: var(--succes-fond);
+  color: var(--succes);
+}
+
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

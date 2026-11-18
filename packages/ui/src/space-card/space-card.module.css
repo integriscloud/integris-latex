@@ -1,0 +1,87 @@
+.card {
+  display: flex;
+  gap: var(--espace-4);
+  align-items: center;
+  width: 100%;
+  min-height: var(--cible-tactile);
+  padding: var(--espace-5);
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--ombre-1);
+  font: inherit;
+  text-align: left;
+  color: var(--texte);
+  cursor: pointer;
+  transition: transform var(--duree-base) var(--courbe);
+}
+
+.card:hover:not(:disabled) {
+  border-color: var(--action);
+  transform: translateY(-2px);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.card:disabled {
+  cursor: progress;
+}
+
+.current {
+  border: 2px solid var(--action);
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-lg);
+  background: var(--action-doux);
+  color: var(--action);
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--espace-1);
+  min-width: 0;
+}
+
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  align-items: center;
+  font: var(--t-titre-4);
+}
+
+.badge {
+  padding: 2px var(--espace-2);
+  border-radius: var(--r-full);
+  background: var(--action-doux);
+  font: var(--t-legende);
+  color: var(--action);
+}
+
+.subtitle {
+  font: var(--t-texte-sm);
+  color: var(--texte-3);
+}
+
+.arrow {
+  flex: none;
+  color: var(--action);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+}

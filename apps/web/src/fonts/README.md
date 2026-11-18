@@ -12,4 +12,4 @@ U+2191, U+2193, U+2212, U+2215, U+2C60-2C7F, U+A720-A7FF, U+FEFF, U+FFFD`.
 | ------------------------------------------------- | ----------------------------------------------------------- |
 | `PlusJakartaSans.woff2`                           | UI (`--font-ui`)                                            |
 | `SourceSerif4.woff2`, `SourceSerif4-Italic.woff2` | Titles and documents (`--font-doc`), not on the editor page |
-| `JetBrainsMono.woff2`                             | Code and logs (`--font-code`), editor page only             |
+| `JetBrainsMono.woff2`                             | Code, logs, SMS code boxes (`--font-code`), not preloaded   |

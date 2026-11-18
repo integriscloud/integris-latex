@@ -221,9 +221,212 @@
   "ComingSoon": {
     "text": "Cette page sera bientôt disponible.",
     "back": "Retour à l'accueil",
-    "login": "Se connecter",
-    "signup": "Créer un compte",
     "terms": "Conditions d'utilisation",
     "privacy": "Données personnelles"
+  },
+  "Auth": {
+    "brandAside": {
+      "title": "La plateforme de rédaction académique de votre établissement.",
+      "text": "Un seul espace pour écrire, encadrer, évaluer et imprimer, du premier chapitre jusqu'à l'examen.",
+      "institutions": {
+        "title": "Établissements",
+        "text": "Un abonnement pour toute l'école : comptes, classes, modèles officiels, impression des devoirs."
+      },
+      "teachers": {
+        "title": "Enseignants",
+        "text": "Suivez vos étudiants, corrigez au bon endroit, rédigez vos devoirs et envoyez-les au secrétariat."
+      },
+      "students": {
+        "title": "Étudiants",
+        "text": "Rédigez mémoires, rapports et thèses conformes aux normes de votre établissement."
+      }
+    },
+    "fields": {
+      "phone": "Numéro de téléphone",
+      "phonePlaceholder": "70 00 00 00",
+      "dialCode": "Indicatif du pays",
+      "email": "E-mail",
+      "emailPlaceholder": "nom@exemple.com",
+      "password": "Mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "currentPassword": "Mot de passe actuel",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "optional": "(facultatif)",
+      "code": "Code reçu par SMS",
+      "codeDigit": "Chiffre {index} sur {length}",
+      "passwordHelp": "Au moins {min} caractères. Une phrase facile à retenir est un bon choix."
+    },
+    "login": {
+      "metaTitle": "Se connecter",
+      "title": "Se connecter",
+      "subtitle": "Étudiant, enseignant, secrétariat ou administration : un seul accès, puis votre espace.",
+      "modes": "Mode de connexion",
+      "phoneTab": "Téléphone",
+      "emailTab": "E-mail",
+      "codeHelp": "Un code à {length} chiffres vous sera envoyé par SMS.",
+      "sendCode": "Recevoir le code",
+      "sendingCode": "Envoi du code…",
+      "submit": "Se connecter",
+      "submitting": "Connexion…",
+      "forgotPassword": "Mot de passe oublié ?",
+      "emailHelp": "La connexion par e-mail fonctionne une fois votre adresse confirmée et un mot de passe choisi dans votre compte.",
+      "noAccount": "Pas encore de compte ?",
+      "createAccount": "Créer un compte",
+      "noAccountForNumber": "Aucun compte n'existe pour ce numéro.",
+      "createWithNumber": "Créer un compte avec ce numéro"
+    },
+    "code": {
+      "sentTo": "Code envoyé par SMS au {phone}.",
+      "changeNumber": "Modifier le numéro",
+      "resend": "Renvoyer le code",
+      "resendIn": "Renvoyer le code dans {seconds} s",
+      "resent": "Un nouveau code vous a été envoyé.",
+      "incomplete": "Saisissez les {length} chiffres du code."
+    },
+    "signup": {
+      "metaTitle": "Créer un compte",
+      "title": "Créer un compte",
+      "stepOf": "Étape {current} sur {total} · {name}",
+      "steps": "Les étapes",
+      "stepProfile": "Votre profil",
+      "stepVerify": "Vérification du numéro",
+      "stepReady": "Votre espace est prêt",
+      "stepDone": "terminée",
+      "stepCurrent": "en cours",
+      "alreadyRegistered": "Déjà inscrit ?",
+      "login": "Se connecter",
+      "terms": "J'accepte les <terms>conditions d'utilisation</terms> et la <privacy>politique de protection des données personnelles</privacy>.",
+      "termsRequired": "Acceptez les conditions pour créer votre compte.",
+      "nameRequired": "Indiquez votre prénom et votre nom.",
+      "sendCode": "Recevoir le code par SMS",
+      "free": "Gratuit, sans carte bancaire.",
+      "emailHelp": "Pour recevoir vos reçus et vous connecter par e-mail. Un lien de confirmation vous sera envoyé.",
+      "verifySubtitle": "Saisissez le code reçu par SMS pour confirmer votre numéro.",
+      "create": "Créer mon compte",
+      "creating": "Création du compte…",
+      "readyTitle": "Votre compte est créé.",
+      "readyText": "Bienvenue, {name}. Votre espace est prêt.",
+      "emailSent": "Un lien de confirmation a été envoyé à {email}. Ouvrez-le pour confirmer votre adresse.",
+      "open": "Ouvrir mon espace"
+    },
+    "captcha": {
+      "title": "Vérification anti-robot",
+      "text": "Après plusieurs essais, nous vérifions que la demande vient bien d'une personne. Votre appareil fait un petit calcul, sans rien à saisir.",
+      "solving": "Vérification en cours…",
+      "done": "Vérification réussie",
+      "error": "La vérification a échoué. Réessayez."
+    },
+    "forgot": {
+      "metaTitle": "Mot de passe oublié",
+      "title": "Mot de passe oublié",
+      "subtitle": "Saisissez l'adresse e-mail confirmée de votre compte. Nous vous enverrons un lien pour choisir un nouveau mot de passe.",
+      "submit": "Envoyer le lien",
+      "submitting": "Envoi…",
+      "sent": "Si un compte correspond à cette adresse, un lien valable 30 minutes vient d'y être envoyé.",
+      "phoneHint": "Pas d'adresse e-mail confirmée ? Connectez-vous avec votre numéro de téléphone : un code vous sera envoyé par SMS.",
+      "backToLogin": "Retour à la connexion"
+    },
+    "reset": {
+      "metaTitle": "Nouveau mot de passe",
+      "title": "Choisir un nouveau mot de passe",
+      "submit": "Enregistrer le mot de passe",
+      "submitting": "Enregistrement…",
+      "done": "Votre mot de passe a été changé. Vous avez été déconnecté de tous vos appareils.",
+      "missingToken": "Ce lien est incomplet. Ouvrez le lien reçu par e-mail ou demandez-en un nouveau.",
+      "newLink": "Demander un nouveau lien",
+      "login": "Se connecter"
+    },
+    "verifyEmail": {
+      "metaTitle": "Confirmation de l'e-mail",
+      "title": "Confirmation de votre adresse e-mail",
+      "verifying": "Confirmation en cours…",
+      "done": "Votre adresse e-mail est confirmée.",
+      "missingToken": "Ce lien est incomplet. Ouvrez le lien reçu par e-mail.",
+      "account": "Aller à mon compte"
+    },
+    "errors": {
+      "invalid_request": "Vérifiez les informations saisies.",
+      "forbidden_origin": "La demande a été refusée. Rechargez la page et réessayez.",
+      "unauthenticated": "Votre session a expiré. Connectez-vous à nouveau.",
+      "captcha_required": "Une vérification anti-robot est nécessaire.",
+      "captcha_invalid": "La vérification anti-robot a échoué. Réessayez.",
+      "rate_limited": "Trop de demandes. Réessayez dans {minutes, plural, one {# minute} other {# minutes}}.",
+      "locked": "Trop de tentatives. Par sécurité, réessayez dans {minutes, plural, one {# minute} other {# minutes}}.",
+      "invalid_phone": "Ce numéro n'est pas valide. Vérifiez l'indicatif et le numéro.",
+      "country_not_allowed": "Les numéros de ce pays ne sont pas encore acceptés.",
+      "invalid_code": "Ce code n'est pas le bon. Vérifiez le SMS et réessayez.",
+      "code_expired": "Ce code a expiré ou a déjà été utilisé. Demandez un nouveau code.",
+      "too_many_attempts": "Trop d'essais pour ce code. Demandez un nouveau code.",
+      "no_account": "Aucun compte n'existe pour ce numéro.",
+      "account_disabled": "Ce compte est désactivé. Contactez l'assistance Integris.",
+      "invalid_credentials": "E-mail ou mot de passe incorrect.",
+      "weak_password": "Le mot de passe est trop court.",
+      "common_password": "Ce mot de passe est trop courant. Choisissez-en un autre.",
+      "email_required": "Confirmez d'abord une adresse e-mail.",
+      "email_taken": "Cette adresse e-mail est déjà utilisée par un autre compte.",
+      "invalid_token": "Ce lien n'est plus valable. Demandez-en un nouveau.",
+      "space_not_allowed": "Vous n'avez pas accès à cet espace.",
+      "network": "Connexion impossible. Vérifiez votre connexion Internet et réessayez.",
+      "unknown": "Une erreur est survenue. Réessayez."
+    }
+  },
+  "Spaces": {
+    "metaTitle": "Choisir son espace",
+    "title": "Bonjour {name}, dans quel espace travaillez-vous ?",
+    "subtitle": "Votre compte a plusieurs espaces. Vous pourrez changer d'espace à tout moment, sans vous reconnecter.",
+    "current": "Espace actuel",
+    "personal": "Espace personnel",
+    "personalText": "Vos projets personnels",
+    "kinds": {
+      "TEACHER": "Espace enseignant",
+      "STUDENT": "Espace étudiant",
+      "SECRETARY": "Espace secrétariat",
+      "OTHER": "Espace membre",
+      "admin": "Espace administration"
+    },
+    "roles": {
+      "OWNER": "titulaire",
+      "ADMIN": "administrateur",
+      "MEMBER": "membre"
+    }
+  },
+  "Account": {
+    "metaTitle": "Mon compte",
+    "title": "Mon compte",
+    "menu": "Compte",
+    "logout": "Se déconnecter",
+    "loggingOut": "Déconnexion…",
+    "profile": "Profil",
+    "name": "Nom",
+    "phone": "Téléphone",
+    "emailTitle": "Adresse e-mail",
+    "emailText": "Elle sert à vous connecter avec un mot de passe et à recevoir vos reçus.",
+    "emailCurrent": "Adresse confirmée : {email}",
+    "emailNone": "Aucune adresse confirmée.",
+    "emailPending": "Confirmation en attente pour {email}. Ouvrez le lien reçu par e-mail.",
+    "emailSubmit": "Envoyer le lien de confirmation",
+    "emailSubmitting": "Envoi…",
+    "emailSent": "Un lien de confirmation a été envoyé à {email}.",
+    "passwordTitle": "Mot de passe",
+    "passwordText": "Facultatif : pour vous connecter avec votre e-mail. La connexion par code SMS reste toujours possible.",
+    "passwordNeedsEmail": "Confirmez d'abord une adresse e-mail pour choisir un mot de passe.",
+    "passwordSubmit": "Enregistrer le mot de passe",
+    "passwordSubmitting": "Enregistrement…",
+    "passwordSaved": "Mot de passe enregistré. Vos autres appareils ont été déconnectés.",
+    "sessionsTitle": "Appareils connectés",
+    "sessionsText": "Déconnectez votre compte de tous les appareils, y compris celui-ci.",
+    "logoutAll": "Se déconnecter partout",
+    "back": "Retour à mon espace"
+  },
+  "AppHome": {
+    "metaTitle": "Mon espace",
+    "title": "Bonjour {name}",
+    "space": "Espace ouvert : {space}",
+    "comingSoon": "Vos projets arrivent bientôt ici.",
+    "switchSpace": "Changer d'espace",
+    "account": "Mon compte"
   }
 }

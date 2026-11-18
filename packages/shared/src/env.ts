@@ -2,12 +2,89 @@ import { z } from 'zod';
 
 const nodeEnv = z.enum(['development', 'test', 'production']).default('development');
 
-/** Environment read by apps/api. */
-export const apiEnvSchema = z.object({
-  NODE_ENV: nodeEnv,
-  DATABASE_URL: z.url(),
-  REDIS_URL: z.url(),
-});
+const positiveInt = (fallback: number) => z.coerce.number().int().positive().default(fallback);
+
+/** Comma-separated list, e.g. "226,225". Empty items are dropped. */
+const csv = (fallback: string) =>
+  z
+    .string()
+    .default(fallback)
+    .transform((value) =>
+      value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    );
+
+/**
+ * Environment read by apps/api. Anti-abuse limits and session lifetimes are configuration, not
+ * code: the defaults below are the values decided for V1 and can be overridden per server.
+ */
+export const apiEnvSchema = z
+  .object({
+    // Required: a forgotten NODE_ENV must never enable development behaviour on a server.
+    NODE_ENV: z.enum(['development', 'test', 'production']),
+    DATABASE_URL: z.url(),
+    REDIS_URL: z.url(),
+    // Browser origins allowed to call state-changing endpoints (CSRF defence).
+    WEB_ORIGINS: csv('http://127.0.0.1:3000,http://localhost:3000').pipe(z.array(z.url()).min(1)),
+    // Base URL used in links sent by e-mail (verification, password reset).
+    PUBLIC_WEB_URL: z.url().default('http://127.0.0.1:3000'),
+    // Secret for HMAC of OTP codes, tokens and rate-limit keys.
+    AUTH_SECRET: z.string().min(32),
+    // `log` writes messages to the API logs instead of sending them (development only).
+    SMS_PROVIDER: z.enum(['log']).default('log'),
+    MAIL_PROVIDER: z.enum(['log']).default('log'),
+    // Self-hosted ALTCHA proof-of-work CAPTCHA.
+    ALTCHA_HMAC_KEY: z.string().min(32),
+    ALTCHA_KEY_PREFIX: z
+      .string()
+      .regex(/^[0-9a-f]{1,8}$/)
+      .default('0000'),
+    ALTCHA_TTL_SECONDS: positiveInt(300),
+    // Allowed country calling codes for phone numbers (first one is the default in the UI).
+    AUTH_ALLOWED_DIAL_CODES: csv('226,225,223,227,228,229,221,33').pipe(
+      z.array(z.string().regex(/^\d{1,4}$/)).min(1),
+    ),
+    OTP_LENGTH: z.coerce.number().int().min(4).max(8).default(6),
+    OTP_TTL_SECONDS: positiveInt(600),
+    OTP_MAX_ATTEMPTS: positiveInt(5),
+    OTP_RESEND_SECONDS: positiveInt(60),
+    // Codes (SMS) and e-mails sent: per phone or e-mail address, and per IP.
+    SEND_LIMIT_PER_ID_15MIN: positiveInt(3),
+    SEND_LIMIT_PER_ID_DAY: positiveInt(10),
+    SEND_LIMIT_PER_IP_HOUR: positiveInt(20),
+    SEND_LIMIT_PER_IP_DAY: positiveInt(100),
+    // Failed codes or passwords: CAPTCHA after N failures, lock of the identifier after M.
+    AUTH_FAILURE_WINDOW_SECONDS: positiveInt(3600),
+    AUTH_CAPTCHA_AFTER_FAILURES: positiveInt(3),
+    AUTH_LOCK_AFTER_FAILURES: positiveInt(10),
+    AUTH_LOCK_SECONDS: positiveInt(900),
+    SESSION_IDLE_DAYS: positiveInt(30),
+    SESSION_MAX_DAYS: positiveInt(90),
+    PASSWORD_MIN_LENGTH: z.coerce.number().int().min(8).max(64).default(10),
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV !== 'production') return;
+    // Development fakes and placeholders are refused on a production server.
+    if (env.SMS_PROVIDER === 'log' || env.MAIL_PROVIDER === 'log') {
+      ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'Development provider' });
+    }
+    const urls: [string, string][] = [
+      ['PUBLIC_WEB_URL', env.PUBLIC_WEB_URL],
+      ...env.WEB_ORIGINS.map((origin): [string, string] => ['WEB_ORIGINS', origin]),
+    ];
+    for (const [name, url] of urls) {
+      if (!url.startsWith('https://')) {
+        ctx.addIssue({ code: 'custom', path: [name], message: 'HTTPS required' });
+      }
+    }
+    for (const name of ['AUTH_SECRET', 'ALTCHA_HMAC_KEY'] as const) {
+      if (env[name].includes('change-me')) {
+        ctx.addIssue({ code: 'custom', path: [name], message: 'Placeholder secret' });
+      }
+    }
+  });
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
 
 /** Environment read by apps/web (server side only). */

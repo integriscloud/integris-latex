@@ -6,7 +6,7 @@ import { getPathname } from '../i18n/navigation';
 import { PublicFooter } from './PublicFooter';
 import { PublicHeader } from './PublicHeader';
 
-export type ComingSoonKey = 'login' | 'signup' | 'terms' | 'privacy';
+export type ComingSoonKey = 'terms' | 'privacy';
 
 interface ComingSoonPageProps {
   params: Promise<{ locale: Locale }>;

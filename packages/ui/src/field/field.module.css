@@ -1,0 +1,116 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  min-width: 0;
+}
+
+.label {
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  color: var(--texte);
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--texte-3);
+}
+
+.help {
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--texte-3);
+}
+
+.error {
+  display: flex;
+  gap: var(--espace-2);
+  align-items: flex-start;
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--erreur);
+}
+
+.errorIcon {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* Frame shared by every input: 48 px high, strong border, green focus ring. */
+.box {
+  display: flex;
+  min-height: 48px;
+  overflow: hidden;
+  border: 1px solid var(--bordure-forte);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.box:focus-within {
+  border-color: var(--toge-500);
+  box-shadow: 0 0 0 3px var(--focus-halo);
+}
+
+.invalid {
+  border-color: var(--erreur);
+}
+
+.invalid:focus-within {
+  border-color: var(--erreur);
+  box-shadow: 0 0 0 3px var(--erreur-fond);
+}
+
+.input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 var(--espace-3);
+  border: none;
+  background: transparent;
+  font: var(--t-texte);
+  color: var(--texte);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--neutre-500);
+}
+
+.tel {
+  font-variant-numeric: tabular-nums;
+}
+
+.prefix {
+  flex: none;
+  min-width: 88px;
+  padding: 0 var(--espace-2) 0 var(--espace-3);
+  border: none;
+  border-right: 1px solid var(--neutre-200);
+  background: var(--surface-creuse);
+  font: var(--t-texte);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--texte);
+  cursor: pointer;
+  outline: none;
+}
+
+.prefix:focus-visible {
+  background: var(--action-doux);
+}
+
+.toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--cible-tactile);
+  border: none;
+  background: transparent;
+  color: var(--texte-2);
+  cursor: pointer;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: -4px;
+}

@@ -1,0 +1,60 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.legend {
+  margin-bottom: var(--espace-2);
+  padding: 0;
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  color: var(--texte);
+}
+
+.digits {
+  display: flex;
+  gap: var(--espace-2);
+}
+
+.digit {
+  width: 48px;
+  min-width: 0;
+  height: 56px;
+  flex: 0 1 48px;
+  padding: 0;
+  border: 1px solid var(--bordure-forte);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  font: 600 24px/1 var(--font-code);
+  text-align: center;
+  color: var(--texte);
+  outline: none;
+}
+
+.digit:focus {
+  border-color: var(--toge-500);
+  box-shadow: 0 0 0 3px var(--focus-halo);
+}
+
+.invalid .digit {
+  border-color: var(--erreur);
+}
+
+.error {
+  display: flex;
+  gap: var(--espace-2);
+  align-items: flex-start;
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--erreur);
+}
+
+.errorIcon {
+  flex: none;
+  margin-top: 2px;
+}

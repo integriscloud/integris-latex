@@ -1,0 +1,52 @@
+.alert {
+  display: flex;
+  gap: var(--espace-3);
+  margin: 0;
+  padding: var(--espace-3) var(--espace-4);
+  border-radius: var(--r-lg);
+  font: var(--t-texte-sm);
+}
+
+.icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  min-width: 0;
+}
+
+.body a {
+  color: inherit;
+  font-weight: 600;
+}
+
+.error {
+  background: var(--erreur-fond);
+  color: var(--erreur);
+}
+
+.success {
+  background: var(--succes-fond);
+  color: var(--succes);
+}
+
+.info {
+  background: var(--info-fond);
+  color: var(--info);
+}
+
+.warning {
+  background: var(--alerte-fond);
+  color: var(--alerte);
+}
+
+/* Gold note of the mockups (e.g. invitations, pending approval). */
+.note {
+  border: 1px solid var(--or-100);
+  background: var(--or-50);
+  color: var(--or-800);
+}

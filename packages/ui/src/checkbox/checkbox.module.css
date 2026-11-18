@@ -1,0 +1,28 @@
+.checkbox {
+  display: flex;
+  gap: var(--espace-3);
+  align-items: flex-start;
+  min-height: var(--cible-tactile);
+  padding: var(--espace-2) 0;
+  font: var(--t-texte-sm);
+  color: var(--texte-2);
+  cursor: pointer;
+}
+
+.input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--action);
+  cursor: pointer;
+}
+
+.label a {
+  color: var(--action);
+}
+
+.invalid .input {
+  outline: 2px solid var(--erreur);
+  outline-offset: 1px;
+}

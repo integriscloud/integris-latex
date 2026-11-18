@@ -41,9 +41,10 @@ test('pricing shows the plans served by the API', async ({ page, request }) => {
   );
 });
 
-test('sign-up call to action leads to its placeholder page', async ({ page }) => {
+test('sign-up call to action leads to the sign-up form', async ({ page }) => {
   await page.goto('/fr');
   await page.getByRole('link', { name: 'Commencer gratuitement' }).first().click();
   await expect(page).toHaveURL(/\/fr\/signup$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Créer un compte');
+  await expect(page.getByLabel('Numéro de téléphone')).toBeVisible();
 });
