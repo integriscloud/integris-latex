@@ -1,11 +1,16 @@
-import { AuthCard, AuthHeading, AuthPageLayout, ButtonLink } from '@integris/ui';
+import { projectListSchema } from '@integris/shared';
+import { ButtonLink, PageHeader } from '@integris/ui';
+import { FileArchive, Plus } from 'lucide-react';
 import type { Locale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import styles from '../../../components/auth/auth-forms.module.css';
-import { AuthBrand, authMetadata } from '../../../components/auth/AuthChrome';
-import { SignedInBar } from '../../../components/auth/SignedInBar';
+import { AppFrame } from '../../../components/app/AppFrame';
+import { ProjectsView } from '../../../components/app/ProjectsView';
+import { UsageBanner } from '../../../components/app/UsageBanner';
+import { authMetadata } from '../../../components/auth/AuthChrome';
 import { spaceLabels } from '../../../components/auth/space-labels';
 import { getPathname, redirect } from '../../../i18n/navigation';
+import { serverGet } from '../../../lib/server-api';
+import { atProjectLimit } from '../../../lib/usage';
 import { requireMe } from '../../../lib/session';
 
 interface PageProps {
@@ -14,44 +19,50 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps) {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: 'AppHome' });
+  const t = await getTranslations({ locale, namespace: 'Projects' });
   return authMetadata(t('metaTitle'));
 }
 
-/**
- * Landing page of a signed-in user (screen without mockup). The projects list replaces it at
- * step 4 of the development plan.
- */
-export default async function AppHomePage({ params }: PageProps) {
+/** Home of a signed-in user: their projects (mockup etudiant-01, "Mes documents"). */
+export default async function ProjectsPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   const me = await requireMe(locale);
   const space = me.spaces.find((item) => item.id === me.currentSpaceId);
   if (!space) return redirect({ href: '/spaces', locale });
+  const list = await serverGet('projects', projectListSchema);
+  if (!list) return redirect({ href: '/login', locale });
 
-  const t = await getTranslations('AppHome');
+  const t = await getTranslations('Projects');
   const ts = await getTranslations('Spaces');
+  const blocked = atProjectLimit(list.usage);
+  const firstName = me.user.displayName.split(' ')[0] ?? me.user.displayName;
+
   return (
-    <AuthPageLayout
-      brand={<AuthBrand locale={locale} />}
-      barEnd={<SignedInBar me={me} locale={locale} path="/app" />}
-      narrow
-    >
-      <AuthHeading title={t('title', { name: me.user.displayName })} />
-      <AuthCard>
-        <p className={styles.text}>{t('space', { space: spaceLabels(space, ts).title })}</p>
-        <p className={styles.muted}>{t('comingSoon')}</p>
-        <div className={styles.submitRow}>
-          {me.spaces.length > 1 && (
-            <ButtonLink href={getPathname({ href: '/spaces', locale })} variant="secondary">
-              {t('switchSpace')}
-            </ButtonLink>
-          )}
-          <ButtonLink href={getPathname({ href: '/account', locale })} variant="secondary">
-            {t('account')}
-          </ButtonLink>
-        </div>
-      </AuthCard>
-    </AuthPageLayout>
+    <AppFrame me={me} locale={locale} section="projects" path="/app">
+      <PageHeader
+        title={t('hello', { name: firstName })}
+        subtitle={spaceLabels(space, ts).title}
+        actions={
+          !blocked && (
+            <>
+              <ButtonLink
+                href={`${getPathname({ href: '/app/new', locale })}?tab=zip`}
+                variant="secondary"
+              >
+                <FileArchive size={20} strokeWidth={1.75} aria-hidden="true" />
+                {t('import')}
+              </ButtonLink>
+              <ButtonLink href={getPathname({ href: '/app/new', locale })}>
+                <Plus size={20} strokeWidth={1.75} aria-hidden="true" />
+                {t('new')}
+              </ButtonLink>
+            </>
+          )
+        }
+      />
+      <UsageBanner usage={list.usage} />
+      <ProjectsView list={list} now={new Date().toISOString()} />
+    </AppFrame>
   );
 }

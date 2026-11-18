@@ -14,14 +14,20 @@ const icons = {
 
 export interface AlertProps {
   tone: AlertTone;
+  /**
+   * False when the alert sits inside an `aria-live` region of the page, so it is not announced
+   * twice.
+   */
+  announce?: boolean;
   children: ReactNode;
 }
 
 /** Message in a form or page. Errors are announced at once; success always shows a check. */
-export function Alert({ tone, children }: AlertProps) {
+export function Alert({ tone, announce = true, children }: AlertProps) {
   const Icon = icons[tone];
+  const role = announce ? (tone === 'error' ? 'alert' : 'status') : undefined;
   return (
-    <div className={`${styles.alert} ${styles[tone]}`} role={tone === 'error' ? 'alert' : 'status'}>
+    <div className={`${styles.alert} ${styles[tone]}`} role={role}>
       <Icon className={styles.icon} size={20} strokeWidth={1.75} aria-hidden="true" />
       <div className={styles.body}>{children}</div>
     </div>

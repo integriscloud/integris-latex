@@ -1,4 +1,4 @@
-import { applyDecorators, Body, HttpStatus, type PipeTransform } from '@nestjs/common';
+import { applyDecorators, Body, HttpStatus, type PipeTransform, Query } from '@nestjs/common';
 import { ApiBody } from '@nestjs/swagger';
 import { z } from 'zod';
 import { ApiError } from './api-error.js';
@@ -21,3 +21,6 @@ export const ApiZodBody = (schema: z.ZodType) =>
   applyDecorators(
     ApiBody({ schema: z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any' }) as object }),
   );
+
+/** Query string validated by a Zod schema. */
+export const ZodQuery = <T extends z.ZodType>(schema: T) => Query(new ZodPipe(schema));

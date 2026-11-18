@@ -1,0 +1,34 @@
+.button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--cible-tactile);
+  height: var(--cible-tactile);
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  background: transparent;
+  color: var(--texte-2);
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--bordure);
+  background: var(--surface-creuse);
+  color: var(--texte);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  color: var(--neutre-400);
+  cursor: not-allowed;
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--erreur-fond);
+  color: var(--erreur);
+}

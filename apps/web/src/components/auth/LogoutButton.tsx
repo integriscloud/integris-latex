@@ -7,7 +7,14 @@ import { useRouter } from '../../i18n/navigation';
 import { apiPost } from '../../lib/api-client';
 
 /** Signs out this session (or every session) and goes back to the sign-in page. */
-export function LogoutButton({ everywhere = false }: { everywhere?: boolean }) {
+export function LogoutButton({
+  everywhere = false,
+  inverse = false,
+}: {
+  everywhere?: boolean;
+  /** On the dark side menu. */
+  inverse?: boolean;
+}) {
   const t = useTranslations('Account');
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -20,7 +27,11 @@ export function LogoutButton({ everywhere = false }: { everywhere?: boolean }) {
   };
 
   return (
-    <Button variant={everywhere ? 'secondary' : 'ghost'} busy={busy} onClick={logout}>
+    <Button
+      variant={everywhere ? 'secondary' : inverse ? 'inverse' : 'ghost'}
+      busy={busy}
+      onClick={logout}
+    >
       {busy ? t('loggingOut') : everywhere ? t('logoutAll') : t('logout')}
     </Button>
   );

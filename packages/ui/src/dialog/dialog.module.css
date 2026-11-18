@@ -1,0 +1,79 @@
+.dialog {
+  width: min(480px, calc(100vw - var(--espace-8)));
+  max-height: calc(100dvh - var(--espace-8));
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--ombre-2);
+  color: var(--texte);
+}
+
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--toge-900) 50%, transparent);
+}
+
+.dialog[open] {
+  animation: appear var(--duree-base) var(--courbe);
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-5);
+  padding: var(--espace-6);
+}
+
+.head {
+  display: flex;
+  gap: var(--espace-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font: var(--t-titre-4);
+}
+
+.close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--cible-tactile);
+  height: var(--cible-tactile);
+  margin: calc(var(--espace-3) * -1) calc(var(--espace-3) * -1) 0 0;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: transparent;
+  color: var(--texte-2);
+  cursor: pointer;
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+  font: var(--t-texte);
+  color: var(--texte-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  gap: var(--espace-3);
+  justify-content: flex-end;
+}

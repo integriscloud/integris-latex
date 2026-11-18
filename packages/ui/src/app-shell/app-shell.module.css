@@ -1,0 +1,284 @@
+.shell {
+  display: flex;
+  min-height: 100dvh;
+  background: var(--fond);
+}
+
+/* ───── Side menu (mockup etudiant-01: toge 900) ───── */
+
+.side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--espace-1);
+  width: 256px;
+  padding: var(--espace-4) var(--espace-3);
+  background: var(--toge-900);
+  color: var(--neutre-0);
+}
+
+.sideHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px var(--espace-2) var(--espace-4);
+}
+
+.close,
+.menu {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--cible-tactile);
+  height: var(--cible-tactile);
+  border: 0;
+  border-radius: var(--r-lg);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.close:focus-visible,
+.menu:focus-visible,
+.item:focus-visible,
+.space:focus-visible {
+  outline: 2px solid var(--or-300);
+  outline-offset: 2px;
+}
+
+.space {
+  display: flex;
+  gap: var(--espace-3);
+  align-items: center;
+  min-height: var(--cible-tactile);
+  margin-bottom: var(--espace-3);
+  padding: 10px var(--espace-3);
+  border: 1px solid var(--toge-700);
+  border-radius: var(--r-lg);
+  background: var(--toge-800);
+  color: var(--neutre-0);
+  text-decoration: none;
+}
+
+a.space:hover {
+  border-color: var(--toge-500);
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+}
+
+/* Space colours of docs/design/README.md. */
+.personal,
+.student {
+  background: var(--toge-300);
+}
+
+.teacher {
+  background: var(--or-300);
+}
+
+/* Secretariat blue of the mockups (no token yet). */
+.secretary {
+  background: #8fa9d4;
+}
+
+.admin {
+  background: var(--neutre-300);
+}
+
+.spaceText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.spaceTitle {
+  font: var(--t-texte-sm);
+  font-weight: 700;
+}
+
+.spaceSubtitle {
+  overflow: hidden;
+  font: var(--t-legende);
+  font-weight: 400;
+  color: var(--toge-200);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  gap: var(--espace-3);
+  align-items: center;
+  min-height: var(--cible-tactile);
+  padding: 0 var(--espace-3);
+  border-radius: var(--r-md);
+  font: var(--t-texte-sm);
+  font-weight: 500;
+  color: var(--toge-200);
+  text-decoration: none;
+}
+
+.item:hover {
+  color: var(--neutre-0);
+}
+
+.item[aria-current='page'] {
+  background: var(--toge-700);
+  font-weight: 600;
+  color: var(--neutre-0);
+}
+
+.footer {
+  margin-top: auto;
+  padding-top: var(--espace-4);
+  border-top: 1px solid var(--toge-700);
+}
+
+.user {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px var(--espace-1) 0;
+}
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-full);
+  background: var(--toge-500);
+  font: var(--t-legende);
+  font-weight: 600;
+}
+
+.userText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.userName {
+  overflow: hidden;
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userDetail {
+  font: var(--t-legende);
+  font-weight: 400;
+  color: var(--toge-300);
+}
+
+/* ───── Content ───── */
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.top {
+  display: flex;
+  gap: var(--espace-4);
+  align-items: center;
+  min-height: 64px;
+  padding: var(--espace-2) var(--espace-8);
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface);
+}
+
+.topEnd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2) var(--espace-4);
+  align-items: center;
+  margin-left: auto;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--espace-6);
+  width: 100%;
+  max-width: 1200px;
+  padding: 28px var(--espace-8) var(--espace-10);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.backdrop {
+  display: none;
+}
+
+/* Phones and tablets: the side menu overlays the content. */
+@media (max-width: 959px) {
+  .side {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    width: min(288px, 85vw);
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform var(--duree-base) var(--courbe);
+  }
+
+  .open {
+    transform: none;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: block;
+    background: color-mix(in srgb, var(--toge-900) 50%, transparent);
+  }
+
+  .close,
+  .menu {
+    display: inline-flex;
+  }
+
+  .menu {
+    color: var(--texte);
+  }
+
+  .top {
+    padding: var(--espace-2) var(--espace-4);
+  }
+
+  .main {
+    padding: var(--espace-5) var(--espace-4) var(--espace-8);
+  }
+}

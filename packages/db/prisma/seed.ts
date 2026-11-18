@@ -4,12 +4,19 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { parseEnv, publicTemplateKey, seedEnvSchema, TEMPLATES_BUCKET } from '@integris/shared';
+import {
+  parseEnv,
+  PROJECTS_BUCKET,
+  publicTemplateKey,
+  seedEnvSchema,
+  TEMPLATES_BUCKET,
+} from '@integris/shared';
 import { createPrismaClient } from '../src/client.js';
 import { PLANS } from './seed-data/plans.js';
 import { PUBLIC_TEMPLATES, zipTemplate } from './seed-data/templates.js';
 
-// Initial data: the 4 plans and the public templates. Safe to run several times.
+// Initial data: the 4 plans, the public templates and the private buckets. Safe to run several
+// times.
 const env = parseEnv(seedEnvSchema, process.env);
 const prisma = createPrismaClient(env.DATABASE_URL);
 const s3 = new S3Client({
@@ -67,6 +74,8 @@ async function seedTemplates(): Promise<void> {
 try {
   await seedPlans();
   await seedTemplates();
+  await ensureBucket(PROJECTS_BUCKET);
+  console.log(`Bucket "${PROJECTS_BUCKET}" ensured.`);
 } finally {
   await prisma.$disconnect();
   s3.destroy();

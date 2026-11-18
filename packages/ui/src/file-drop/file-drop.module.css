@@ -1,0 +1,49 @@
+.drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  padding: var(--espace-6) var(--espace-4);
+  border: 2px dashed var(--bordure-forte);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  color: var(--action);
+  text-align: center;
+  cursor: pointer;
+}
+
+.drop:hover,
+.over {
+  border-color: var(--action);
+  background: var(--action-doux);
+}
+
+.drop:has(.input:focus-visible) {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.disabled {
+  color: var(--neutre-500);
+  cursor: progress;
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.label {
+  font: var(--t-texte);
+  font-weight: 600;
+}
+
+.hint {
+  font: var(--t-texte-sm);
+  color: var(--texte-3);
+}

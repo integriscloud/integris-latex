@@ -2,51 +2,31 @@ import { expect, type Page, test } from '@playwright/test';
 import {
   closeHelpers,
   deleteTestUsers,
+  enterCode,
   forgetMessages,
   lastMailLink,
   lastSmsCode,
   resetLimits,
+  signUp as signUpAs,
   testPhone,
 } from './auth-helpers';
 
 const created: string[] = [];
+
+const signUp = (page: Page, phone: { local: string; e164: string }, email?: string) => {
+  created.push(phone.e164);
+  return signUpAs(page, phone, email);
+};
 
 test.afterAll(async () => {
   await deleteTestUsers(created);
   await closeHelpers();
 });
 
-/** Types a code in the digit boxes (paste spreads it across the boxes). */
-async function enterCode(page: Page, code: string) {
-  await page.getByRole('textbox', { name: 'Chiffre 1 sur 6' }).fill(code);
-}
-
-async function signUp(page: Page, phone: { local: string; e164: string }, email?: string) {
-  created.push(phone.e164);
-  await deleteTestUsers([phone.e164]);
-  await forgetMessages(phone.e164);
-  await resetLimits([phone.e164]);
-
-  await page.goto('/fr/signup');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Créer un compte');
-  await page.getByLabel('Prénom').fill('Awa');
-  await page.getByLabel('Nom', { exact: true }).fill('Kaboré');
-  await page.getByLabel('Numéro de téléphone').fill(phone.local);
-  if (email) await page.getByLabel('E-mail').fill(email);
-  await page.getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Recevoir le code par SMS' }).click();
-
-  await expect(page.getByText('Étape 2 sur 3 · Vérification du numéro')).toBeVisible();
-  await enterCode(page, await lastSmsCode(phone.e164));
-  await page.getByRole('button', { name: 'Créer mon compte' }).click();
-  await expect(page.getByText('Votre compte est créé.')).toBeVisible();
-  await page.getByRole('link', { name: 'Ouvrir mon espace' }).click();
-  // A new account only has the personal space: the space chooser is skipped.
-  await expect(page).toHaveURL(/\/fr\/app$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Bonjour Awa Kaboré');
-}
-
 async function logOut(page: Page) {
+  // In the application, the sign-out button sits in the side menu, folded on phones.
+  const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
+  if (await menu.isVisible()) await menu.click();
   await page.getByRole('button', { name: 'Se déconnecter' }).first().click();
   await expect(page).toHaveURL(/\/fr\/login$/);
 }

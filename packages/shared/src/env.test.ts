@@ -44,6 +44,8 @@ describe('apiEnvSchema', () => {
     REDIS_URL: 'redis://127.0.0.1:6379',
     AUTH_SECRET: 'a'.repeat(32),
     ALTCHA_HMAC_KEY: 'b'.repeat(32),
+    MINIO_API_ACCESS_KEY: 'api',
+    MINIO_API_SECRET_KEY: 'c'.repeat(32),
   };
 
   it('applies the V1 anti-abuse defaults', () => {
@@ -52,6 +54,20 @@ describe('apiEnvSchema', () => {
     expect(env.SEND_LIMIT_PER_ID_15MIN).toBe(3);
     expect(env.AUTH_CAPTCHA_AFTER_FAILURES).toBe(3);
     expect(env.AUTH_ALLOWED_DIAL_CODES[0]).toBe('226');
+  });
+
+  it('applies the ZIP import limits decided for V1', () => {
+    const env = parseEnv(apiEnvSchema, base);
+    expect(env.ZIP_MAX_ARCHIVE_BYTES).toBe(50 * 1024 * 1024);
+    expect(env.ZIP_MAX_TOTAL_BYTES).toBe(200 * 1024 * 1024);
+    expect(env.ZIP_MAX_FILES).toBe(2000);
+    expect(env.ZIP_MAX_RATIO).toBe(100);
+  });
+
+  it('requires the MinIO access key of the API', () => {
+    expect(() => parseEnv(apiEnvSchema, { ...base, MINIO_API_SECRET_KEY: undefined })).toThrow(
+      /MINIO_API_SECRET_KEY/,
+    );
   });
 
   it('parses list and number overrides', () => {
@@ -75,11 +91,18 @@ describe('apiEnvSchema', () => {
         ...base,
         NODE_ENV: 'production',
         AUTH_SECRET: 'change-me-dev-auth-secret-at-least-32-characters',
+        MINIO_API_SECRET_KEY: 'change-me-dev-minio-api',
       });
     } catch (error) {
       message = String(error);
     }
-    for (const name of ['SMS_PROVIDER', 'WEB_ORIGINS', 'PUBLIC_WEB_URL', 'AUTH_SECRET']) {
+    for (const name of [
+      'SMS_PROVIDER',
+      'WEB_ORIGINS',
+      'PUBLIC_WEB_URL',
+      'AUTH_SECRET',
+      'MINIO_API_SECRET_KEY',
+    ]) {
       expect(message).toContain(name);
     }
   });

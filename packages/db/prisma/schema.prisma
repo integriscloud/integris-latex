@@ -233,6 +233,7 @@ model User {
   notifications         Notification[]
   usage                 UsageCounter[]
   auditLogs             AuditLog[]
+  validationRecords     ValidationRecord[]
   invitationsSent       Invitation[]         @relation("InvitedBy")
 }
 
@@ -656,6 +657,22 @@ model SubmissionReviewer {
   lastReviewedAt DateTime?
 
   @@unique([submissionId, reviewerId])
+}
+
+// Trace of a validation, kept when the project is erased. Metadata only: who validated, when,
+// which submission, and the submitted files with their SHA-256 (no file content, no PDF). No
+// foreign key to the submission or the project, which may be erased. Written at validation;
+// append-only by DB trigger (migration validation_record).
+model ValidationRecord {
+  id            String   @id @default(cuid())
+  submissionId  String   @unique
+  validatedById String
+  validatedBy   User     @relation(fields: [validatedById], references: [id], onDelete: Restrict)
+  validatedAt   DateTime
+  files         Json // [{ path, sha256 }]
+  createdAt     DateTime @default(now())
+
+  @@index([validatedById, validatedAt])
 }
 
 // ───────────── Compilation & usage ─────────────

@@ -33,6 +33,8 @@ export function testEnv(overrides: Record<string, string> = {}): ApiEnv {
     ALTCHA_HMAC_KEY: 'test-altcha-key-0123456789abcdef01234',
     // Cheap proof of work so tests solve challenges quickly.
     ALTCHA_KEY_PREFIX: '0',
+    MINIO_API_ACCESS_KEY: 'unused',
+    MINIO_API_SECRET_KEY: 'unused-in-tests',
     ...overrides,
   });
 }

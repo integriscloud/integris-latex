@@ -8,8 +8,10 @@ import { HealthModule } from './health/health.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { PlansModule } from './plans/plans.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { ProjectsModule } from './projects/projects.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { SmsModule } from './sms/sms.module.js';
+import { StorageModule } from './storage/storage.module.js';
 
 @Module({
   imports: [
@@ -30,9 +32,11 @@ import { SmsModule } from './sms/sms.module.js';
     RedisModule,
     SmsModule,
     MailModule,
+    StorageModule,
     HealthModule,
     PlansModule,
     AuthModule,
+    ProjectsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
 })

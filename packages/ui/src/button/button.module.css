@@ -91,6 +91,24 @@
   color: var(--texte-3);
 }
 
+/* Text button on the dark side menu. */
+.inverse {
+  min-height: var(--cible-tactile);
+  padding: 0 var(--espace-2);
+  background: transparent;
+  color: var(--toge-200);
+  font-weight: 600;
+}
+
+.inverse:hover:not(:disabled) {
+  color: var(--neutre-0);
+  text-decoration: underline;
+}
+
+.inverse:focus-visible {
+  outline-color: var(--or-300);
+}
+
 .link {
   transition:
     transform var(--duree-base) var(--courbe),

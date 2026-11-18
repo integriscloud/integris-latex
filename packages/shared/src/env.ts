@@ -16,6 +16,17 @@ const csv = (fallback: string) =>
         .filter(Boolean),
     );
 
+const MIB = 1024 * 1024;
+
+/** MinIO endpoint: TLS required outside the local machine. */
+const minioEndpoint = z
+  .url()
+  .refine(
+    (url) => url.startsWith('https://') || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url),
+    'MinIO must use TLS outside localhost',
+  )
+  .default('http://127.0.0.1:9000');
+
 /**
  * Environment read by apps/api. Anti-abuse limits and session lifetimes are configuration, not
  * code: the defaults below are the values decided for V1 and can be overridden per server.
@@ -71,6 +82,25 @@ export const apiEnvSchema = z
     SESSION_IDLE_DAYS: positiveInt(30),
     SESSION_MAX_DAYS: positiveInt(90),
     PASSWORD_MIN_LENGTH: z.coerce.number().int().min(8).max(64).default(10),
+    // MinIO access key of the API (its own key, limited to the projects and templates buckets).
+    MINIO_ENDPOINT: minioEndpoint,
+    MINIO_API_ACCESS_KEY: z.string().min(3),
+    MINIO_API_SECRET_KEY: z.string().min(8),
+    // ZIP import (anti ZIP bomb). Each extracted file is also limited to 10 MB (docs/spec.md).
+    ZIP_MAX_ARCHIVE_BYTES: positiveInt(50 * MIB),
+    ZIP_MAX_TOTAL_BYTES: positiveInt(200 * MIB),
+    ZIP_MAX_FILES: positiveInt(2000),
+    // Maximum ratio extracted size / compressed size of one file, checked once a file has
+    // produced ZIP_RATIO_MIN_BYTES (small text files legitimately compress very well).
+    ZIP_MAX_RATIO: positiveInt(100),
+    ZIP_RATIO_MIN_BYTES: positiveInt(MIB),
+    // Imports decompressing at the same time in one API process, and imports per user per hour.
+    ZIP_MAX_CONCURRENT_IMPORTS: positiveInt(2),
+    ZIP_IMPORTS_PER_HOUR: positiveInt(20),
+    // Files in one project (uploads and new files; an import is limited by ZIP_MAX_FILES).
+    PROJECT_MAX_FILES: positiveInt(2000),
+    // How often projects deleted more than 30 days ago are erased.
+    TRASH_PURGE_INTERVAL_MINUTES: positiveInt(60),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
@@ -87,7 +117,7 @@ export const apiEnvSchema = z
         ctx.addIssue({ code: 'custom', path: [name], message: 'HTTPS required' });
       }
     }
-    for (const name of ['AUTH_SECRET', 'ALTCHA_HMAC_KEY'] as const) {
+    for (const name of ['AUTH_SECRET', 'ALTCHA_HMAC_KEY', 'MINIO_API_SECRET_KEY'] as const) {
       if (env[name].includes('change-me')) {
         ctx.addIssue({ code: 'custom', path: [name], message: 'Placeholder secret' });
       }
@@ -122,13 +152,7 @@ export type WorkerEnv = z.infer<typeof workerEnvSchema>;
  */
 export const seedEnvSchema = z.object({
   DATABASE_URL: z.url(),
-  MINIO_ENDPOINT: z
-    .url()
-    .refine(
-      (url) => url.startsWith('https://') || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url),
-      'MinIO must use TLS outside localhost',
-    )
-    .default('http://127.0.0.1:9000'),
+  MINIO_ENDPOINT: minioEndpoint,
   MINIO_ROOT_USER: z.string().min(1),
   MINIO_ROOT_PASSWORD: z.string().min(1),
 });

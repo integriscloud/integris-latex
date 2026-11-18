@@ -15,7 +15,8 @@
     "db:migrate": "pnpm --filter @integris/db db:migrate",
     "db:seed": "pnpm --filter @integris/db db:seed",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "minio:users": "bash docker/minio-dev-users.sh"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

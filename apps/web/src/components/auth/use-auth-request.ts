@@ -1,11 +1,21 @@
 'use client';
 
-import type { CaptchaAction, CaptchaChallengeRequest } from '@integris/shared';
+import {
+  AUTH_ERROR_CODES,
+  type AuthErrorCode,
+  type CaptchaAction,
+  type CaptchaChallengeRequest,
+} from '@integris/shared';
 import type { CaptchaState } from '@integris/ui';
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 import { apiPost, type ApiResult, type ClientError } from '../../lib/api-client';
 import { solveCaptcha } from '../../lib/captcha';
+
+const AUTH_MESSAGES: readonly string[] = [...AUTH_ERROR_CODES, 'network', 'unknown'];
+const authCode = (error: ClientError) =>
+  (AUTH_MESSAGES.includes(error.code) ? error.code : 'unknown') as
+    AuthErrorCode | 'network' | 'unknown';
 
 const isCaptchaError = (error: ClientError) =>
   error.code === 'captcha_required' || error.code === 'captcha_invalid';
@@ -15,7 +25,7 @@ export function useErrorMessage() {
   const t = useTranslations('Auth.errors');
   return useCallback(
     (error: ClientError) =>
-      t(error.code, { minutes: Math.max(1, Math.ceil((error.retryAfter ?? 60) / 60)) }),
+      t(authCode(error), { minutes: Math.max(1, Math.ceil((error.retryAfter ?? 60) / 60)) }),
     [t],
   );
 }

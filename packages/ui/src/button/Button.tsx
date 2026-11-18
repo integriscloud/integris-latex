@@ -2,7 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
 import styles from './button.module.css';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'ghost' | 'inverse';
 export type ButtonSize = 'default' | 'large';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

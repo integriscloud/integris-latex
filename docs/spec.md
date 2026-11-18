@@ -56,11 +56,12 @@ Un projet est un dossier LaTeX complet. On le partage en entier (droits au nivea
 
 **Projets :**
 
-- **Contenu** : dossiers et fichiers ; fichier principal désigné (`main.tex` par défaut). Types acceptés : `.tex`, `.bib`, `.sty`, `.cls`, `.txt`, `.md`, `.png`, `.jpg`, `.pdf`, `.eps`. 10 Mo maximum par fichier.
+- **Contenu** : dossiers et fichiers ; fichier principal désigné (`main.tex` par défaut). Types acceptés : `.tex`, `.bib`, `.sty`, `.cls`, `.txt`, `.md`, `.png`, `.jpg`, `.jpeg`, `.pdf`, `.eps`, sans distinction de majuscules. 10 Mo maximum par fichier. Le type réel est vérifié (signature des images et PDF, texte en UTF-8).
 - **Création** : projet vide, depuis un modèle, import ZIP (couvre les exports Prism et Overleaf), duplication.
+- **Import ZIP** : archive de 50 Mo au plus ; chaque fichier extrait est limité à 10 Mo ; les fichiers refusés (type, taille, contenu) sont ignorés et listés dans un rapport ; le total compte dans le quota de stockage. Protections anti-ZIP piégé : taille totale décompressée de 200 Mo au plus et dans la limite du quota restant, 2 000 fichiers au plus, taux de compression de 100:1 au plus par fichier (vérifié à partir de 1 Mo produit), tailles mesurées pendant l'extraction (jamais celles annoncées dans l'archive), refus des chemins absolus, des « .. », des liens symboliques et des ZIP chiffrés ou imbriqués. Toutes ces limites sont réglables en configuration.
 - **Modèles** : modèles publics publiés par Integris ; modèles officiels ajoutés par un Business, visibles de ses seuls membres.
 - **Historique** : version automatique après chaque période d'activité de 10 minutes, versions nommées à la demande, restauration de n'importe quelle version (dans la limite de l'historique du plan).
-- **Suppression** : corbeille de 30 jours, puis effacement définitif.
+- **Suppression** : corbeille de 30 jours, puis effacement définitif. Le propriétaire peut restaurer un projet ou l'effacer définitivement depuis la corbeille. Les projets en corbeille comptent dans le stockage, pas dans la limite de projets (la restauration revérifie cette limite). L'effacement conserve la trace des validations (voir « Encadrement ») et le journal des demandes d'impression.
 
 | Rôle sur un projet | Lire | Commenter | Modifier | Partager, supprimer |
 | --- | --- | --- | --- | --- |
@@ -79,6 +80,7 @@ Un projet est un dossier LaTeX complet. On le partage en entier (droits au nivea
 - **Soumission** : l'étudiant choisit les fichiers, ajoute un message et une date limite facultative ; la plateforme fige une version à l'envoi. Plusieurs relecteurs possibles (co-encadrement).
 - **Statuts** : brouillon → soumis → en relecture → retours envoyés → corrigé → validé.
 - **Validation** : seul un encadreur valide ; elle verrouille les fichiers soumis, que l'encadreur peut déverrouiller.
+- **Trace des validations** : chaque validation laisse une trace conservée même après l'effacement du projet. Elle contient uniquement des métadonnées : qui a validé, quand, quelle soumission, la liste des fichiers soumis avec leur empreinte SHA-256 ; aucun contenu de fichier ni PDF. Elle ne peut pas être modifiée.
 - **Comparaison** : « ce qui a changé depuis ma dernière relecture », différences ligne à ligne entre deux soumissions.
 - **Tableau de bord d'encadrement (Business)** : une ligne par étudiant suivi, avec projet, soumissions, statut, date limite et dernière activité, triable par urgence.
 - **Administrateur Business** : gère groupes (UFR, département, promotion) et affectations, impose les modèles officiels, voit des statistiques d'activité mais jamais le contenu des projets.

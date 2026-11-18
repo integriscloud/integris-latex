@@ -1,0 +1,134 @@
+.tree {
+  font: var(--t-texte-sm);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  gap: var(--espace-1) var(--espace-2);
+  align-items: center;
+  min-height: var(--cible-tactile);
+  padding-left: var(--espace-2);
+  border-radius: var(--r-md);
+}
+
+.row:hover {
+  background: var(--surface-creuse);
+}
+
+/* Indentation per depth (6 levels shown, deeper ones stay at the last step). */
+.row[data-depth='1'] {
+  padding-left: calc(var(--espace-2) + var(--espace-5));
+}
+
+.row[data-depth='2'] {
+  padding-left: calc(var(--espace-2) + var(--espace-5) * 2);
+}
+
+.row[data-depth='3'] {
+  padding-left: calc(var(--espace-2) + var(--espace-5) * 3);
+}
+
+.row[data-depth='4'] {
+  padding-left: calc(var(--espace-2) + var(--espace-5) * 4);
+}
+
+.row[data-depth='5'] {
+  padding-left: calc(var(--espace-2) + var(--espace-5) * 5);
+}
+
+.row[data-depth='6'] {
+  padding-left: calc(var(--espace-2) + var(--espace-5) * 6);
+}
+
+.folder,
+.file {
+  display: flex;
+  flex: 1 1 0;
+  gap: var(--espace-2);
+  align-items: center;
+  min-width: 0;
+  min-height: var(--cible-tactile);
+}
+
+.folder {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--texte);
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.type {
+  flex: none;
+  width: 34px;
+  padding: 1px 0;
+  border-radius: var(--r-sm);
+  background: var(--action-doux);
+  font: var(--t-legende);
+  font-family: var(--font-code);
+  font-size: 10px;
+  color: var(--action);
+  text-align: center;
+}
+
+.dir {
+  background: var(--or-50);
+  color: var(--or-700);
+}
+
+.name {
+  overflow: hidden;
+  font-family: var(--font-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marker {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  align-items: center;
+  font: var(--t-legende);
+  color: var(--or-600);
+}
+
+.markerText {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  .markerText,
+  .size {
+    display: inline;
+  }
+}
+
+.size {
+  display: none;
+  flex: none;
+  margin-left: auto;
+  font: var(--t-legende);
+  color: var(--texte-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  gap: var(--espace-1);
+  margin-left: auto;
+}
