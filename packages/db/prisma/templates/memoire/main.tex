@@ -1,0 +1,54 @@
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage[left=3cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\onehalfspacing
+
+\begin{document}
+
+% Page de titre
+\begin{titlepage}
+  \centering
+  {\large NOM DE L'ÉTABLISSEMENT\par}
+  {\large UFR / Département\par}
+  \vspace{3cm}
+  {\Large Mémoire de fin d'études\par}
+  \vspace{1cm}
+  {\LARGE\bfseries Titre du mémoire\par}
+  \vspace{2cm}
+  {\large Présenté par : Prénom Nom\par}
+  {\large Sous la direction de : Prénom Nom\par}
+  \vfill
+  {\large Année universitaire 20XX--20XX\par}
+\end{titlepage}
+
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+Vos remerciements.
+
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+Résumé du mémoire.
+
+\noindent\textbf{Mots-clés :} mot 1, mot 2, mot 3.
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\include{chapitres/introduction}
+\include{chapitres/chapitre1}
+\include{chapitres/conclusion}
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

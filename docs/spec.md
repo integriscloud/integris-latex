@@ -34,6 +34,8 @@ Quatre plans. Seuls **Team** et **Business** rattachent d'autres comptes, et seu
 | Requêtes IA par jour (V2) | 5 | 50 | 100 | 100 |
 | Priorité de compilation | Basse | Normale | Haute | Haute |
 
+Stockage en unités binaires : 1 Mo = 1 048 576 octets, 1 Go = 1 073 741 824 octets. Le taux de la dégressivité Business au-delà de 100 sièges reste à fixer (voir Points ouverts) : aucune remise n'est appliquée d'ici là.
+
 **Règles des comptes et des sièges :**
 
 - **Le compte appartient à la personne.** Inscription par téléphone et code OTP par SMS ; e-mail et mot de passe en option. L'e-mail devient obligatoire et vérifié au premier paiement, car les reçus sont envoyés par e-mail uniquement.
@@ -288,3 +290,4 @@ L'intégration des maquettes du designer se fait écran par écran à partir de 
 - [ ] Premiers modèles de mémoires (normes de 3 universités)
 - [ ] Maquettes du designer : éditeur en priorité
 - [ ] RAM de latex-dev à passer de 8 à 16 Go
+- [ ] Barème de dégressivité Business au-delà de 100 sièges : taux, périodes concernées (annuel seul ou aussi mensuel), sièges concernés (tous ou seulement au-delà de 100)

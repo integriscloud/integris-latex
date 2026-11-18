@@ -15,3 +15,5 @@ playwright-report/
 test-results/
 # Prisma generated client
 packages/db/src/generated/
+# TypeScript incremental build state
+*.tsbuildinfo

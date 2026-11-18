@@ -25,6 +25,13 @@ enum BillingPeriod {
   YEARLY
 }
 
+// Compilation queue priority (spec: Haute / Normale / Basse). Mapped to BullMQ priorities by the worker.
+enum CompilePriority {
+  HIGH
+  NORMAL
+  LOW
+}
+
 enum SubscriptionStatus {
   TRIALING
   ACTIVE
@@ -232,29 +239,31 @@ model User {
 // ───────────── Plans & billing ─────────────
 
 model Plan {
-  id                         String   @id @default(cuid())
-  code                       PlanCode @unique
+  id                         String          @id @default(cuid())
+  code                       PlanCode        @unique
   nameFr                     String
   nameEn                     String
   priceMonthlyXof            Int // per seat for TEAM/BUSINESS
   priceYearlyXof             Int // per seat for TEAM/BUSINESS
-  minSeats                   Int      @default(1)
+  minSeats                   Int             @default(1)
   maxSeats                   Int? // null = unlimited
   volumeDiscountFromSeats    Int? // BUSINESS: 100
-  volumeDiscountPercent      Int?
+  volumeDiscountPercent      Int? // null = no discount (rate not decided in docs/spec.md yet)
   maxProjects                Int? // null = unlimited
   maxCollaboratorsPerProject Int? // null = unlimited
   maxCompileSeconds          Int
   maxCompilesPerHour         Int
-  storageBytes               BigInt // per seat
+  storageBytes               BigInt // per seat, binary units (1 Mo = 1024 * 1024 bytes)
   historyDays                Int? // null = unlimited, 1 = 24h
-  autoCompile                Boolean  @default(false)
-  supervisionDashboard       Boolean  @default(false)
+  autoCompile                Boolean         @default(false)
+  supervisionDashboard       Boolean         @default(false)
   maxSupervisedStudents      Int?
-  aiRequestsPerDay           Int      @default(0)
-  compilePriority            Int // lower = higher priority (BullMQ)
-  isActive                   Boolean  @default(true)
-  updatedAt                  DateTime @updatedAt
+  aiRequestsPerDay           Int             @default(0)
+  compilePriority            CompilePriority
+  maxAdmins                  Int             @default(0) // BUSINESS: admins the owner can delegate to
+  trialDays                  Int? // free trial without payment (STANDARD: 14)
+  isActive                   Boolean         @default(true)
+  updatedAt                  DateTime        @updatedAt
 
   subscriptions Subscription[]
 }
@@ -263,7 +272,7 @@ model Subscription {
   id                  String             @id @default(cuid())
   planId              String
   plan                Plan               @relation(fields: [planId], references: [id])
-  // exactly one of userId (FREE/STANDARD) or organizationId (TEAM/BUSINESS)
+  // exactly one of userId (FREE/STANDARD) or organizationId (TEAM/BUSINESS), enforced by a CHECK
   userId              String?
   user                User?              @relation("PersonalSubscription", fields: [userId], references: [id])
   organizationId      String?            @unique
@@ -537,7 +546,7 @@ model Template {
   description    String?
   category       String // memoire, rapport, article, cv, beamer...
   institution    String?
-  storageKey     String // ZIP of template files
+  storageKey     String        @unique // ZIP of template files
   isPublished    Boolean       @default(false)
   createdAt      DateTime      @default(now())
 
@@ -660,7 +669,7 @@ model Compilation {
   chargedUserId String // project owner (quota holder)
   engine        Engine
   status        CompilationStatus @default(QUEUED)
-  priority      Int
+  priority      CompilePriority
   queuedAt      DateTime          @default(now())
   startedAt     DateTime?
   finishedAt    DateTime?
@@ -704,10 +713,11 @@ model Notification {
   @@index([userId, readAt])
 }
 
+// Append-only: UPDATE, DELETE and TRUNCATE are refused by a trigger (migration integrity_constraints).
 model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?
-  actor      User?    @relation(fields: [actorId], references: [id])
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: Restrict)
   action     String // SEAT_ASSIGNED, ROLE_CHANGED, PAYMENT_VERIFIED, PROJECT_SHARED, SUBMISSION_VALIDATED...
   targetType String
   targetId   String
@@ -751,11 +761,12 @@ model PrintRequest {
   @@index([teacherId, createdAt])
 }
 
-// Append-only access journal (no update/delete in application code)
+// Append-only access journal: UPDATE, DELETE and TRUNCATE are refused by a trigger (migration
+// integrity_constraints).
 model PrintEvent {
   id             String         @id @default(cuid())
   printRequestId String
-  printRequest   PrintRequest   @relation(fields: [printRequestId], references: [id])
+  printRequest   PrintRequest   @relation(fields: [printRequestId], references: [id], onUpdate: Restrict)
   actorId        String
   type           PrintEventType
   metadata       Json? // e.g. printed count, handed over to, one-time link id

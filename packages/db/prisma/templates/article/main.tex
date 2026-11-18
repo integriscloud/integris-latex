@@ -1,0 +1,55 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Titre de l'article}
+\author{Prénom Nom\\ \small Établissement, Ville, Pays\\ \small \texttt{adresse@exemple.org}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Résumé de l'article en quelques lignes : contexte, objectif, méthode, principaux résultats.
+\end{abstract}
+
+\section{Introduction}
+Présentez le contexte et la question étudiée. Les références se citent ainsi~\cite{knuth1984}.
+
+\section{Méthode}
+Décrivez la démarche. Une équation numérotée :
+\begin{equation}
+  E = mc^2 \label{eq:energie}
+\end{equation}
+L'équation~\eqref{eq:energie} se référence automatiquement.
+
+\section{Résultats}
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lcc}
+    \hline
+    Échantillon & Valeur A & Valeur B \\
+    \hline
+    1 & 12 & 15 \\
+    2 & 14 & 18 \\
+    \hline
+  \end{tabular}
+  \caption{Exemple de tableau.}
+  \label{tab:resultats}
+\end{table}
+
+\section{Conclusion}
+Résumez les apports et les perspectives.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

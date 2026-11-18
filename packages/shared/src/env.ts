@@ -23,6 +23,24 @@ export const workerEnvSchema = z.object({
 });
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
 
+/**
+ * Environment read by the database seed (packages/db). On latex-dev it uploads templates with the
+ * MinIO root credentials; services get their own access keys in later steps.
+ */
+export const seedEnvSchema = z.object({
+  DATABASE_URL: z.url(),
+  MINIO_ENDPOINT: z
+    .url()
+    .refine(
+      (url) => url.startsWith('https://') || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url),
+      'MinIO must use TLS outside localhost',
+    )
+    .default('http://127.0.0.1:9000'),
+  MINIO_ROOT_USER: z.string().min(1),
+  MINIO_ROOT_PASSWORD: z.string().min(1),
+});
+export type SeedEnv = z.infer<typeof seedEnvSchema>;
+
 /** Parse an environment, failing fast with the list of invalid variables (values are never printed). */
 export function parseEnv<T extends z.ZodType>(schema: T, source: NodeJS.ProcessEnv): z.infer<T> {
   const result = schema.safeParse(source);
