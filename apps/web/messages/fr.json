@@ -1,7 +1,7 @@
 {
   "Metadata": {
     "title": "Integris LaTeX",
-    "description": "Édition LaTeX collaborative pour les étudiants, enseignants et chercheurs d'Afrique de l'Ouest."
+    "description": "Rédigez, collaborez et compilez vos documents LaTeX en ligne : mémoires, articles, rapports, cours, CV. En français et en anglais, paiement mobile money."
   },
   "Common": {
     "productName": "Integris LaTeX",
@@ -9,10 +9,221 @@
     "languages": {
       "fr": "Français",
       "en": "English"
+    },
+    "nav": {
+      "label": "Navigation principale",
+      "menu": "Ouvrir le menu",
+      "features": "Fonctionnalités",
+      "supervision": "Encadrement",
+      "pricing": "Tarifs",
+      "faq": "Questions",
+      "login": "Se connecter",
+      "signup": "Créer un compte"
+    },
+    "footer": {
+      "tagline": "Un service Integris Cloud. L'édition LaTeX collaborative, en français et en anglais.",
+      "product": "Produit",
+      "account": "Compte",
+      "legal": "Légal",
+      "terms": "Conditions d'utilisation",
+      "privacy": "Données personnelles",
+      "copyright": "© {year} Integris Cloud. Tous droits réservés."
     }
   },
   "Home": {
-    "title": "L'édition LaTeX collaborative, pensée pour l'Afrique de l'Ouest",
-    "subtitle": "Rédigez, compilez et faites relire vos travaux en ligne, en français et en anglais."
+    "hero": {
+      "eyebrow": "De la première ligne au PDF final",
+      "title": "Vos idées méritent <accent>un document impeccable</accent>.",
+      "lead": "Rédigez, collaborez et compilez vos documents LaTeX en ligne — mémoires, articles, rapports, cours, CV. Seul votre contenu devrait compter.",
+      "start": "Commencer gratuitement",
+      "how": "Voir comment ça marche",
+      "note": "Gratuit pour commencer · un numéro de téléphone suffit · en français et en anglais"
+    },
+    "journey": {
+      "label": "Le parcours d'un document",
+      "template": {
+        "title": "Modèle",
+        "text": "Partez d'un modèle prêt à remplir, ou importez votre projet en ZIP"
+      },
+      "writing": {
+        "title": "Rédaction",
+        "text": "Écrivez à plusieurs, en temps réel, dans le même document"
+      },
+      "review": {
+        "title": "Relecture",
+        "text": "Commentaires dans le texte et propositions de correction"
+      },
+      "versions": {
+        "title": "Versions",
+        "text": "Chaque version gardée, restaurable en un clic"
+      },
+      "pdf": {
+        "title": "PDF final",
+        "text": "Un PDF propre, prêt à partager ou à faire valider"
+      }
+    },
+    "trust": {
+      "label": "Atouts",
+      "payment": "Paiement mobile money via LigdiCash",
+      "languages": "Interface en français et en anglais",
+      "errors": "Erreurs de compilation expliquées clairement",
+      "isolation": "Compilation isolée et sécurisée"
+    },
+    "features": {
+      "eyebrow": "Fonctionnalités",
+      "title": "Tout pour écrire en LaTeX, sans rien installer",
+      "intro": "Étudiants, chercheurs, enseignants, indépendants ou entreprises : un navigateur suffit, sur ordinateur comme sur téléphone.",
+      "editor": {
+        "title": "Un éditeur LaTeX complet",
+        "text": "Coloration, autocomplétion des commandes, de \\ref et de \\cite, plan du document, recherche et remplacement dans tout le projet."
+      },
+      "compile": {
+        "title": "Compilation sur nos serveurs",
+        "text": "pdfLaTeX, XeLaTeX ou LuaLaTeX avec TeX Live complet. Les premières erreurs sont traduites et mènent à la bonne ligne."
+      },
+      "realtime": {
+        "title": "Collaboration en temps réel",
+        "text": "Invitez des coauteurs par téléphone ou par e-mail, avec un rôle : éditeur, relecteur ou lecteur."
+      },
+      "comments": {
+        "title": "Commentaires et propositions",
+        "text": "Commentez une sélection, répondez, résolvez. Une proposition de remplacement s'applique en un clic."
+      },
+      "history": {
+        "title": "Historique des versions",
+        "text": "Une version automatique après chaque période de travail, des versions nommées, et la restauration de n'importe laquelle."
+      },
+      "mobile": {
+        "title": "Aussi sur téléphone",
+        "text": "Lire le PDF, commenter, compiler et suivre les soumissions depuis un téléphone, même avec une connexion modeste."
+      }
+    },
+    "supervision": {
+      "eyebrow": "Encadrement et relecture",
+      "title": "Faites relire et valider votre travail",
+      "intro": "Un mémoire, une thèse, un article ou un rapport : envoyez une version figée, recevez des retours dans le texte et obtenez une validation claire.",
+      "share": {
+        "title": "Partagez avec un rôle",
+        "text": "Invitez un encadrant qui commente, propose, fixe les échéances et valide, ou un relecteur et un lecteur."
+      },
+      "submit": {
+        "title": "Soumettez une version figée",
+        "text": "Choisissez les fichiers à relire, ajoutez un message et une date limite. La version envoyée ne bouge plus."
+      },
+      "validate": {
+        "title": "Obtenez la validation",
+        "text": "Retours, corrections, nouvelle soumission : quand l'encadrant valide, les fichiers soumis sont verrouillés."
+      },
+      "orgs": {
+        "title": "Pour les équipes, les établissements et les entreprises",
+        "text": "Avec Team ou Business, le titulaire paie les sièges et gère les membres. Chacun garde ses projets : payer ne donne jamais accès au contenu.",
+        "team": "Team : de 2 à 10 sièges, un gestionnaire",
+        "dashboard": "Business : tableau de bord d'encadrement",
+        "groups": "Business : administrateurs, classes et filières",
+        "exams": "Business : sujets d'examen confidentiels envoyés au secrétariat"
+      }
+    },
+    "pricing": {
+      "eyebrow": "Tarifs",
+      "title": "Commencez gratuitement, payez quand vous en avez besoin",
+      "intro": "Prix TTC en FCFA. Paiement par mobile money via LigdiCash, reçu PDF envoyé par e-mail, aucun prélèvement automatique. Tous les plans permettent de soumettre un document à un encadrant.",
+      "period": "Période de paiement",
+      "monthly": "Mensuel",
+      "yearly": "Annuel",
+      "unavailable": "Les tarifs sont momentanément indisponibles. Réessayez dans quelques instants."
+    },
+    "faq": {
+      "eyebrow": "Questions fréquentes",
+      "title": "Vos questions",
+      "latex": {
+        "question": "Je ne connais pas LaTeX. Est-ce pour moi ?",
+        "answer": "Oui. Partez d'un modèle prêt à remplir ; les erreurs de compilation les plus courantes sont expliquées en français et en anglais, avec un lien vers la ligne concernée."
+      },
+      "payment": {
+        "question": "Comment payer sans carte bancaire ?",
+        "answer": "Par mobile money, via LigdiCash, directement sur la plateforme. L'offre est activée dès que le paiement est confirmé et vous recevez un reçu PDF par e-mail."
+      },
+      "privacy": {
+        "question": "Mon travail est-il protégé ?",
+        "answer": "Personne n'accède à un projet sans invitation. Chaque compilation tourne dans un environnement isolé. Dans une équipe ou un établissement, celui qui paie voit la consommation, jamais le contenu de vos projets."
+      },
+      "import": {
+        "question": "Puis-je reprendre un projet existant ?",
+        "answer": "Oui : importez-le en ZIP, y compris un export Overleaf. Le fichier principal est main.tex par défaut et vous pouvez en choisir un autre."
+      }
+    },
+    "cta": {
+      "title": "Votre prochain document peut commencer aujourd'hui.",
+      "text": "Un numéro de téléphone suffit pour créer votre compte.",
+      "action": "Créer mon compte"
+    }
+  },
+  "Plans": {
+    "summary": {
+      "FREE": "Pour découvrir",
+      "STANDARD": "Pour travailler seul",
+      "TEAM": "Pour une petite équipe, avec un gestionnaire",
+      "BUSINESS": "Pour les organisations : administrateurs, classes et filières, encadrement"
+    },
+    "amount": "{amount, number, integer} FCFA",
+    "unit": {
+      "free": "sans limite de durée",
+      "monthly": "/ mois",
+      "yearly": "/ an",
+      "seatMonthly": "/ siège / mois",
+      "seatYearly": "/ siège / an"
+    },
+    "alternative": {
+      "monthly": "ou {amount} {unit} en paiement annuel",
+      "yearly": "ou {amount} {unit} en paiement mensuel"
+    },
+    "trial": "{days} jours d'essai gratuit",
+    "seats": {
+      "range": "De {min} à {max} sièges, titulaire inclus",
+      "atLeast": "{min} sièges et plus, titulaire inclus"
+    },
+    "projects": {
+      "limited": "{count, plural, one {# projet} other {# projets}}",
+      "unlimited": "Projets illimités"
+    },
+    "collaborators": {
+      "limited": "{count, plural, one {# collaborateur} other {# collaborateurs}} par projet",
+      "unlimited": "Collaborateurs illimités"
+    },
+    "storage": {
+      "perAccount": "{size} de stockage",
+      "perSeat": "{size} de stockage par siège",
+      "mb": "{value, number, integer} Mo",
+      "gb": "{value, number} Go"
+    },
+    "history": {
+      "hours": "Historique des versions : {hours} h",
+      "days": "Historique des versions : {days} jours",
+      "unlimited": "Historique des versions illimité"
+    },
+    "compile": {
+      "seconds": "Compilations jusqu'à {seconds} s",
+      "minutes": "Compilations jusqu'à {minutes} min",
+      "perHour": "{count} compilations par heure"
+    },
+    "autoCompile": "Compilation automatique",
+    "priority": {
+      "HIGH": "Priorité de compilation haute",
+      "NORMAL": "Priorité de compilation normale",
+      "LOW": "Priorité de compilation basse"
+    },
+    "supervision": "Tableau de bord d'encadrement ({count} étudiants suivis par encadrant)",
+    "cta": {
+      "free": "Commencer gratuitement",
+      "paid": "Choisir {name}"
+    }
+  },
+  "ComingSoon": {
+    "text": "Cette page sera bientôt disponible.",
+    "back": "Retour à l'accueil",
+    "login": "Se connecter",
+    "signup": "Créer un compte",
+    "terms": "Conditions d'utilisation",
+    "privacy": "Données personnelles"
   }
 }

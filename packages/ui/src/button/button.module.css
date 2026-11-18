@@ -45,3 +45,40 @@
   border-color: var(--neutre-400);
   background: var(--surface-creuse);
 }
+
+.accent {
+  background: var(--accent);
+  color: var(--neutre-0);
+}
+
+.accent:hover:not(:disabled) {
+  background: var(--accent-survol);
+}
+
+.large {
+  min-height: 52px;
+  padding: 0 var(--espace-6);
+  border-radius: var(--r-lg);
+  font: var(--t-texte-lg);
+  font-weight: 600;
+}
+
+.link {
+  transition:
+    transform var(--duree-base) var(--courbe),
+    box-shadow var(--duree-base) var(--courbe);
+}
+
+.link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ombre-2);
+}
+
+.icon {
+  flex: none;
+  transition: transform var(--duree-base) var(--courbe);
+}
+
+.link:hover .icon {
+  transform: translateX(4px);
+}

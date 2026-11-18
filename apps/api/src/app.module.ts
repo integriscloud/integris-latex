@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { HealthModule } from './health/health.module.js';
+import { PlansModule } from './plans/plans.module.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
   imports: [
@@ -11,7 +13,9 @@ import { HealthModule } from './health/health.module.js';
         redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
       },
     }),
+    PrismaModule,
     HealthModule,
+    PlansModule,
   ],
 })
 export class AppModule {}

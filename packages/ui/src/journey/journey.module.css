@@ -1,0 +1,287 @@
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  70% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+@keyframes beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+/* Step i starts at 5 + 3i "fast" units (120 ms each): 600 ms, 960 ms, 1320 ms… */
+.card {
+  --pas: calc(var(--duree-rapide) * 3);
+  --debut: calc(var(--duree-rapide) * 5);
+
+  padding: var(--espace-6) var(--espace-5);
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  animation: rise calc(var(--duree-lente) * 3) var(--courbe) var(--debut) both;
+}
+
+.steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  --i: 0;
+  --delai: calc(var(--debut) + var(--pas) * (var(--i) + 1));
+
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: var(--espace-4);
+  padding-bottom: var(--espace-6);
+}
+
+.step:last-child {
+  padding-bottom: 0;
+}
+
+.step:nth-child(2) {
+  --i: 1;
+}
+
+.step:nth-child(3) {
+  --i: 2;
+}
+
+.step:nth-child(4) {
+  --i: 3;
+}
+
+.step:nth-child(5) {
+  --i: 4;
+}
+
+.step:nth-child(6) {
+  --i: 5;
+}
+
+/* Connector from this marker's center to the next one. */
+.track {
+  position: absolute;
+  top: 20px;
+  bottom: -20px;
+  left: 18.5px;
+  width: 3px;
+  background: var(--bordure);
+}
+
+.fill {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: var(--action);
+  transform-origin: top center;
+  animation: grow-y var(--pas) var(--courbe) var(--delai) both;
+}
+
+.done .fill {
+  display: block;
+}
+
+.marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  animation: pop calc(var(--duree-lente) * 1.5) var(--courbe) var(--delai) both;
+}
+
+.dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-full);
+  background: var(--action);
+  color: var(--neutre-0);
+}
+
+.ring {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--action);
+  border-radius: var(--r-full);
+  background: var(--surface);
+}
+
+.pulse {
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
+  border-radius: var(--r-full);
+  background: var(--toge-300);
+  animation: ring calc(var(--duree-lente) * 6) var(--courbe) calc(var(--delai) + var(--pas))
+    infinite;
+}
+
+.star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  box-shadow: 0 0 0 8px var(--or-100);
+  color: var(--neutre-0);
+  animation: beat calc(var(--duree-lente) * 7) var(--courbe) calc(var(--delai) + var(--pas))
+    infinite;
+}
+
+.star svg {
+  fill: currentColor;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  padding-top: var(--espace-2);
+  animation: rise calc(var(--duree-lente) * 2) var(--courbe)
+    calc(var(--delai) + var(--duree-rapide)) both;
+}
+
+.number {
+  font: var(--t-legende);
+  font-variant-numeric: tabular-nums;
+  color: var(--texte-3);
+}
+
+.title {
+  font: var(--t-texte-lg);
+  font-weight: 700;
+  color: var(--texte);
+}
+
+.goal .title {
+  color: var(--or-700);
+}
+
+.text {
+  font: var(--t-texte-sm);
+  color: var(--texte-3);
+}
+
+@media (min-width: 960px) {
+  .card {
+    padding: var(--espace-10) var(--espace-8);
+  }
+
+  .steps {
+    grid-auto-columns: 1fr;
+    grid-auto-flow: column;
+    gap: var(--espace-6);
+  }
+
+  .step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--espace-3);
+    padding-bottom: 0;
+    text-align: center;
+  }
+
+  .track {
+    top: 18.5px;
+    bottom: auto;
+    left: 50%;
+    width: calc(100% + var(--espace-6));
+    height: 3px;
+  }
+
+  .fill {
+    transform-origin: left center;
+    animation-name: grow-x;
+  }
+
+  .body {
+    align-items: center;
+    gap: var(--espace-3);
+    max-width: 13rem;
+    padding-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .fill,
+  .marker,
+  .pulse,
+  .star,
+  .body {
+    animation: none;
+  }
+}

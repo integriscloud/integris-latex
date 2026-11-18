@@ -1,0 +1,15 @@
+.notice {
+  display: flex;
+  gap: var(--espace-3);
+  margin: 0;
+  padding: var(--espace-4) var(--espace-5);
+  border-radius: var(--r-lg);
+  background: var(--info-fond);
+  font: var(--t-texte);
+  color: var(--info);
+}
+
+.icon {
+  flex: none;
+  margin-top: 2px;
+}

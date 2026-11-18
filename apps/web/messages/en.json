@@ -1,7 +1,7 @@
 {
   "Metadata": {
     "title": "Integris LaTeX",
-    "description": "Collaborative LaTeX editing for students, teachers and researchers in West Africa."
+    "description": "Write, collaborate on and compile your LaTeX documents online: theses, articles, reports, courses, CVs. In French and English, with mobile money payments."
   },
   "Common": {
     "productName": "Integris LaTeX",
@@ -9,10 +9,221 @@
     "languages": {
       "fr": "Français",
       "en": "English"
+    },
+    "nav": {
+      "label": "Main navigation",
+      "menu": "Open the menu",
+      "features": "Features",
+      "supervision": "Supervision",
+      "pricing": "Pricing",
+      "faq": "FAQ",
+      "login": "Log in",
+      "signup": "Sign up"
+    },
+    "footer": {
+      "tagline": "An Integris Cloud service. Collaborative LaTeX editing, in French and English.",
+      "product": "Product",
+      "account": "Account",
+      "legal": "Legal",
+      "terms": "Terms of use",
+      "privacy": "Privacy",
+      "copyright": "© {year} Integris Cloud. All rights reserved."
     }
   },
   "Home": {
-    "title": "Collaborative LaTeX editing, built for West Africa",
-    "subtitle": "Write, compile and get your work reviewed online, in French and English."
+    "hero": {
+      "eyebrow": "From the first line to the final PDF",
+      "title": "Your ideas deserve <accent>a flawless document</accent>.",
+      "lead": "Write, collaborate on and compile your LaTeX documents online — theses, articles, reports, courses, CVs. Only your content should matter.",
+      "start": "Start for free",
+      "how": "See how it works",
+      "note": "Free to start · a phone number is all you need · in French and English"
+    },
+    "journey": {
+      "label": "The journey of a document",
+      "template": {
+        "title": "Template",
+        "text": "Start from a ready-to-fill template, or import your project as a ZIP"
+      },
+      "writing": {
+        "title": "Writing",
+        "text": "Write together, in real time, in the same document"
+      },
+      "review": {
+        "title": "Review",
+        "text": "Comments in the text and suggested corrections"
+      },
+      "versions": {
+        "title": "Versions",
+        "text": "Every version kept, restorable in one click"
+      },
+      "pdf": {
+        "title": "Final PDF",
+        "text": "A clean PDF, ready to share or to have approved"
+      }
+    },
+    "trust": {
+      "label": "Highlights",
+      "payment": "Mobile money payments via LigdiCash",
+      "languages": "Interface in French and English",
+      "errors": "Compilation errors clearly explained",
+      "isolation": "Isolated, secure compilation"
+    },
+    "features": {
+      "eyebrow": "Features",
+      "title": "Everything you need to write in LaTeX, nothing to install",
+      "intro": "Students, researchers, teachers, freelancers or companies: a browser is all you need, on a computer or a phone.",
+      "editor": {
+        "title": "A complete LaTeX editor",
+        "text": "Syntax highlighting, autocompletion of commands, \\ref and \\cite, document outline, find and replace across the whole project."
+      },
+      "compile": {
+        "title": "Compilation on our servers",
+        "text": "pdfLaTeX, XeLaTeX or LuaLaTeX with the full TeX Live. The first errors are translated and link to the right line."
+      },
+      "realtime": {
+        "title": "Real-time collaboration",
+        "text": "Invite co-authors by phone or email, with a role: editor, reviewer or viewer."
+      },
+      "comments": {
+        "title": "Comments and suggestions",
+        "text": "Comment on a selection, reply, resolve. A suggested replacement is applied in one click."
+      },
+      "history": {
+        "title": "Version history",
+        "text": "An automatic version after each work session, named versions, and restore any of them."
+      },
+      "mobile": {
+        "title": "On your phone too",
+        "text": "Read the PDF, comment, compile and follow submissions from a phone, even on a modest connection."
+      }
+    },
+    "supervision": {
+      "eyebrow": "Supervision and review",
+      "title": "Get your work reviewed and approved",
+      "intro": "A thesis, a dissertation, an article or a report: send a frozen version, get feedback in the text and a clear approval.",
+      "share": {
+        "title": "Share with a role",
+        "text": "Invite a supervisor who comments, suggests, sets deadlines and approves, or a reviewer and a viewer."
+      },
+      "submit": {
+        "title": "Submit a frozen version",
+        "text": "Choose the files to review, add a message and a deadline. The version you sent no longer changes."
+      },
+      "validate": {
+        "title": "Get approval",
+        "text": "Feedback, corrections, a new submission: once the supervisor approves, the submitted files are locked."
+      },
+      "orgs": {
+        "title": "For teams, institutions and companies",
+        "text": "With Team or Business, the owner pays for the seats and manages the members. Everyone keeps their own projects: paying never gives access to their content.",
+        "team": "Team: 2 to 10 seats, one manager",
+        "dashboard": "Business: supervision dashboard",
+        "groups": "Business: administrators, classes and programmes",
+        "exams": "Business: confidential exam papers sent to the secretariat"
+      }
+    },
+    "pricing": {
+      "eyebrow": "Pricing",
+      "title": "Start for free, pay when you need it",
+      "intro": "Prices in FCFA, taxes included. Pay by mobile money via LigdiCash, PDF receipt sent by email, no automatic renewal charge. Every plan lets you submit a document to a supervisor.",
+      "period": "Billing period",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "unavailable": "Pricing is temporarily unavailable. Please try again in a moment."
+    },
+    "faq": {
+      "eyebrow": "Frequently asked questions",
+      "title": "Your questions",
+      "latex": {
+        "question": "I don't know LaTeX. Is this for me?",
+        "answer": "Yes. Start from a ready-to-fill template; the most common compilation errors are explained in French and English, with a link to the line concerned."
+      },
+      "payment": {
+        "question": "How can I pay without a bank card?",
+        "answer": "By mobile money, via LigdiCash, directly on the platform. Your plan is activated as soon as the payment is confirmed and you receive a PDF receipt by email."
+      },
+      "privacy": {
+        "question": "Is my work protected?",
+        "answer": "Nobody can open a project without an invitation. Every compilation runs in an isolated environment. In a team or an institution, whoever pays sees usage, never the content of your projects."
+      },
+      "import": {
+        "question": "Can I bring an existing project?",
+        "answer": "Yes: import it as a ZIP, including an Overleaf export. The main file is main.tex by default and you can choose another one."
+      }
+    },
+    "cta": {
+      "title": "Your next document can start today.",
+      "text": "A phone number is all you need to create your account.",
+      "action": "Create my account"
+    }
+  },
+  "Plans": {
+    "summary": {
+      "FREE": "To get started",
+      "STANDARD": "For working on your own",
+      "TEAM": "For a small team, with one manager",
+      "BUSINESS": "For organisations: administrators, classes and programmes, supervision"
+    },
+    "amount": "{amount, number, integer} FCFA",
+    "unit": {
+      "free": "no time limit",
+      "monthly": "/ month",
+      "yearly": "/ year",
+      "seatMonthly": "/ seat / month",
+      "seatYearly": "/ seat / year"
+    },
+    "alternative": {
+      "monthly": "or {amount} {unit} paid yearly",
+      "yearly": "or {amount} {unit} paid monthly"
+    },
+    "trial": "{days}-day free trial",
+    "seats": {
+      "range": "{min} to {max} seats, owner included",
+      "atLeast": "{min} seats or more, owner included"
+    },
+    "projects": {
+      "limited": "{count, plural, one {# project} other {# projects}}",
+      "unlimited": "Unlimited projects"
+    },
+    "collaborators": {
+      "limited": "{count, plural, one {# collaborator} other {# collaborators}} per project",
+      "unlimited": "Unlimited collaborators"
+    },
+    "storage": {
+      "perAccount": "{size} of storage",
+      "perSeat": "{size} of storage per seat",
+      "mb": "{value, number, integer} MB",
+      "gb": "{value, number} GB"
+    },
+    "history": {
+      "hours": "Version history: {hours} h",
+      "days": "Version history: {days} days",
+      "unlimited": "Unlimited version history"
+    },
+    "compile": {
+      "seconds": "Compiles up to {seconds} s",
+      "minutes": "Compiles up to {minutes} min",
+      "perHour": "{count} compiles per hour"
+    },
+    "autoCompile": "Automatic compilation",
+    "priority": {
+      "HIGH": "High compile priority",
+      "NORMAL": "Normal compile priority",
+      "LOW": "Low compile priority"
+    },
+    "supervision": "Supervision dashboard ({count} students per supervisor)",
+    "cta": {
+      "free": "Start for free",
+      "paid": "Choose {name}"
+    }
+  },
+  "ComingSoon": {
+    "text": "This page will be available soon.",
+    "back": "Back to the home page",
+    "login": "Log in",
+    "signup": "Sign up",
+    "terms": "Terms of use",
+    "privacy": "Privacy"
   }
 }

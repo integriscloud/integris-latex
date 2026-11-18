@@ -10,6 +10,14 @@ export const apiEnvSchema = z.object({
 });
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
 
+/** Environment read by apps/web (server side only). */
+export const webEnvSchema = z.object({
+  NODE_ENV: nodeEnv,
+  // Where the Next.js server reaches the API. Defaults to the local API port.
+  API_INTERNAL_URL: z.url().optional(),
+});
+export type WebEnv = z.infer<typeof webEnvSchema>;
+
 /** Environment read by apps/collab. */
 export const collabEnvSchema = z.object({
   NODE_ENV: nodeEnv,

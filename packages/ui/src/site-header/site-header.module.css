@@ -1,0 +1,152 @@
+.header {
+  position: relative;
+  z-index: 10;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--espace-4);
+  padding-block: var(--espace-4);
+}
+
+.nav {
+  display: none;
+  flex: 1 1 auto;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-1) var(--espace-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cible-tactile);
+  padding: 0 var(--espace-2);
+  border-radius: var(--r-md);
+  font: var(--t-texte);
+  color: var(--texte-2);
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--action);
+}
+
+.link:focus-visible,
+.menuButton:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--espace-2);
+  margin-left: auto;
+}
+
+.secondary,
+.primary {
+  display: none;
+}
+
+.menu {
+  position: relative;
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cible-tactile);
+  height: var(--cible-tactile);
+  border: 1px solid var(--bordure-forte);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--texte);
+  cursor: pointer;
+  list-style: none;
+}
+
+.menuButton::-webkit-details-marker {
+  display: none;
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + var(--espace-2));
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  width: min(280px, calc(100vw - 2 * var(--espace-4)));
+  padding: var(--espace-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--ombre-2);
+}
+
+.panel .links {
+  flex-direction: column;
+}
+
+.panel .link {
+  width: 100%;
+}
+
+.panelActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  padding-top: var(--espace-3);
+  border-top: 1px solid var(--bordure);
+}
+
+@media (min-width: 600px) {
+  .primary {
+    display: flex;
+    gap: var(--espace-2);
+  }
+
+  .panelPrimary {
+    display: none;
+  }
+}
+
+@media (min-width: 960px) {
+  .bar {
+    gap: var(--espace-6);
+  }
+
+  .nav {
+    display: block;
+  }
+
+  .panelNav {
+    display: none;
+  }
+
+  .panelActions:first-of-type {
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .secondary {
+    display: flex;
+    gap: var(--espace-2);
+  }
+
+  .menu {
+    display: none;
+  }
+}

@@ -1,0 +1,55 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espace-3);
+  min-height: var(--cible-tactile);
+  color: var(--texte);
+  text-decoration: none;
+}
+
+.logo:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+  border-radius: var(--r-md);
+}
+
+.mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-lg);
+  background: var(--toge-700);
+}
+
+.stroke {
+  fill: none;
+  stroke: var(--neutre-0);
+}
+
+.dot {
+  fill: var(--or-300);
+}
+
+.name {
+  font: var(--t-titre-4);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.inverted {
+  color: var(--neutre-0);
+}
+
+.inverted .mark {
+  background: var(--neutre-0);
+}
+
+.inverted .stroke {
+  stroke: var(--toge-700);
+}
+
+.inverted .dot {
+  fill: var(--or-500);
+}

@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@integris/db": "workspace:*",
     "@integris/shared": "workspace:*",
     "@nestjs/common": "12.5.1",
     "@nestjs/core": "12.5.1",

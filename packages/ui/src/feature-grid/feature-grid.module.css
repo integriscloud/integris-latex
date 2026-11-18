@@ -1,0 +1,70 @@
+.grid {
+  display: grid;
+  gap: var(--espace-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  padding: var(--espace-6);
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  transition: transform var(--duree-base) var(--courbe);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cible-tactile);
+  height: var(--cible-tactile);
+  border-radius: var(--r-lg);
+  background: var(--action-doux);
+  color: var(--action);
+}
+
+.number {
+  font: var(--t-legende);
+  font-variant-numeric: tabular-nums;
+  color: var(--texte-3);
+}
+
+.title {
+  margin: 0;
+  font: var(--t-titre-4);
+  color: var(--texte);
+}
+
+.text {
+  margin: 0;
+  font: var(--t-texte);
+  color: var(--texte-2);
+}
+
+@media (min-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--espace-6);
+  }
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
