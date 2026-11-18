@@ -221,24 +221,25 @@ describe('auth API', () => {
       await post('login/otp', {
         ...LOCAL,
         code: wrong,
-        captcha: await solveCaptcha(ctx.app),
+        captcha: await solveCaptcha(ctx.app, { action: 'login_otp', ...LOCAL }),
       }).expect(400, { code: 'invalid_code' });
       await post('login/otp', {
         ...LOCAL,
         code: wrong,
-        captcha: await solveCaptcha(ctx.app),
+        captcha: await solveCaptcha(ctx.app, { action: 'login_otp', ...LOCAL }),
       }).expect(400, { code: 'too_many_attempts' });
-      await post('login/otp', { ...LOCAL, code, captcha: await solveCaptcha(ctx.app) }).expect(
-        400,
-        { code: 'code_expired' },
-      );
+      await post('login/otp', {
+        ...LOCAL,
+        code,
+        captcha: await solveCaptcha(ctx.app, { action: 'login_otp', ...LOCAL }),
+      }).expect(400, { code: 'code_expired' });
     });
 
     it('refuses a CAPTCHA solution used twice or forged', async () => {
       ctx.prisma.addUser({ phone: PHONE });
       await post('otp', { ...LOCAL, purpose: 'login', locale: 'fr' }).expect(200);
       for (let i = 0; i < 3; i++) await post('login/otp', { ...LOCAL, code: `99999${i}` });
-      const captcha = await solveCaptcha(ctx.app);
+      const captcha = await solveCaptcha(ctx.app, { action: 'login_otp', ...LOCAL });
       await post('login/otp', { ...LOCAL, code: '999999', captcha });
       await post('login/otp', { ...LOCAL, code: '999999', captcha }).expect(428, {
         code: 'captcha_invalid',
@@ -250,6 +251,54 @@ describe('auth API', () => {
       }).expect(428, { code: 'captcha_invalid' });
     });
 
+    it('refuses a CAPTCHA solved for another number, another action or with altered data', async () => {
+      ctx.prisma.addUser({ phone: PHONE });
+      await post('otp', { ...LOCAL, purpose: 'login', locale: 'fr' }).expect(200);
+      for (let i = 0; i < 3; i++) await post('login/otp', { ...LOCAL, code: `99999${i}` });
+      const refused = { code: 'captcha_invalid' };
+
+      const otherNumber = await solveCaptcha(ctx.app, {
+        action: 'login_otp',
+        phone: '70123457',
+        dialCode: '226',
+      });
+      await post('login/otp', { ...LOCAL, code: '999999', captcha: otherNumber }).expect(
+        428,
+        refused,
+      );
+
+      const otherAction = await solveCaptcha(ctx.app, { action: 'signup', ...LOCAL });
+      await post('login/otp', { ...LOCAL, code: '999999', captcha: otherAction }).expect(
+        428,
+        refused,
+      );
+
+      const valid = await solveCaptcha(ctx.app, {
+        action: 'login_otp',
+        phone: '70123457',
+        dialCode: '226',
+      });
+      const decoded = JSON.parse(Buffer.from(valid, 'base64').toString('utf8'));
+      decoded.challenge.parameters.data.target = JSON.parse(
+        Buffer.from(
+          await solveCaptcha(ctx.app, { action: 'login_otp', ...LOCAL }),
+          'base64',
+        ).toString('utf8'),
+      ).challenge.parameters.data.target;
+      const altered = Buffer.from(JSON.stringify(decoded)).toString('base64');
+      await post('login/otp', { ...LOCAL, code: '999999', captcha: altered }).expect(428, refused);
+    });
+
+    it('applies the configured difficulty', async () => {
+      const res = await request(ctx.app.getHttpServer())
+        .post('/api/auth/captcha')
+        .set('Origin', ORIGIN)
+        .send({ action: 'otp', ...LOCAL })
+        .expect(200);
+      expect(res.body.parameters).toMatchObject({ keyPrefix: '0', cost: 1 });
+      expect(JSON.stringify(res.body)).not.toContain('70123456');
+    });
+
     it('locks the number for 15 minutes after 10 failures', async () => {
       ctx.prisma.addUser({ phone: PHONE });
       for (let round = 0; round < 2; round++) {
@@ -258,13 +307,13 @@ describe('auth API', () => {
           ...LOCAL,
           purpose: 'login',
           locale: 'fr',
-          captcha: round ? await solveCaptcha(ctx.app) : undefined,
+          captcha: round ? await solveCaptcha(ctx.app, { action: 'otp', ...LOCAL }) : undefined,
         }).expect(200);
         for (let i = 0; i < 5; i++) {
           await post('login/otp', {
             ...LOCAL,
             code: '999999',
-            captcha: await solveCaptcha(ctx.app),
+            captcha: await solveCaptcha(ctx.app, { action: 'login_otp', ...LOCAL }),
           });
         }
       }
@@ -410,6 +459,19 @@ describe('auth API', () => {
   });
 
   describe('e-mail and password', () => {
+    /** Confirms the identity with a code sent to the account phone (10 minutes). */
+    const reauth = async (cookie: string) => {
+      await clearResendDelay();
+      await post('reauth/otp', { locale: 'fr' }, cookie).expect(200);
+      const res = await post('reauth', { code: await lastCode() }, cookie).expect(200);
+      return res.body.reauthUntil as number;
+    };
+    const signupReauthed = async (): Promise<string> => {
+      const cookie = await signup();
+      await reauth(cookie);
+      return cookie;
+    };
+
     const verifyEmail = async (cookie: string, email: string) => {
       await post('email', { email, locale: 'fr' }, cookie).expect(204);
       const mail = (await ctx.redis.client.get(devMailKey(email))) ?? '';
@@ -419,7 +481,7 @@ describe('auth API', () => {
     };
 
     it('confirms an e-mail address once, then allows setting a password', async () => {
-      const cookie = await signup();
+      const cookie = await signupReauthed();
       await post('password', { newPassword: 'kaboré-thèse-2026' }, cookie).expect(400, {
         code: 'email_required',
       });
@@ -450,7 +512,7 @@ describe('auth API', () => {
     });
 
     it('keeps only the latest confirmation link valid', async () => {
-      const cookie = await signup();
+      const cookie = await signupReauthed();
       await post('email', { email: 'typo@example.com', locale: 'fr' }, cookie).expect(204);
       const old = /#token=([\w-]+)/.exec(
         (await ctx.redis.client.get(devMailKey('typo@example.com'))) ?? '',
@@ -462,7 +524,7 @@ describe('auth API', () => {
 
     it('refuses an e-mail address already confirmed by another account', async () => {
       ctx.prisma.addUser({ email: 'taken@example.com', emailVerifiedAt: new Date() });
-      const cookie = await signup();
+      const cookie = await signupReauthed();
       await post('email', { email: 'taken@example.com', locale: 'fr' }, cookie).expect(204);
       const mail = (await ctx.redis.client.get(devMailKey('taken@example.com'))) ?? '';
       const token = /#token=([\w-]+)/.exec(mail)?.[1] ?? '';
@@ -500,7 +562,7 @@ describe('auth API', () => {
       await post('login/password', {
         email: 'a@example.com',
         password: 'wrong',
-        captcha: await solveCaptcha(ctx.app),
+        captcha: await solveCaptcha(ctx.app, { action: 'login_password', email: 'a@example.com' }),
       }).expect(401);
     });
 
@@ -513,8 +575,8 @@ describe('auth API', () => {
       }).expect(401);
     });
 
-    it('changes the password with the current one and signs out other sessions', async () => {
-      const cookie = await signup();
+    it('changes the password after reauthentication and signs out other sessions', async () => {
+      const cookie = await signupReauthed();
       await verifyEmail(cookie, 'awa@example.com');
       await post('password', { newPassword: 'kaboré-thèse-2026' }, cookie).expect(204);
       const other = sessionCookie(
@@ -523,21 +585,74 @@ describe('auth API', () => {
           password: 'kaboré-thèse-2026',
         }).expect(200),
       );
-
-      await post('password', { newPassword: 'nouvelle-phrase-2027' }, cookie).expect(401, {
-        code: 'invalid_credentials',
+      // The other session has not confirmed its identity by SMS.
+      await post('password', { newPassword: 'pris-par-un-autre-2027' }, other).expect(403, {
+        code: 'reauth_required',
       });
-      await post(
-        'password',
-        { currentPassword: 'kaboré-thèse-2026', newPassword: 'nouvelle-phrase-2027' },
-        cookie,
-      ).expect(204);
+      await post('password', { newPassword: 'nouvelle-phrase-2027' }, cookie).expect(204);
       await get('me', cookie).expect(200);
       await get('me', other).expect(401);
     });
 
-    it('resets a forgotten password by e-mail and signs out every session', async () => {
+    it('requires a recent SMS confirmation to change the e-mail or the password', async () => {
       const cookie = await signup();
+      expect((await get('me', cookie)).body.reauthUntil).toBeNull();
+      await post('email', { email: 'awa@example.com', locale: 'fr' }, cookie).expect(403, {
+        code: 'reauth_required',
+      });
+      await post('password', { newPassword: 'kaboré-thèse-2026' }, cookie).expect(403, {
+        code: 'reauth_required',
+      });
+
+      // A sign-in code is not a reauthentication code.
+      await clearResendDelay();
+      await post('otp', { ...LOCAL, purpose: 'login', locale: 'fr' }).expect(200);
+      await post('reauth', { code: await lastCode() }, cookie).expect(400, {
+        code: 'code_expired',
+      });
+
+      const until = await reauth(cookie);
+      const now = Math.floor(Date.now() / 1000);
+      expect(until).toBeGreaterThanOrEqual(now + 599);
+      expect(until).toBeLessThanOrEqual(now + 600);
+      expect((await get('me', cookie)).body.reauthUntil).toBe(until);
+      await post('email', { email: 'awa@example.com', locale: 'fr' }, cookie).expect(204);
+
+      // After 10 minutes the confirmation is no longer valid.
+      const [key] = await ctx.redis.client.keys('sess:*');
+      const data = JSON.parse((await ctx.redis.client.get(key!))!);
+      await ctx.redis.client.set(key!, JSON.stringify({ ...data, reauthUntil: now - 1 }));
+      await post('email', { email: 'other@example.com', locale: 'fr' }, cookie).expect(403, {
+        code: 'reauth_required',
+      });
+      expect((await get('me', cookie)).body.reauthUntil).toBeNull();
+    });
+
+    it('revokes pending reset and confirmation links when the account e-mail changes', async () => {
+      const cookie = await signupReauthed();
+      await verifyEmail(cookie, 'awa@example.com');
+      await post('password/forgot', { email: 'awa@example.com', locale: 'fr' }).expect(204);
+      const reset = /#token=([\w-]+)/.exec(
+        (await ctx.redis.client.get(devMailKey('awa@example.com'))) ?? '',
+      )?.[1];
+
+      await post('email', { email: 'nouvelle@example.com', locale: 'fr' }, cookie).expect(204);
+      await verifyEmail(cookie, 'awa.k@example.com');
+      // The reset link sent to the previous address no longer works.
+      await post('password/reset', { token: reset, newPassword: 'pris-par-un-autre-2027' }).expect(
+        400,
+        { code: 'invalid_token' },
+      );
+      // Nor the confirmation link of the address that was not confirmed.
+      const pending = /#token=([\w-]+)/.exec(
+        (await ctx.redis.client.get(devMailKey('nouvelle@example.com'))) ?? '',
+      )?.[1];
+      await post('email/verify', { token: pending }).expect(400, { code: 'invalid_token' });
+      expect((await get('me', cookie)).body.user.email).toBe('awa.k@example.com');
+    });
+
+    it('resets a forgotten password by e-mail and signs out every session', async () => {
+      const cookie = await signupReauthed();
       await verifyEmail(cookie, 'awa@example.com');
 
       await post('password/forgot', { email: 'nobody@example.com', locale: 'fr' }).expect(204);

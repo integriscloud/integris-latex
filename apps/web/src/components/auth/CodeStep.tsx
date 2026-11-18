@@ -20,7 +20,8 @@ export interface CodeStepProps {
   notice?: ReactNode;
   onSubmit: (code: string) => void;
   onResend: () => void;
-  onChangeNumber: () => void;
+  /** Shown as « Modifier le numéro » when the user typed the number. */
+  onChangeNumber?: () => void;
 }
 
 /** Entry of the SMS code: one box per digit, resend after the delay, change of number. */
@@ -57,9 +58,11 @@ export function CodeStep({
     <form onSubmit={submit} noValidate className={styles.form}>
       <p className={styles.text}>
         {t('code.sentTo', { phone })}{' '}
-        <Button variant="ghost" onClick={onChangeNumber}>
-          {t('code.changeNumber')}
-        </Button>
+        {onChangeNumber && (
+          <Button variant="ghost" onClick={onChangeNumber}>
+            {t('code.changeNumber')}
+          </Button>
+        )}
       </p>
       <OtpInput
         label={t('fields.code')}

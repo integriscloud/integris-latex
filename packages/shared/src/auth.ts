@@ -31,6 +31,9 @@ export const AUTH_ERROR_CODES = [
   'email_taken',
   'invalid_token',
   'space_not_allowed',
+  'reauth_required',
+  'no_phone',
+  'sms_unavailable',
 ] as const;
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[number];
 
@@ -93,8 +96,25 @@ const token = z.string().regex(/^[A-Za-z0-9_-]{20,128}$/);
 const captcha = z.string().max(4096).optional();
 const name = z.string().trim().min(1).max(60);
 
+/** Purposes of a code requested through POST /auth/otp. */
 export const OTP_PURPOSES = ['signup', 'login'] as const;
-export type OtpPurpose = (typeof OTP_PURPOSES)[number];
+/** `reauth` codes confirm the identity of a signed-in user before a sensitive change. */
+export type OtpPurpose = (typeof OTP_PURPOSES)[number] | 'reauth';
+
+/**
+ * Actions protected by the CAPTCHA. A challenge is signed for one action and one target (phone
+ * number, e-mail address or signed-in user) and is refused for any other.
+ */
+export const CAPTCHA_ACTIONS = [
+  'otp',
+  'signup',
+  'login_otp',
+  'login_password',
+  'password_forgot',
+  'reauth_otp',
+  'reauth',
+] as const;
+export type CaptchaAction = (typeof CAPTCHA_ACTIONS)[number];
 
 export const otpRequestSchema = z.object({
   phone,
@@ -135,10 +155,25 @@ export const emailChangeSchema = z.object({ email, locale: z.enum(LOCALES) });
 
 export const tokenSchema = z.object({ token });
 
-export const passwordChangeSchema = z.object({
-  currentPassword: password.optional(),
-  newPassword: password,
+// Needs a recent confirmation by SMS code (reauthentication) instead of the current password.
+export const passwordChangeSchema = z.object({ newPassword: password });
+
+export const reauthRequestSchema = z.object({ locale: z.enum(LOCALES), captcha });
+
+export const reauthVerifySchema = z.object({ code, captcha });
+
+export const reauthResponseSchema = z.object({
+  // Unix seconds until which e-mail and password changes are allowed.
+  reauthUntil: z.number().int(),
 });
+
+export const captchaChallengeRequestSchema = z.object({
+  action: z.enum(CAPTCHA_ACTIONS),
+  phone: phone.optional(),
+  dialCode: dialCode.optional(),
+  email: email.optional(),
+});
+export type CaptchaChallengeRequest = z.infer<typeof captchaChallengeRequestSchema>;
 
 export const passwordForgotSchema = z.object({ email, locale: z.enum(LOCALES), captcha });
 
@@ -170,6 +205,8 @@ export const meResponseSchema = z.object({
   spaces: z.array(spaceSchema),
   // null until the user picks a space (several spaces) or when the chosen one was revoked.
   currentSpaceId: z.string().nullable(),
+  // Unix seconds until which this session may change the e-mail or the password, or null.
+  reauthUntil: z.number().int().nullable(),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
 

@@ -57,12 +57,11 @@ export function SignupForm({ config, locale, brand, barEnd }: SignupFormProps) {
   const requestCode = async () => {
     setBusy(true);
     setError(null);
-    const result = await send<{ resendAfter: number }>('auth/otp', {
-      phone,
-      dialCode,
-      purpose: 'signup',
-      locale,
-    });
+    const result = await send<{ resendAfter: number }>(
+      'auth/otp',
+      { phone, dialCode, purpose: 'signup', locale },
+      'otp',
+    );
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
@@ -85,16 +84,20 @@ export function SignupForm({ config, locale, brand, barEnd }: SignupFormProps) {
     setBusy(true);
     setError(null);
     setResent(false);
-    const result = await send<MeResponse>('auth/signup', {
-      phone,
-      dialCode,
-      code,
-      firstName,
-      lastName,
-      email: email.trim(),
-      acceptTerms: true,
-      locale,
-    });
+    const result = await send<MeResponse>(
+      'auth/signup',
+      {
+        phone,
+        dialCode,
+        code,
+        firstName,
+        lastName,
+        email: email.trim(),
+        acceptTerms: true,
+        locale,
+      },
+      'signup',
+    );
     setBusy(false);
     if (!result.ok) {
       setError(result.error);

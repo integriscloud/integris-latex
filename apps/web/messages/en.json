@@ -370,7 +370,10 @@
       "invalid_token": "This link is no longer valid. Ask for a new one.",
       "space_not_allowed": "You do not have access to this space.",
       "network": "Cannot connect. Check your Internet connection and try again.",
-      "unknown": "Something went wrong. Try again."
+      "unknown": "Something went wrong. Try again.",
+      "reauth_required": "First confirm your identity with a code received by SMS.",
+      "no_phone": "No phone number is linked to this account. Contact Integris support.",
+      "sms_unavailable": "Sending SMS is paused for now. Try again later or log in with your e-mail and password."
     }
   },
   "Spaces": {
@@ -411,7 +414,6 @@
     "emailSubmitting": "Sending…",
     "emailSent": "A confirmation link has been sent to {email}.",
     "passwordTitle": "Password",
-    "passwordText": "Optional: to log in with your e-mail. Logging in with an SMS code always remains possible.",
     "passwordNeedsEmail": "Confirm an e-mail address first to choose a password.",
     "passwordSubmit": "Save the password",
     "passwordSubmitting": "Saving…",
@@ -419,7 +421,15 @@
     "sessionsTitle": "Logged-in devices",
     "sessionsText": "Log your account out of every device, including this one.",
     "logoutAll": "Log out everywhere",
-    "back": "Back to my space"
+    "back": "Back to my space",
+    "reauthTitle": "Confirm your identity",
+    "reauthText": "To change your e-mail address or your password, enter a code sent by SMS to {phone}. The confirmation stays valid for 10 minutes.",
+    "reauthSend": "Get a code by SMS",
+    "reauthSending": "Sending the code…",
+    "reauthConfirm": "Confirm",
+    "reauthConfirming": "Checking…",
+    "reauthDone": "Identity confirmed until {time}.",
+    "passwordText": "Optional: to log in with your e-mail. Logging in with an SMS code always remains possible."
   },
   "AppHome": {
     "metaTitle": "My space",

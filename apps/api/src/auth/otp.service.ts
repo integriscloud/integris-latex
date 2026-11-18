@@ -1,5 +1,5 @@
 import type { Locale, OtpPurpose } from '@integris/shared';
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import { ApiError } from '../common/api-error.js';
 import { ApiConfig } from '../config/api-config.js';
@@ -11,6 +11,7 @@ import { RateLimitService } from './rate-limit.service.js';
 export type OtpCheck = 'ok' | 'invalid_code' | 'code_expired' | 'too_many_attempts';
 
 const smsText: Record<Locale, (code: string, minutes: number) => string> = {
+  // Same text for every purpose: the code is only usable for the action it was requested for.
   fr: (code, minutes) =>
     `Integris LaTeX : votre code est ${code}. Il expire dans ${minutes} min. Ne le communiquez à personne.`,
   en: (code, minutes) =>
@@ -30,6 +31,8 @@ return { redis.call('HGET', KEYS[1], 'hash'), attempts }
  */
 @Injectable()
 export class OtpService {
+  private readonly logger = new Logger('SMS');
+
   constructor(
     private readonly redis: RedisService,
     private readonly config: ApiConfig,
@@ -55,6 +58,7 @@ export class OtpService {
       throw new ApiError(HttpStatus.TOO_MANY_REQUESTS, 'rate_limited', Math.max(ttl, 1));
     }
     await this.limits.consumeSend(phone, ip);
+    await this.consumeDailyBudget();
 
     const code = randomInt(0, 10 ** env.OTP_LENGTH)
       .toString()
@@ -68,6 +72,29 @@ export class OtpService {
       .exec();
     await this.sms.send(phone, smsText[locale](code, Math.ceil(env.OTP_TTL_SECONDS / 60)));
     return env.OTP_RESEND_SECONDS;
+  }
+
+  /**
+   * Platform-wide SMS budget per UTC day (guard against SMS toll fraud): a warning in the logs at
+   * 80 %, an error and a clear refusal once it is used up.
+   */
+  private async consumeDailyBudget(): Promise<void> {
+    const limit = this.config.env.SMS_DAILY_LIMIT;
+    const key = `rl:sms:day:${new Date().toISOString().slice(0, 10)}`;
+    const [count] = (await this.redis.client
+      .multi()
+      .incr(key)
+      .expire(key, 2 * 86_400)
+      .exec()
+      .then((replies) => replies?.map(([, value]) => value) ?? [0])) as [number];
+    if (count === Math.ceil(limit * 0.8)) {
+      this.logger.warn(`SMS daily budget at 80 % (${count}/${limit})`);
+    }
+    if (count > limit) {
+      if (count === limit + 1)
+        this.logger.error(`SMS daily budget used up (${limit}): codes refused`);
+      throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE, 'sms_unavailable');
+    }
   }
 
   /** Checks a code. A valid code is consumed; the last allowed wrong attempt deletes it. */

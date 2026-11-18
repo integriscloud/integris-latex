@@ -23,7 +23,7 @@ export function ForgotPasswordForm({ locale }: { locale: string }) {
     setBusy(true);
     setError(null);
     setSent(false);
-    const result = await send('auth/password/forgot', { email, locale });
+    const result = await send('auth/password/forgot', { email, locale }, 'password_forgot');
     setBusy(false);
     if (!result.ok) return setError(result.error);
     setSent(true);

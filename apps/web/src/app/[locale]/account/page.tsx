@@ -2,7 +2,7 @@ import { formatPhone } from '@integris/shared';
 import { AuthCard, AuthHeading, AuthPageLayout, ButtonLink } from '@integris/ui';
 import type { Locale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { EmailForm, PasswordForm } from '../../../components/auth/AccountForms';
+import { AccountSecurity } from '../../../components/auth/AccountForms';
 import styles from '../../../components/auth/auth-forms.module.css';
 import { ApiUnavailable, AuthBrand, authMetadata } from '../../../components/auth/AuthChrome';
 import { LogoutButton } from '../../../components/auth/LogoutButton';
@@ -49,8 +49,7 @@ export default async function AccountPage({ params }: PageProps) {
           </dl>
         </section>
       </AuthCard>
-      <EmailForm me={me} locale={locale} />
-      {config ? <PasswordForm me={me} config={config} /> : <ApiUnavailable />}
+      {config ? <AccountSecurity me={me} config={config} locale={locale} /> : <ApiUnavailable />}
       <AuthCard>
         <section className={styles.section} aria-labelledby="account-sessions">
           <h2 className={styles.sectionTitle} id="account-sessions">

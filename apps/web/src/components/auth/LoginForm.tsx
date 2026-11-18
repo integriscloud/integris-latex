@@ -39,12 +39,11 @@ export function LoginForm({ config, locale }: { config: AuthConfig; locale: stri
   const requestCode = async () => {
     setBusy(true);
     setError(null);
-    const result = await send<{ resendAfter: number }>('auth/otp', {
-      phone,
-      dialCode,
-      purpose: 'login',
-      locale,
-    });
+    const result = await send<{ resendAfter: number }>(
+      'auth/otp',
+      { phone, dialCode, purpose: 'login', locale },
+      'otp',
+    );
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
@@ -69,7 +68,7 @@ export function LoginForm({ config, locale }: { config: AuthConfig; locale: stri
     setBusy(true);
     setError(null);
     setResent(false);
-    const result = await send<MeResponse>('auth/login/otp', { phone, dialCode, code });
+    const result = await send<MeResponse>('auth/login/otp', { phone, dialCode, code }, 'login_otp');
     if (result.ok) return open(result.data);
     setBusy(false);
     setError(result.error);
@@ -79,7 +78,11 @@ export function LoginForm({ config, locale }: { config: AuthConfig; locale: stri
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await send<MeResponse>('auth/login/password', { email, password });
+    const result = await send<MeResponse>(
+      'auth/login/password',
+      { email, password },
+      'login_password',
+    );
     if (result.ok) return open(result.data);
     setBusy(false);
     setError(result.error);

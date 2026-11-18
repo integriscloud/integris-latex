@@ -68,11 +68,17 @@ export async function createAuthTestApp(
 }
 
 /** Solves a CAPTCHA challenge like the browser does and returns the payload to send. */
-export async function solveCaptcha(app: NestExpressApplication): Promise<string> {
+export async function solveCaptcha(
+  app: NestExpressApplication,
+  target: { action: string; phone?: string; dialCode?: string; email?: string },
+  cookie?: string,
+): Promise<string> {
   const { default: request } = await import('supertest');
   const { solveChallenge } = await import('altcha-lib');
   const { deriveKey } = await import('altcha-lib/algorithms/sha');
-  const challenge = (await request(app.getHttpServer()).get('/api/auth/captcha').expect(200)).body;
+  const req = request(app.getHttpServer()).post('/api/auth/captcha').set('Origin', ORIGIN);
+  if (cookie) req.set('Cookie', cookie);
+  const challenge = (await req.send(target).expect(200)).body;
   const solution = await solveChallenge({ challenge, deriveKey });
   return Buffer.from(JSON.stringify({ challenge, solution })).toString('base64');
 }

@@ -14,6 +14,8 @@ export interface SessionData {
   createdAt: number;
   // Unix seconds after which the session is refused even if active.
   absoluteExpiresAt: number;
+  // Unix seconds until which the e-mail and the password can be changed (recent SMS code).
+  reauthUntil?: number;
 }
 
 export interface Session extends SessionData {
@@ -84,12 +86,18 @@ export class SessionService {
     return { key, ...data };
   }
 
-  async setSpace(session: Session, spaceId: string | null): Promise<void> {
+  /** Changes the open space or the reauthentication time, keeping the remaining lifetime. */
+  async update(
+    session: Session,
+    patch: Partial<Pick<SessionData, 'spaceId' | 'reauthUntil'>>,
+  ): Promise<void> {
     const data: SessionData = {
       userId: session.userId,
-      spaceId,
+      spaceId: session.spaceId,
       createdAt: session.createdAt,
       absoluteExpiresAt: session.absoluteExpiresAt,
+      reauthUntil: session.reauthUntil,
+      ...patch,
     };
     await this.redis.client.set(sessionKey(session.key), JSON.stringify(data), 'KEEPTTL', 'XX');
   }

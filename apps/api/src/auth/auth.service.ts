@@ -1,6 +1,8 @@
 import type { User } from '@integris/db';
 import {
   type AuthConfig,
+  type CaptchaAction,
+  type CaptchaChallengeRequest,
   dialCodeOf,
   type Locale,
   type MeResponse,
@@ -36,7 +38,9 @@ const emailTokenKey = (token: string) => `email-verify:${sha256(token)}`;
 const pendingEmailKey = (userId: string) => `email-pending:${userId}`;
 const resetTokenKey = (token: string) => `password-reset:${sha256(token)}`;
 const emailId = (email: string) => `email:${email}`;
-const userId = (id: string) => `user:${id}`;
+// Pending e-mail links (confirmation, password reset) of a user, revoked together.
+const userTokensKey = (id: string) => `user-tokens:${id}`;
+const now = () => Math.floor(Date.now() / 1000);
 
 const isUniqueViolation = (error: unknown) =>
   typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'P2002';
@@ -86,7 +90,8 @@ export class AuthService {
    */
   async requestOtp(body: OtpRequest, ip: string): Promise<{ resendAfter: number }> {
     const phone = this.phone(body.phone, body.dialCode);
-    await this.captcha.enforce(await this.limits.checkAttempt(phone, ip), body.captcha);
+    const state = await this.limits.checkAttempt(phone, ip);
+    await this.captcha.enforce(state, body.captcha, 'otp', phone);
     const resendAfter = await this.otp.send(phone, body.purpose, body.locale, ip);
     return { resendAfter };
   }
@@ -94,22 +99,21 @@ export class AuthService {
   /**
    * Runs one guarded attempt: the attempt is counted before the check (so parallel requests
    * cannot skip the CAPTCHA or the lock), given back when the CAPTCHA refuses it, and cleared
-   * on success. `check` throws the error to return on failure.
+   * on success. The CAPTCHA must be signed for this action and identifier. `check` throws the
+   * error to return on failure.
    */
   private async attempt<T>(
     identifier: string,
     ip: string,
-    captcha: string | undefined | false,
+    captcha: { action: CaptchaAction; payload: string | undefined },
     check: () => Promise<T>,
   ): Promise<T> {
     const state = await this.limits.beginAttempt(identifier, ip);
-    if (captcha !== false) {
-      try {
-        await this.captcha.enforce(state, captcha);
-      } catch (error) {
-        await this.limits.release(identifier, ip);
-        throw error;
-      }
+    try {
+      await this.captcha.enforce(state, captcha.payload, captcha.action, identifier);
+    } catch (error) {
+      await this.limits.release(identifier, ip);
+      throw error;
     }
     const result = await check();
     await this.limits.succeed(identifier, ip);
@@ -120,7 +124,7 @@ export class AuthService {
     phone: string,
     purpose: OtpPurpose,
     code: string,
-    captcha: string | undefined,
+    captcha: { action: CaptchaAction; payload: string | undefined },
     ip: string,
   ): Promise<void> {
     await this.attempt(phone, ip, captcha, async () => {
@@ -140,7 +144,13 @@ export class AuthService {
     previous?: string,
   ): Promise<MeResponse> {
     const phone = this.phone(body.phone, body.dialCode);
-    await this.verifyCode(phone, 'signup', body.code, body.captcha, ip);
+    await this.verifyCode(
+      phone,
+      'signup',
+      body.code,
+      { action: 'signup', payload: body.captcha },
+      ip,
+    );
 
     let user = await this.prisma.client.user.findUnique({ where: { phone } });
     if (!user) {
@@ -174,7 +184,13 @@ export class AuthService {
     previous?: string,
   ): Promise<MeResponse> {
     const phone = this.phone(body.phone, body.dialCode);
-    await this.verifyCode(phone, 'login', body.code, body.captcha, ip);
+    await this.verifyCode(
+      phone,
+      'login',
+      body.code,
+      { action: 'login_otp', payload: body.captcha },
+      ip,
+    );
     const user = await this.prisma.client.user.findUnique({ where: { phone } });
     if (!user) throw new ApiError(HttpStatus.NOT_FOUND, 'no_account');
     return this.startSession(user, res, previous);
@@ -187,7 +203,8 @@ export class AuthService {
     res: Response,
     previous?: string,
   ): Promise<MeResponse> {
-    const user = await this.attempt(emailId(body.email), ip, body.captcha, async () => {
+    const captcha = { action: 'login_password' as const, payload: body.captcha };
+    const user = await this.attempt(emailId(body.email), ip, captcha, async () => {
       const found = await this.prisma.client.user.findUnique({ where: { email: body.email } });
       const valid = await this.passwords.verify(
         found?.emailVerifiedAt ? found.passwordHash : null,
@@ -234,6 +251,7 @@ export class AuthService {
       },
       spaces,
       currentSpaceId: current,
+      reauthUntil: session.reauthUntil && session.reauthUntil > now() ? session.reauthUntil : null,
     };
   }
 
@@ -243,7 +261,7 @@ export class AuthService {
     if (!spaces.some((space) => space.id === spaceId)) {
       throw new ApiError(HttpStatus.FORBIDDEN, 'space_not_allowed');
     }
-    await this.sessions.setSpace(auth.session, spaceId);
+    await this.sessions.update(auth.session, { spaceId });
     await this.prisma.client.user.update({
       where: { id: auth.user.id },
       data: { lastSpace: spaceId },
@@ -259,6 +277,88 @@ export class AuthService {
   async logoutEverywhere({ user }: AuthContext, res: Response): Promise<void> {
     await this.sessions.destroyAll(user.id);
     this.sessions.clearCookie(res);
+  }
+
+  /**
+   * A CAPTCHA challenge signed for one action and its target: the phone number or e-mail address
+   * of the request, or the signed-in user for reauthentication.
+   */
+  async captchaChallenge(body: CaptchaChallengeRequest, sessionCookie: string | undefined) {
+    let identifier: string;
+    if (body.action === 'login_password' || body.action === 'password_forgot') {
+      if (!body.email) throw new ApiError(HttpStatus.BAD_REQUEST, 'invalid_request');
+      identifier = emailId(body.email);
+    } else if (body.action === 'reauth_otp' || body.action === 'reauth') {
+      const session = await this.sessions.read(sessionCookie);
+      const user = session
+        ? await this.prisma.client.user.findUnique({ where: { id: session.userId } })
+        : null;
+      if (!user || user.disabledAt) throw new ApiError(HttpStatus.UNAUTHORIZED, 'unauthenticated');
+      identifier = this.accountPhone(user);
+    } else {
+      identifier = this.phone(body.phone ?? '', body.dialCode ?? '');
+    }
+    return this.captcha.createChallenge(body.action, identifier);
+  }
+
+  private accountPhone(user: User): string {
+    if (!user.phone) throw new ApiError(HttpStatus.BAD_REQUEST, 'no_phone');
+    return user.phone;
+  }
+
+  /** Sends a code to the account phone to confirm the identity before a sensitive change. */
+  async requestReauth(
+    { user }: AuthContext,
+    locale: Locale,
+    captcha: string | undefined,
+    ip: string,
+  ): Promise<{ resendAfter: number }> {
+    const phone = this.accountPhone(user);
+    const state = await this.limits.checkAttempt(phone, ip);
+    await this.captcha.enforce(state, captcha, 'reauth_otp', phone);
+    return { resendAfter: await this.otp.send(phone, 'reauth', locale, ip) };
+  }
+
+  /** Checks the reauthentication code; e-mail and password changes are allowed for a while. */
+  async verifyReauth(
+    { user, session }: AuthContext,
+    code: string,
+    captcha: string | undefined,
+    ip: string,
+  ): Promise<{ reauthUntil: number }> {
+    const phone = this.accountPhone(user);
+    await this.verifyCode(phone, 'reauth', code, { action: 'reauth', payload: captcha }, ip);
+    const reauthUntil = now() + this.config.env.AUTH_REAUTH_SECONDS;
+    await this.sessions.update(session, { reauthUntil });
+    return { reauthUntil };
+  }
+
+  private requireReauth(session: Session): void {
+    if (!session.reauthUntil || session.reauthUntil <= now()) {
+      throw new ApiError(HttpStatus.FORBIDDEN, 'reauth_required');
+    }
+  }
+
+  /** Remembers a pending e-mail link so that it can be revoked with the others. */
+  private async trackToken(id: string, key: string): Promise<void> {
+    // Kept as long as the longest link (keys of expired links are simply already gone).
+    await this.redis.client
+      .multi()
+      .sadd(userTokensKey(id), key)
+      .expire(userTokensKey(id), EMAIL_TOKEN_SECONDS)
+      .exec();
+  }
+
+  /** Revokes every pending confirmation and password reset link of a user. */
+  private async revokeTokens(id: string): Promise<void> {
+    const keys = await this.redis.client.smembers(userTokensKey(id));
+    await this.redis.client.del(userTokensKey(id), pendingEmailKey(id), ...keys);
+  }
+
+  /** Adds or changes the e-mail address: needs a recent confirmation by SMS code. */
+  async changeEmail(auth: AuthContext, email: string, locale: Locale, ip: string): Promise<void> {
+    this.requireReauth(auth.session);
+    await this.requestEmailVerification(auth.user, email, locale, ip);
   }
 
   /** Sends a confirmation link; the address is attached to the account only once confirmed. */
@@ -287,6 +387,7 @@ export class AuthService {
         EMAIL_TOKEN_SECONDS,
       )
       .exec();
+    await this.trackToken(user.id, emailTokenKey(token));
     const link = `${this.config.env.PUBLIC_WEB_URL}/${locale}/verify-email#token=${token}`;
     await this.mail.send(emailVerificationMail[locale](email, link));
   }
@@ -308,28 +409,17 @@ export class AuthService {
       if (isUniqueViolation(error)) throw new ApiError(HttpStatus.CONFLICT, 'email_taken');
       throw error;
     }
-    await this.redis.client.del(pendingEmailKey(id));
+    // The account e-mail changed: links sent before (to this or another address) stop working.
+    await this.revokeTokens(id);
   }
 
   /**
-   * Sets or changes the password (used to sign in with the verified e-mail). Changing it needs the
-   * current password and signs out every other session.
+   * Sets or changes the password (used to sign in with the verified e-mail). Needs a recent
+   * confirmation by SMS code and signs out every other session.
    */
-  async changePassword(
-    { user, session }: AuthContext,
-    newPassword: string,
-    currentPassword: string | undefined,
-    ip: string,
-  ): Promise<void> {
+  async changePassword({ user, session }: AuthContext, newPassword: string): Promise<void> {
+    this.requireReauth(session);
     if (!user.emailVerifiedAt) throw new ApiError(HttpStatus.BAD_REQUEST, 'email_required');
-    if (user.passwordHash) {
-      const hash = user.passwordHash;
-      await this.attempt(userId(user.id), ip, false, async () => {
-        if (!(await this.passwords.verify(hash, currentPassword ?? ''))) {
-          throw new ApiError(HttpStatus.UNAUTHORIZED, 'invalid_credentials');
-        }
-      });
-    }
     this.passwords.assertStrong(newPassword);
     await this.prisma.client.user.update({
       where: { id: user.id },
@@ -341,12 +431,14 @@ export class AuthService {
   /** Always answers the same way, whether or not the address belongs to an account. */
   async forgotPassword(email: string, locale: Locale, captcha: string | undefined, ip: string) {
     const id = emailId(email);
-    await this.captcha.enforce(await this.limits.checkAttempt(id, ip), captcha);
+    const state = await this.limits.checkAttempt(id, ip);
+    await this.captcha.enforce(state, captcha, 'password_forgot', id);
     await this.limits.consumeSend(id, ip);
     const user = await this.prisma.client.user.findUnique({ where: { email } });
     if (!user?.emailVerifiedAt || user.disabledAt) return;
     const token = randomBytes(32).toString('base64url');
     await this.redis.client.set(resetTokenKey(token), user.id, 'EX', RESET_TOKEN_SECONDS);
+    await this.trackToken(user.id, resetTokenKey(token));
     const link = `${this.config.env.PUBLIC_WEB_URL}/${locale}/reset-password#token=${token}`;
     // Not awaited: the answer must take the same time whether or not the account exists.
     void this.mail.send(passwordResetMail[locale](email, link)).catch((error: unknown) => {
@@ -363,6 +455,7 @@ export class AuthService {
       where: { id },
       data: { passwordHash: await this.passwords.hash(newPassword) },
     });
+    await this.revokeTokens(id);
     await this.sessions.destroyAll(id);
   }
 }

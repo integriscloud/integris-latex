@@ -1,5 +1,6 @@
 'use client';
 
+import type { CaptchaAction, CaptchaChallengeRequest } from '@integris/shared';
 import type { CaptchaState } from '@integris/ui';
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
@@ -27,20 +28,26 @@ export function useAuthRequest() {
   const [captchaRequired, setCaptchaRequired] = useState(false);
   const [captchaState, setCaptchaState] = useState<CaptchaState>('solving');
 
-  const captcha = useCallback(async (): Promise<string | undefined> => {
+  const captcha = useCallback(async (target: CaptchaChallengeRequest) => {
     setCaptchaState('solving');
-    const payload = await solveCaptcha().catch(() => null);
+    const payload = await solveCaptcha(target).catch(() => null);
     setCaptchaState(payload ? 'done' : 'error');
     return payload ?? undefined;
   }, []);
 
   const send = useCallback(
-    async <T>(path: string, body: object): Promise<ApiResult<T>> => {
-      let token = captchaRequired ? await captcha() : undefined;
+    async <T>(
+      path: string,
+      body: { phone?: string; dialCode?: string; email?: string; [key: string]: unknown },
+      action: CaptchaAction,
+    ): Promise<ApiResult<T>> => {
+      // The challenge is signed for this action and this phone number or e-mail address.
+      const target = { action, phone: body.phone, dialCode: body.dialCode, email: body.email };
+      let token = captchaRequired ? await captcha(target) : undefined;
       let result = await apiPost<T>(path, { ...body, captcha: token });
       if (!result.ok && isCaptchaError(result.error) && !token) {
         setCaptchaRequired(true);
-        token = await captcha();
+        token = await captcha(target);
         if (token) result = await apiPost<T>(path, { ...body, captcha: token });
       }
       return result;

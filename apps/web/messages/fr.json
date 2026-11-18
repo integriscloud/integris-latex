@@ -370,7 +370,10 @@
       "invalid_token": "Ce lien n'est plus valable. Demandez-en un nouveau.",
       "space_not_allowed": "Vous n'avez pas accès à cet espace.",
       "network": "Connexion impossible. Vérifiez votre connexion Internet et réessayez.",
-      "unknown": "Une erreur est survenue. Réessayez."
+      "unknown": "Une erreur est survenue. Réessayez.",
+      "reauth_required": "Confirmez d'abord votre identité avec un code reçu par SMS.",
+      "no_phone": "Aucun numéro de téléphone n'est associé à ce compte. Contactez l'assistance Integris.",
+      "sms_unavailable": "L'envoi de SMS est momentanément suspendu. Réessayez plus tard ou connectez-vous avec votre e-mail et votre mot de passe."
     }
   },
   "Spaces": {
@@ -411,7 +414,6 @@
     "emailSubmitting": "Envoi…",
     "emailSent": "Un lien de confirmation a été envoyé à {email}.",
     "passwordTitle": "Mot de passe",
-    "passwordText": "Facultatif : pour vous connecter avec votre e-mail. La connexion par code SMS reste toujours possible.",
     "passwordNeedsEmail": "Confirmez d'abord une adresse e-mail pour choisir un mot de passe.",
     "passwordSubmit": "Enregistrer le mot de passe",
     "passwordSubmitting": "Enregistrement…",
@@ -419,7 +421,15 @@
     "sessionsTitle": "Appareils connectés",
     "sessionsText": "Déconnectez votre compte de tous les appareils, y compris celui-ci.",
     "logoutAll": "Se déconnecter partout",
-    "back": "Retour à mon espace"
+    "back": "Retour à mon espace",
+    "reauthTitle": "Confirmer votre identité",
+    "reauthText": "Pour modifier votre adresse e-mail ou votre mot de passe, saisissez un code envoyé par SMS au {phone}. La confirmation reste valable 10 minutes.",
+    "reauthSend": "Recevoir un code par SMS",
+    "reauthSending": "Envoi du code…",
+    "reauthConfirm": "Confirmer",
+    "reauthConfirming": "Vérification…",
+    "reauthDone": "Identité confirmée jusqu'à {time}.",
+    "passwordText": "Facultatif : pour vous connecter avec votre e-mail. La connexion par code SMS reste toujours possible."
   },
   "AppHome": {
     "metaTitle": "Mon espace",

@@ -42,6 +42,9 @@ export const apiEnvSchema = z
       .regex(/^[0-9a-f]{1,8}$/)
       .default('0000'),
     ALTCHA_TTL_SECONDS: positiveInt(300),
+    // Proof-of-work difficulty: hex prefix the hash must start with (each 0 multiplies the work
+    // by 16) and number of hash rounds per try.
+    ALTCHA_COST: positiveInt(1),
     // Allowed country calling codes for phone numbers (first one is the default in the UI).
     AUTH_ALLOWED_DIAL_CODES: csv('226,225,223,227,228,229,221,33').pipe(
       z.array(z.string().regex(/^\d{1,4}$/)).min(1),
@@ -60,6 +63,11 @@ export const apiEnvSchema = z
     AUTH_CAPTCHA_AFTER_FAILURES: positiveInt(3),
     AUTH_LOCK_AFTER_FAILURES: positiveInt(10),
     AUTH_LOCK_SECONDS: positiveInt(900),
+    // SMS sent per day by the whole platform (toll-fraud guard): warning in the logs at 80 %,
+    // codes refused at 100 %.
+    SMS_DAILY_LIMIT: positiveInt(1000),
+    // Validity of a confirmation by SMS code before changing the e-mail or the password.
+    AUTH_REAUTH_SECONDS: positiveInt(600),
     SESSION_IDLE_DAYS: positiveInt(30),
     SESSION_MAX_DAYS: positiveInt(90),
     PASSWORD_MIN_LENGTH: z.coerce.number().int().min(8).max(64).default(10),

@@ -130,6 +130,15 @@ test('confirm an e-mail, set a password, log in with it', async ({ page }) => {
 
   await page.goto('/fr/account');
   await expect(page.getByText(`Adresse confirmée : ${email}`)).toBeVisible();
+  // Changing the password first needs a confirmation by SMS code (valid 10 minutes).
+  await expect(page.getByLabel('Nouveau mot de passe')).toHaveCount(0);
+  await resetLimits([phone.e164]);
+  await forgetMessages(phone.e164);
+  await page.getByRole('button', { name: 'Recevoir un code par SMS' }).click();
+  await expect(page.getByText(`Code envoyé par SMS au +226 ${phone.local}.`)).toBeVisible();
+  await enterCode(page, await lastSmsCode(phone.e164));
+  await page.getByRole('button', { name: 'Confirmer', exact: true }).click();
+  await expect(page.getByText(/Identité confirmée jusqu'à/)).toBeVisible();
   await page.getByLabel('Nouveau mot de passe').fill('ma-these-en-geologie');
   await page.getByRole('button', { name: 'Enregistrer le mot de passe' }).click();
   await expect(page.getByText('Mot de passe enregistré.', { exact: false })).toBeVisible();

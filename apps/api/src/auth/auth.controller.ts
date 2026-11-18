@@ -1,5 +1,6 @@
 import {
   type AuthConfig,
+  captchaChallengeRequestSchema,
   emailChangeSchema,
   type MeResponse,
   otpLoginSchema,
@@ -8,6 +9,8 @@ import {
   passwordForgotSchema,
   passwordLoginSchema,
   passwordResetSchema,
+  reauthRequestSchema,
+  reauthVerifySchema,
   selectSpaceSchema,
   SESSION_COOKIE,
   signupSchema,
@@ -22,7 +25,6 @@ import { ApiError } from '../common/api-error.js';
 import { ApiZodBody, ZodBody } from '../common/zod-body.js';
 import { Auth, type AuthContext, AuthGuard } from './auth.guard.js';
 import { AuthService } from './auth.service.js';
-import { CaptchaService } from './captcha.service.js';
 
 /** Client address (behind Nginx, from X-Forwarded-For). Refused when unknown. */
 const clientIp = (request: Request) => {
@@ -36,10 +38,7 @@ const sessionCookie = (request: Request) =>
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly auth: AuthService,
-    private readonly captcha: CaptchaService,
-  ) {}
+  constructor(private readonly auth: AuthService) {}
 
   /** Allowed dial codes and code length, for the sign-in forms. */
   @Get('config')
@@ -47,10 +46,18 @@ export class AuthController {
     return this.auth.publicConfig();
   }
 
-  /** A new proof-of-work challenge, solved by the browser when a CAPTCHA is required. */
-  @Get('captcha')
-  captchaChallenge(): Promise<Challenge> {
-    return this.captcha.createChallenge();
+  /**
+   * A new proof-of-work challenge, solved by the browser when a CAPTCHA is required. It is signed
+   * for one action and its target (POST: the phone or e-mail never appears in a URL or a log).
+   */
+  @Post('captcha')
+  @HttpCode(200)
+  @ApiZodBody(captchaChallengeRequestSchema)
+  captchaChallenge(
+    @ZodBody(captchaChallengeRequestSchema) body: z.infer<typeof captchaChallengeRequestSchema>,
+    @Req() request: Request,
+  ): Promise<Challenge> {
+    return this.auth.captchaChallenge(body, sessionCookie(request));
   }
 
   /** Sends a code by SMS. 428 when a CAPTCHA is required, 429 when a limit is reached. */
@@ -135,7 +142,7 @@ export class AuthController {
     return this.auth.logoutEverywhere(auth, res);
   }
 
-  /** Sends a confirmation link to a new e-mail address. */
+  /** Sends a confirmation link to a new e-mail address; needs a recent reauthentication. */
   @Post('email')
   @HttpCode(204)
   @UseGuards(AuthGuard)
@@ -145,12 +152,7 @@ export class AuthController {
     @ZodBody(emailChangeSchema) body: z.infer<typeof emailChangeSchema>,
     @Req() request: Request,
   ): Promise<void> {
-    return this.auth.requestEmailVerification(
-      auth.user,
-      body.email,
-      body.locale,
-      clientIp(request),
-    );
+    return this.auth.changeEmail(auth, body.email, body.locale, clientIp(request));
   }
 
   /** Confirms an e-mail address from the link (works without being signed in). */
@@ -161,6 +163,33 @@ export class AuthController {
     return this.auth.verifyEmail(body.token);
   }
 
+  /** Sends a code to the account phone before an e-mail or password change. */
+  @Post('reauth/otp')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  @ApiZodBody(reauthRequestSchema)
+  requestReauth(
+    @Auth() auth: AuthContext,
+    @ZodBody(reauthRequestSchema) body: z.infer<typeof reauthRequestSchema>,
+    @Req() request: Request,
+  ) {
+    return this.auth.requestReauth(auth, body.locale, body.captcha, clientIp(request));
+  }
+
+  /** Confirms the identity with that code; changes are then allowed for 10 minutes. */
+  @Post('reauth')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  @ApiZodBody(reauthVerifySchema)
+  verifyReauth(
+    @Auth() auth: AuthContext,
+    @ZodBody(reauthVerifySchema) body: z.infer<typeof reauthVerifySchema>,
+    @Req() request: Request,
+  ) {
+    return this.auth.verifyReauth(auth, body.code, body.captcha, clientIp(request));
+  }
+
+  /** Sets or changes the password; needs a recent reauthentication. */
   @Post('password')
   @HttpCode(204)
   @UseGuards(AuthGuard)
@@ -168,14 +197,8 @@ export class AuthController {
   changePassword(
     @Auth() auth: AuthContext,
     @ZodBody(passwordChangeSchema) body: z.infer<typeof passwordChangeSchema>,
-    @Req() request: Request,
   ): Promise<void> {
-    return this.auth.changePassword(
-      auth,
-      body.newPassword,
-      body.currentPassword,
-      clientIp(request),
-    );
+    return this.auth.changePassword(auth, body.newPassword);
   }
 
   @Post('password/forgot')
