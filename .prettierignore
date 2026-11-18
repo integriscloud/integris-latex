@@ -1,0 +1,14 @@
+pnpm-lock.yaml
+node_modules
+.next
+dist
+coverage
+.turbo
+packages/db/src/generated
+# Verbatim copy of the designer tokens (checked by packages/ui/src/tokens.test.ts).
+packages/ui/src/tokens.css
+# Hand-written project documents and Claude Code configuration: never reformat.
+docs
+CLAUDE.md
+PROMPTS.md
+.claude

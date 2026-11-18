@@ -1,0 +1,18 @@
+{
+  "Metadata": {
+    "title": "Integris LaTeX",
+    "description": "Collaborative LaTeX editing for students, teachers and researchers in West Africa."
+  },
+  "Common": {
+    "productName": "Integris LaTeX",
+    "languageSwitcher": "Language",
+    "languages": {
+      "fr": "Français",
+      "en": "English"
+    }
+  },
+  "Home": {
+    "title": "Collaborative LaTeX editing, built for West Africa",
+    "subtitle": "Write, compile and get your work reviewed online, in French and English."
+  }
+}

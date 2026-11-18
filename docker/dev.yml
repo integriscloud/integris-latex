@@ -1,0 +1,61 @@
+# Local infrastructure for latex-dev. Start with: docker compose -f docker/dev.yml up -d
+# Credentials come from the repository root .env (copy .env.example). Every port is published
+# on 127.0.0.1 only; Nginx on the host is the only public entry point.
+name: integris-latex
+
+services:
+  postgres:
+    image: postgres:18@sha256:2ea8630df176ad090ec92136dee850397c5af8781e4bcf2e4162593691c61bbc
+    restart: unless-stopped
+    env_file: ../.env
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8@sha256:1f88291b4c57bdf249f02eb085a8669889b2d2954e91d4de5118a5da6b78dd53
+    restart: unless-stopped
+    env_file: ../.env
+    command: ['sh', '-c', 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # MinIO no longer publishes community images on Docker Hub / Quay: Chainguard builds it from
+  # the upstream sources. Pinned by digest; update deliberately.
+  minio:
+    image: cgr.dev/chainguard/minio@sha256:7618b82bba99aadd77fcf59eb6cfd89b4b8b8e01ac796c474d57a1c1abf17e79
+    restart: unless-stopped
+    env_file: ../.env
+    command: ['server', '/data', '--address', ':9000', '--console-address', ':9001']
+    ports:
+      - '127.0.0.1:9000:9000'
+      - '127.0.0.1:9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf ''GET /minio/health/live HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n'' >&3 && read -r _ code _ <&3 && [ "$$code" = 200 ]'
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

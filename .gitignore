@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.next/
+dist/
+coverage/
+.turbo/
+*.log
+.claude/settings.local.json
+# Compiled Next.js type helpers
+next-env.d.ts
+# Playwright
+playwright-report/
+test-results/
+# Prisma generated client
+packages/db/src/generated/

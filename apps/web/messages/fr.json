@@ -1,0 +1,18 @@
+{
+  "Metadata": {
+    "title": "Integris LaTeX",
+    "description": "Édition LaTeX collaborative pour les étudiants, enseignants et chercheurs d'Afrique de l'Ouest."
+  },
+  "Common": {
+    "productName": "Integris LaTeX",
+    "languageSwitcher": "Langue",
+    "languages": {
+      "fr": "Français",
+      "en": "English"
+    }
+  },
+  "Home": {
+    "title": "L'édition LaTeX collaborative, pensée pour l'Afrique de l'Ouest",
+    "subtitle": "Rédigez, compilez et faites relire vos travaux en ligne, en français et en anglais."
+  }
+}

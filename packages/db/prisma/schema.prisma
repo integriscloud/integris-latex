@@ -1,0 +1,766 @@
+// Integris LaTeX — Prisma schema V1
+// Money: integers in XOF. Quotas and prices live in Plan, editable from the back-office.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Recent Prisma versions: the connection URL lives in prisma.config.ts (DATABASE_URL),
+// and PrismaClient is created with the PostgreSQL driver adapter.
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────── Enums ─────────────
+
+enum PlanCode {
+  FREE
+  STANDARD
+  TEAM
+  BUSINESS
+}
+
+enum BillingPeriod {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  GRACE
+  PAUSED
+  EXPIRED
+  CANCELED
+}
+
+enum OrgType {
+  TEAM
+  BUSINESS
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MemberKind {
+  TEACHER
+  STUDENT
+  SECRETARY // BUSINESS only: print requests of its groups
+  OTHER
+}
+
+enum ProjectKind {
+  DOCUMENT
+  ASSIGNMENT // exam paper: subject + private answer key + marking scheme
+}
+
+enum PrintStatus {
+  SCHEDULED // locked until availableFrom
+  READY
+  OPENED
+  PRINTED
+  HANDED_OVER
+  CANCELED
+}
+
+enum PrintDuplex {
+  SIMPLEX
+  DUPLEX
+}
+
+enum PrintEventType {
+  REQUESTED
+  UPDATED
+  CANCELED
+  OPENED
+  DOWNLOADED
+  PRINT_CONFIRMED
+  HANDED_OVER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REVOKED
+}
+
+enum ProjectRole {
+  OWNER
+  EDITOR
+  SUPERVISOR // UI "Encadrant": comment, suggest, validate submissions, set deadlines
+  REVIEWER // comment and suggest only
+  VIEWER // UI "Lecteur": read only
+}
+
+enum MembershipStatus {
+  PENDING_APPROVAL // teacher who self-declared membership, awaiting org admin
+  ACTIVE
+  REJECTED
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum Engine {
+  PDFLATEX
+  XELATEX
+  LUALATEX
+}
+
+enum FileKind {
+  TEXT
+  BINARY
+}
+
+enum TemplateScope {
+  PUBLIC
+  ORGANIZATION
+}
+
+enum VersionKind {
+  AUTO
+  NAMED
+  SUBMISSION
+}
+
+enum CommentStatus {
+  OPEN
+  RESOLVED
+}
+
+enum SuggestionStatus {
+  PENDING
+  APPLIED
+  REJECTED
+}
+
+enum SupervisionStatus {
+  PENDING
+  ACTIVE
+  ENDED
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  FEEDBACK_SENT
+  REVISED
+  VALIDATED
+}
+
+enum CompilationStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CREDITED
+}
+
+enum PaymentPurpose {
+  NEW_SUBSCRIPTION
+  RENEWAL
+  UPGRADE
+  EXTRA_SEATS
+}
+
+enum NotificationChannel {
+  IN_APP
+  SMS
+  EMAIL
+}
+
+enum Locale {
+  fr
+  en
+}
+
+// ───────────── Users ─────────────
+
+model User {
+  id              String    @id @default(cuid())
+  phone           String?   @unique
+  phoneVerifiedAt DateTime?
+  email           String?   @unique
+  emailVerifiedAt DateTime?
+  passwordHash    String?
+  displayName     String
+  locale          Locale    @default(fr)
+  lastSpace       String? // last chosen space: "personal" or an organization id
+  isSuperAdmin    Boolean   @default(false)
+  disabledAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  personalSubscriptions Subscription[]       @relation("PersonalSubscription")
+  seats                 Seat[]
+  memberships           Membership[]
+  ownedProjects         Project[]            @relation("ProjectOwner")
+  projectMemberships    ProjectMember[]
+  comments              Comment[]
+  replies               CommentReply[]
+  supervising           Supervision[]        @relation("Supervisor")
+  supervisedBy          Supervision[]        @relation("Student")
+  submissions           Submission[]         @relation("SubmissionAuthor")
+  reviews               SubmissionReviewer[]
+  compilations          Compilation[]
+  payments              Payment[]
+  notifications         Notification[]
+  usage                 UsageCounter[]
+  auditLogs             AuditLog[]
+  invitationsSent       Invitation[]         @relation("InvitedBy")
+}
+
+// ───────────── Plans & billing ─────────────
+
+model Plan {
+  id                         String   @id @default(cuid())
+  code                       PlanCode @unique
+  nameFr                     String
+  nameEn                     String
+  priceMonthlyXof            Int // per seat for TEAM/BUSINESS
+  priceYearlyXof             Int // per seat for TEAM/BUSINESS
+  minSeats                   Int      @default(1)
+  maxSeats                   Int? // null = unlimited
+  volumeDiscountFromSeats    Int? // BUSINESS: 100
+  volumeDiscountPercent      Int?
+  maxProjects                Int? // null = unlimited
+  maxCollaboratorsPerProject Int? // null = unlimited
+  maxCompileSeconds          Int
+  maxCompilesPerHour         Int
+  storageBytes               BigInt // per seat
+  historyDays                Int? // null = unlimited, 1 = 24h
+  autoCompile                Boolean  @default(false)
+  supervisionDashboard       Boolean  @default(false)
+  maxSupervisedStudents      Int?
+  aiRequestsPerDay           Int      @default(0)
+  compilePriority            Int // lower = higher priority (BullMQ)
+  isActive                   Boolean  @default(true)
+  updatedAt                  DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                  String             @id @default(cuid())
+  planId              String
+  plan                Plan               @relation(fields: [planId], references: [id])
+  // exactly one of userId (FREE/STANDARD) or organizationId (TEAM/BUSINESS)
+  userId              String?
+  user                User?              @relation("PersonalSubscription", fields: [userId], references: [id])
+  organizationId      String?            @unique
+  organization        Organization?      @relation(fields: [organizationId], references: [id])
+  status              SubscriptionStatus
+  billingPeriod       BillingPeriod
+  seatCount           Int                @default(1)
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  graceEndsAt         DateTime?
+  pausedAt            DateTime? // STANDARD paused while holding a TEAM/BUSINESS seat
+  pausedRemainingDays Int?
+  pendingPlanId       String? // downgrade applied at period end
+  trialEndsAt         DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  seats    Seat[]
+  payments Payment[]
+
+  @@index([userId])
+  @@index([status, currentPeriodEnd])
+}
+
+model Seat {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id])
+  assignedAt     DateTime?
+  releasedAt     DateTime?
+  reassignableAt DateTime? // releasedAt + 30 days
+  createdAt      DateTime     @default(now())
+
+  @@index([subscriptionId])
+  @@index([userId])
+}
+
+model PromoCode {
+  id              String     @id @default(cuid())
+  code            String     @unique
+  percentOff      Int
+  planCodes       PlanCode[]
+  validUntil      DateTime?
+  maxRedemptions  Int?
+  redemptionCount Int        @default(0)
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+
+  redemptions PromoRedemption[]
+}
+
+model PromoRedemption {
+  id          String    @id @default(cuid())
+  promoCodeId String
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id])
+  paymentId   String    @unique
+  payment     Payment   @relation(fields: [paymentId], references: [id])
+  createdAt   DateTime  @default(now())
+}
+
+model Payment {
+  id                    String         @id @default(cuid())
+  userId                String
+  user                  User           @relation(fields: [userId], references: [id])
+  subscriptionId        String?
+  subscription          Subscription?  @relation(fields: [subscriptionId], references: [id])
+  purpose               PaymentPurpose
+  planCode              PlanCode
+  billingPeriod         BillingPeriod
+  seats                 Int            @default(1)
+  amountXof             Int // final amount charged (TTC)
+  breakdown             Json // base, proration credit, volume discount, promo
+  status                PaymentStatus  @default(PENDING)
+  provider              String         @default("LIGDICASH")
+  providerToken         String?        @unique
+  providerTransactionId String?        @unique // idempotency key
+  providerRaw           Json?
+  verifiedAt            DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  receipt    Receipt?
+  redemption PromoRedemption?
+
+  @@index([userId, createdAt])
+}
+
+model Receipt {
+  id        String    @id @default(cuid())
+  number    Int       @unique // sequential, generated in a transaction
+  paymentId String    @unique
+  payment   Payment   @relation(fields: [paymentId], references: [id])
+  billedTo  Json // name, organization, IFU, email
+  pdfKey    String
+  emailedAt DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// ───────────── Organizations (TEAM / BUSINESS) ─────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  type      OrgType
+  name      String
+  ifu       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscription Subscription?
+  memberships  Membership[]
+  groups       OrgGroup[]
+  invitations  Invitation[]
+  templates    Template[]
+  supervisions Supervision[]
+  userImports  UserImport[]
+}
+
+// CSV import of members (V1: CSV only, Excel in V2)
+model UserImport {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdById    String
+  fileKey        String
+  status         ImportStatus @default(PENDING)
+  totalRows      Int          @default(0)
+  invitedCount   Int          @default(0)
+  errorRows      Json? // [{ row, reason }]
+  createdAt      DateTime     @default(now())
+  finishedAt     DateTime?
+}
+
+model Membership {
+  id                String             @id @default(cuid())
+  organizationId    String
+  organization      Organization       @relation(fields: [organizationId], references: [id])
+  userId            String
+  user              User               @relation(fields: [userId], references: [id])
+  role              OrgRole
+  kind              MemberKind         @default(OTHER)
+  status            MembershipStatus   @default(ACTIVE)
+  approvedById      String?
+  approvedAt        DateTime?
+  groupId           String?
+  group             OrgGroup?          @relation(fields: [groupId], references: [id])
+  secretariatScopes SecretariatScope[]
+  createdAt         DateTime           @default(now())
+
+  @@unique([organizationId, userId])
+}
+
+// UI name in BUSINESS: "Classes et filières" (UFR, department, class...)
+model OrgGroup {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+  name           String
+  parentId       String?
+  parent         OrgGroup?          @relation("GroupTree", fields: [parentId], references: [id])
+  children       OrgGroup[]         @relation("GroupTree")
+  memberships    Membership[]
+  secretariats   SecretariatScope[]
+  printRequests  PrintRequest[]
+}
+
+// Groups a SECRETARY membership serves
+model SecretariatScope {
+  id           String     @id @default(cuid())
+  membershipId String
+  membership   Membership @relation(fields: [membershipId], references: [id])
+  groupId      String
+  group        OrgGroup   @relation(fields: [groupId], references: [id])
+
+  @@unique([membershipId, groupId])
+}
+
+model Invitation {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  invitedById    String
+  invitedBy      User             @relation("InvitedBy", fields: [invitedById], references: [id])
+  phone          String?
+  email          String?
+  role           OrgRole          @default(MEMBER)
+  kind           MemberKind       @default(OTHER)
+  tokenHash      String           @unique
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+}
+
+// ───────────── Projects & files ─────────────
+
+model Project {
+  id             String      @id @default(cuid())
+  ownerId        String
+  owner          User        @relation("ProjectOwner", fields: [ownerId], references: [id])
+  name           String
+  kind           ProjectKind @default(DOCUMENT)
+  engine         Engine      @default(PDFLATEX)
+  mainFilePath   String      @default("main.tex")
+  autoCompile    Boolean     @default(false)
+  readOnlyReason String? // e.g. OVER_FREE_LIMIT
+  templateId     String?
+  template       Template?   @relation(fields: [templateId], references: [id])
+  lastActivityAt DateTime    @default(now())
+  deletedAt      DateTime? // trash, purged after 30 days
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  files         ProjectFile[]
+  members       ProjectMember[]
+  shareLinks    ShareLink[]
+  versions      ProjectVersion[]
+  comments      Comment[]
+  submissions   Submission[]
+  compilations  Compilation[]
+  printRequests PrintRequest[]
+
+  @@index([ownerId, deletedAt])
+}
+
+model ProjectFile {
+  id                   String   @id @default(cuid())
+  projectId            String
+  project              Project  @relation(fields: [projectId], references: [id])
+  path                 String // e.g. "chapters/ch2.tex"
+  kind                 FileKind
+  storageKey           String? // MinIO key for BINARY files and text snapshots
+  sizeBytes            Int      @default(0)
+  lockedBySubmissionId String? // set when a submission is validated
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  comments Comment[]
+
+  @@unique([projectId, path])
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id])
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  role      ProjectRole
+  createdAt DateTime    @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model ShareLink {
+  id        String    @id @default(cuid())
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Template {
+  id             String        @id @default(cuid())
+  scope          TemplateScope
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  name           String
+  description    String?
+  category       String // memoire, rapport, article, cv, beamer...
+  institution    String?
+  storageKey     String // ZIP of template files
+  isPublished    Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+
+  projects Project[]
+}
+
+model ProjectVersion {
+  id          String      @id @default(cuid())
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id])
+  kind        VersionKind
+  label       String?
+  storageKey  String // snapshot of all files
+  createdById String?
+  createdAt   DateTime    @default(now())
+
+  submissions Submission[]
+
+  @@index([projectId, createdAt])
+}
+
+// ───────────── Comments ─────────────
+
+model Comment {
+  id               String            @id @default(cuid())
+  projectId        String
+  project          Project           @relation(fields: [projectId], references: [id])
+  fileId           String
+  file             ProjectFile       @relation(fields: [fileId], references: [id])
+  authorId         String
+  author           User              @relation(fields: [authorId], references: [id])
+  anchor           Json // Yjs relative positions (start/end)
+  quotedText       String
+  body             String
+  suggestedText    String? // replacement proposal
+  suggestionStatus SuggestionStatus?
+  status           CommentStatus     @default(OPEN)
+  submissionId     String?
+  submission       Submission?       @relation(fields: [submissionId], references: [id])
+  createdAt        DateTime          @default(now())
+  resolvedAt       DateTime?
+
+  replies CommentReply[]
+
+  @@index([projectId, status])
+}
+
+model CommentReply {
+  id        String   @id @default(cuid())
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id])
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+}
+
+// ───────────── Supervision & submissions ─────────────
+
+model Supervision {
+  id             String            @id @default(cuid())
+  supervisorId   String
+  supervisor     User              @relation("Supervisor", fields: [supervisorId], references: [id])
+  studentId      String
+  student        User              @relation("Student", fields: [studentId], references: [id])
+  organizationId String?
+  organization   Organization?     @relation(fields: [organizationId], references: [id])
+  status         SupervisionStatus @default(PENDING)
+  startsAt       DateTime          @default(now())
+  endsAt         DateTime?
+  createdAt      DateTime          @default(now())
+
+  @@unique([supervisorId, studentId, organizationId])
+}
+
+model Submission {
+  id                   String           @id @default(cuid())
+  projectId            String
+  project              Project          @relation(fields: [projectId], references: [id])
+  authorId             String
+  author               User             @relation("SubmissionAuthor", fields: [authorId], references: [id])
+  versionId            String // frozen snapshot at send time
+  version              ProjectVersion   @relation(fields: [versionId], references: [id])
+  previousSubmissionId String? // for "what changed since my last review"
+  filePaths            String[]
+  message              String?
+  dueAt                DateTime?
+  status               SubmissionStatus @default(DRAFT)
+  submittedAt          DateTime?
+  validatedAt          DateTime?
+  validatedById        String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  reviewers SubmissionReviewer[]
+  comments  Comment[]
+
+  @@index([projectId, status])
+}
+
+model SubmissionReviewer {
+  id             String     @id @default(cuid())
+  submissionId   String
+  submission     Submission @relation(fields: [submissionId], references: [id])
+  reviewerId     String
+  reviewer       User       @relation(fields: [reviewerId], references: [id])
+  lastReviewedAt DateTime?
+
+  @@unique([submissionId, reviewerId])
+}
+
+// ───────────── Compilation & usage ─────────────
+
+model Compilation {
+  id            String            @id @default(cuid())
+  projectId     String
+  project       Project           @relation(fields: [projectId], references: [id])
+  triggeredById String
+  triggeredBy   User              @relation(fields: [triggeredById], references: [id])
+  chargedUserId String // project owner (quota holder)
+  engine        Engine
+  status        CompilationStatus @default(QUEUED)
+  priority      Int
+  queuedAt      DateTime          @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  durationMs    Int?
+  pdfKey        String?
+  logKey        String?
+  errors        Json? // translated top errors with file/line
+  workerHost    String?
+
+  @@index([projectId, queuedAt])
+  @@index([chargedUserId, queuedAt])
+}
+
+model UsageCounter {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  periodStart    DateTime // first day of the month
+  compileCount   Int      @default(0)
+  compileSeconds Int      @default(0)
+  storageBytes   BigInt   @default(0)
+  aiRequests     Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, periodStart])
+}
+
+// ───────────── Notifications & audit ─────────────
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id])
+  channel   NotificationChannel
+  type      String // SUBMISSION_RECEIVED, FEEDBACK_SENT, VALIDATED, DUE_SOON, RENEWAL_REMINDER...
+  payload   Json
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String // SEAT_ASSIGNED, ROLE_CHANGED, PAYMENT_VERIFIED, PROJECT_SHARED, SUBMISSION_VALIDATED...
+  targetType String
+  targetId   String
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([actorId, createdAt])
+}
+
+// ───────────── Exam papers & secretariat (BUSINESS) ─────────────
+
+model PrintRequest {
+  id            String      @id @default(cuid())
+  projectId     String // ASSIGNMENT project of the teacher
+  project       Project     @relation(fields: [projectId], references: [id])
+  teacherId     String
+  groupId       String // class / programme the paper is for; routes to its secretariat
+  group         OrgGroup    @relation(fields: [groupId], references: [id])
+  title         String
+  subjectPdfKey String // frozen compiled subject PDF, private bucket, API access only
+  subjectSha256 String
+  pages         Int
+  copies        Int
+  reserveCopies Int         @default(0)
+  duplex        PrintDuplex
+  stapled       Boolean     @default(false)
+  availableFrom DateTime // server refuses any opening before this instant
+  examAt        DateTime
+  status        PrintStatus @default(SCHEDULED)
+  printedCount  Int?
+  handedOverTo  String?
+  replacedById  String? // a new send replaces a request not yet opened
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  events PrintEvent[]
+
+  @@index([groupId, status, availableFrom])
+  @@index([teacherId, createdAt])
+}
+
+// Append-only access journal (no update/delete in application code)
+model PrintEvent {
+  id             String         @id @default(cuid())
+  printRequestId String
+  printRequest   PrintRequest   @relation(fields: [printRequestId], references: [id])
+  actorId        String
+  type           PrintEventType
+  metadata       Json? // e.g. printed count, handed over to, one-time link id
+  ip             String?
+  createdAt      DateTime       @default(now())
+
+  @@index([printRequestId, createdAt])
+}

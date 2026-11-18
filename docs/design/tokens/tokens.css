@@ -1,0 +1,91 @@
+/* Design System — Plateforme LaTeX collaborative (v0.1, variante vert et or)
+   Tokens CSS. Préfixe : aucun (à ajouter si besoin, ex. --pl-). */
+:root {
+  /* Toge — vert profond : action, liens, sélection */
+  --toge-50: #EDF5F0;  --toge-100: #D5E8DC; --toge-200: #AACFB8;
+  --toge-300: #7BB293; --toge-400: #4E9470; --toge-500: #2E7553;
+  --toge-600: #1F5C40; --toge-700: #184A34; --toge-800: #123828;
+  --toge-900: #0C261C;
+
+  /* Or sobre — distinction, offres payantes, encadreur */
+  --or-50: #FAF5E8;  --or-100: #F2E6C8; --or-200: #E5CF95;
+  --or-300: #D6B566; --or-400: #B38A30; --or-500: #94701F;
+  --or-600: #7A5A17; --or-700: #5E4512; --or-800: #45320D;
+  --or-900: #2E2109;
+
+  /* Neutres chauds (papier → ardoise) */
+  --neutre-0: #FFFFFF;   --neutre-25: #FBFAF7;  --neutre-50: #F5F3EE;
+  --neutre-100: #EBE8E1; --neutre-200: #D9D5CC; --neutre-300: #BDB8AD;
+  --neutre-400: #96918A; --neutre-500: #706C66; --neutre-600: #57534E;
+  --neutre-700: #403D39; --neutre-800: #2A2825; --neutre-900: #181715;
+
+  /* Rôles */
+  --fond: var(--neutre-25);
+  --surface: var(--neutre-0);
+  --surface-creuse: var(--neutre-50);
+  --bordure: var(--neutre-100);
+  --bordure-forte: var(--neutre-300);
+  --texte: var(--neutre-900);
+  --texte-2: var(--neutre-700);
+  --texte-3: var(--neutre-600);
+  --action: var(--toge-600);
+  --action-survol: var(--toge-700);
+  --action-doux: var(--toge-50);
+  --accent: var(--or-500);
+  --accent-survol: var(--or-600);
+  --focus-halo: var(--toge-100);
+
+  /* Sémantique */
+  --succes: #3A741B;  --succes-fond: #ECF5E3;
+  --erreur: #B42318;  --erreur-fond: #FDECEA;
+  --alerte: #8A5A00;  --alerte-fond: #FFF4D6;  --alerte-point: #E3A008;
+  --info: #2B5592; --info-fond: #EAF0F8;
+
+  /* Présence (curseurs des collaborateurs) */
+  --presence-1: #2E7553; --presence-2: #94701F; --presence-3: #2B5592;
+  --presence-4: #8E3BA8; --presence-5: #0E7C86; --presence-6: #8A5A00;
+
+  /* Coloration LaTeX */
+  --code-commande: var(--toge-600);
+  --code-argument: var(--or-600);
+  --code-math: #3A741B;
+  --code-commentaire: var(--neutre-500);
+
+  /* Typographie */
+  --font-ui: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-doc: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-code: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --t-display: 600 48px/56px var(--font-doc);
+  --t-titre-1: 600 36px/44px var(--font-doc);
+  --t-titre-2: 600 30px/38px var(--font-doc);
+  --t-titre-3: 600 24px/32px var(--font-ui);
+  --t-titre-4: 600 20px/28px var(--font-ui);
+  --t-texte-lg: 400 18px/28px var(--font-ui);
+  --t-texte: 400 16px/24px var(--font-ui);
+  --t-texte-sm: 400 14px/20px var(--font-ui);
+  --t-legende: 500 12px/16px var(--font-ui);
+  --t-code: 400 14px/1.7 var(--font-code);
+
+  /* Espace (grille 4 px) */
+  --espace-1: 4px;  --espace-2: 8px;  --espace-3: 12px; --espace-4: 16px;
+  --espace-5: 20px; --espace-6: 24px; --espace-8: 32px; --espace-10: 40px;
+  --espace-12: 48px; --espace-16: 64px; --espace-20: 80px;
+
+  /* Forme */
+  --r-sm: 4px; --r-md: 6px; --r-lg: 10px; --r-xl: 16px; --r-full: 999px;
+  --cible-tactile: 44px;
+
+  /* Élévation */
+  --ombre-1: 0 1px 2px rgba(24,23,21,.06), 0 2px 8px rgba(24,23,21,.08);
+  --ombre-2: 0 4px 12px rgba(24,23,21,.08), 0 16px 40px rgba(24,23,21,.14);
+
+  /* Mouvement */
+  --duree-rapide: 120ms; --duree-base: 200ms; --duree-lente: 320ms;
+  --courbe: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Points de rupture : sm 360 · md 600 · lg 960 · xl 1280 */
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --duree-rapide: 0ms; --duree-base: 0ms; --duree-lente: 0ms; }
+}

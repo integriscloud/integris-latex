@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Composants de base</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+button,input{font-family:inherit}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 1780px; box-sizing: border-box; background: #FBFAF7; color: #181715; font-family: Plus Jakarta Sans, system-ui, sans-serif; padding: 72px 80px; display: flex; flex-direction: column; gap: 44px">
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div style="font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #7A5A17">04 · Composants de base</div>
+    <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-weight: 600; font-size: 48px; letter-spacing: -0.02em">Les briques de toutes les pages</h1>
+  </div>
+
+  <div style="background: #FFFFFF; border: 1px solid #EBE8E1; border-radius: 16px; padding: 32px; display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; justify-content: space-between; align-items: baseline"><div style="font-size: 20px; font-weight: 600">Boutons</div><div style="font-size: 14px; color: #57534E">Hauteur 44 px (40 px en barre d'outils de bureau). Un seul bouton principal par zone.</div></div>
+    <div style="display: grid; grid-template-columns: 160px repeat(4, minmax(0, 1fr)); gap: 16px 20px; align-items: center; font-size: 13px; color: #57534E">
+      <div></div><div>Par défaut</div><div>Survol</div><div>En cours</div><div>Désactivé</div>
+      <div style="color: #181715; font-weight: 500; font-size: 14px">Principal</div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #1F5C40; color: #FFFFFF; font-size: 15px; font-weight: 600">Compiler</button></div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #184A34; color: #FFFFFF; font-size: 15px; font-weight: 600">Compiler</button></div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #1F5C40; color: #FFFFFF; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 10px"><span style="width: 14px; height: 14px; border-radius: 999px; border: 2px solid #7BB293; border-top-color: #FFFFFF"></span>Compilation…</button></div>
+      <div><button disabled="" style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #EBE8E1; color: #706C66; font-size: 15px; font-weight: 600">Compiler</button></div>
+      <div style="color: #181715; font-weight: 500; font-size: 14px">Accent (payer)</div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #94701F; color: #FFFFFF; font-size: 15px; font-weight: 600">Payer 500 FCFA</button></div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #7A5A17; color: #FFFFFF; font-size: 15px; font-weight: 600">Payer 500 FCFA</button></div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #94701F; color: #FFFFFF; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 10px"><span style="width: 14px; height: 14px; border-radius: 999px; border: 2px solid #E5CF95; border-top-color: #FFFFFF"></span>Vérification…</button></div>
+      <div><button disabled="" style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #EBE8E1; color: #706C66; font-size: 15px; font-weight: 600">Payer 500 FCFA</button></div>
+      <div style="color: #181715; font-weight: 500; font-size: 14px">Secondaire</div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: 1px solid #BDB8AD; background: #FFFFFF; color: #181715; font-size: 15px; font-weight: 500">Partager</button></div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: 1px solid #96918A; background: #F5F3EE; color: #181715; font-size: 15px; font-weight: 500">Partager</button></div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: 1px solid #BDB8AD; background: #FFFFFF; color: #181715; font-size: 15px; font-weight: 500">Envoi…</button></div>
+      <div><button disabled="" style="height: 44px; padding: 0 20px; border-radius: 10px; border: 1px solid #EBE8E1; background: #FFFFFF; color: #706C66; font-size: 15px; font-weight: 500">Partager</button></div>
+      <div style="color: #181715; font-weight: 500; font-size: 14px">Discret · Danger</div>
+      <div><button style="height: 44px; padding: 0 16px; border-radius: 10px; border: none; background: transparent; color: #1F5C40; font-size: 15px; font-weight: 600">Annuler</button></div>
+      <div><button style="height: 44px; padding: 0 16px; border-radius: 10px; border: none; background: #EDF5F0; color: #184A34; font-size: 15px; font-weight: 600">Annuler</button></div>
+      <div><button style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #B42318; color: #FFFFFF; font-size: 15px; font-weight: 600">Supprimer le projet</button></div>
+      <div style="display: flex; gap: 8px">
+        <button aria-label="Commentaires" style="width: 44px; height: 44px; border-radius: 10px; border: 1px solid #BDB8AD; background: #FFFFFF; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#181715" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg></button>
+        <button aria-label="Télécharger le PDF" style="width: 44px; height: 44px; border-radius: 10px; border: none; background: #1F5C40; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="M7 10l5 5 5-5"></path><path d="M5 21h14"></path></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+    <div style="background: #FFFFFF; border: 1px solid #EBE8E1; border-radius: 16px; padding: 32px; display: flex; flex-direction: column; gap: 22px">
+      <div style="font-size: 20px; font-weight: 600">Champs</div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="c-titre" style="font-size: 14px; font-weight: 500">Titre du projet</label>
+        <input id="c-titre" value="Mémoire de master — Hydrologie" style="height: 44px; border-radius: 10px; border: 1px solid #BDB8AD; padding: 0 14px; font-size: 16px; color: #181715; background: #FFFFFF; box-sizing: border-box">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="c-tel" style="font-size: 14px; font-weight: 500">Numéro de téléphone</label>
+        <div style="display: flex; height: 44px; border-radius: 10px; border: 2px solid #2E7553; overflow: hidden; box-shadow: 0 0 0 3px #D5E8DC">
+          <div style="padding: 0 12px; display: flex; align-items: center; background: #F5F3EE; border-right: 1px solid #D9D5CC; font-size: 16px; font-weight: 500">+226</div>
+          <input id="c-tel" value="70 12 34 56" style="flex: 1 1 0; border: none; padding: 0 12px; font-size: 16px; font-variant-numeric: tabular-nums; outline: none">
+        </div>
+        <div style="font-size: 13px; color: #57534E">État focus : bordure verte 2 px et halo #D5E8DC.</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 14px; font-weight: 500">Code reçu par SMS</div>
+        <div style="display: flex; gap: 8px">
+          
+            <input aria-label="Chiffre 1 sur 6" value="4" style="width: 48px; height: 56px; text-align: center; border-radius: 10px; border: 1px solid #BDB8AD; font-size: 24px; font-weight: 600; font-family: 'JetBrains Mono', monospace; box-sizing: border-box">
+          
+            <input aria-label="Chiffre 2 sur 6" value="8" style="width: 48px; height: 56px; text-align: center; border-radius: 10px; border: 1px solid #BDB8AD; font-size: 24px; font-weight: 600; font-family: 'JetBrains Mono', monospace; box-sizing: border-box">
+          
+            <input aria-label="Chiffre 3 sur 6" value="2" style="width: 48px; height: 56px; text-align: center; border-radius: 10px; border: 1px solid #BDB8AD; font-size: 24px; font-weight: 600; font-family: 'JetBrains Mono', monospace; box-sizing: border-box">
+          
+            <input aria-label="Chiffre 4 sur 6" value="7" style="width: 48px; height: 56px; text-align: center; border-radius: 10px; border: 1px solid #BDB8AD; font-size: 24px; font-weight: 600; font-family: 'JetBrains Mono', monospace; box-sizing: border-box">
+          
+            <input aria-label="Chiffre 5 sur 6" value="" style="width: 48px; height: 56px; text-align: center; border-radius: 10px; border: 1px solid #BDB8AD; font-size: 24px; font-weight: 600; font-family: 'JetBrains Mono', monospace; box-sizing: border-box">
+          
+            <input aria-label="Chiffre 6 sur 6" value="" style="width: 48px; height: 56px; text-align: center; border-radius: 10px; border: 1px solid #BDB8AD; font-size: 24px; font-weight: 600; font-family: 'JetBrains Mono', monospace; box-sizing: border-box">
+          
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="c-mail" style="font-size: 14px; font-weight: 500">E-mail (facultatif)</label>
+        <input id="c-mail" value="etudiant@exemple" style="height: 44px; border-radius: 10px; border: 1px solid #B42318; padding: 0 14px; font-size: 16px; background: #FFFFFF; box-sizing: border-box">
+        <div style="font-size: 13px; color: #B42318; display: flex; gap: 6px; align-items: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B42318" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5v.5"></path></svg>Il manque la fin de l'adresse, par exemple « @gmail.com ».</div>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #EBE8E1; border-radius: 16px; padding: 32px; display: flex; flex-direction: column; gap: 22px">
+      <div style="font-size: 20px; font-weight: 600">Sélection</div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 14px; font-weight: 500">Moteur de compilation</div>
+        <div style="display: inline-flex; background: #F5F3EE; border-radius: 10px; padding: 4px; gap: 4px; align-self: flex-start">
+          <button style="height: 36px; padding: 0 16px; border-radius: 8px; border: none; background: #FFFFFF; font-size: 14px; font-weight: 600; box-shadow: 0 1px 2px rgba(24,23,21,0.1)">pdfLaTeX</button>
+          <button style="height: 36px; padding: 0 16px; border-radius: 8px; border: none; background: transparent; font-size: 14px; font-weight: 500; color: #403D39">XeLaTeX</button>
+          <button style="height: 36px; padding: 0 16px; border-radius: 8px; border: none; background: transparent; font-size: 14px; font-weight: 500; color: #403D39">LuaLaTeX</button>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <label style="display: flex; align-items: center; gap: 12px; font-size: 15px; min-height: 44px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #1F5C40; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>Compiler automatiquement à l'enregistrement</label>
+        <label style="display: flex; align-items: center; gap: 12px; font-size: 15px; min-height: 44px"><span style="width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid #96918A; background: #FFFFFF"></span>M'avertir par SMS des nouveaux commentaires</label>
+        <div style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; border-top: 1px solid #EBE8E1; padding-top: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Assistant IA pour ce projet</span><span style="font-size: 13px; color: #57534E">Rien n'est envoyé sans votre action.</span></div>
+          <button aria-label="Activer l'assistant IA" aria-pressed="true" style="width: 48px; height: 28px; border-radius: 999px; border: none; background: #1F5C40; position: relative; padding: 0"><span style="position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 999px; background: #FFFFFF"></span></button>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 14px; font-weight: 500">Onglets</div>
+        <div style="display: flex; gap: 24px; border-bottom: 1px solid #D9D5CC; font-size: 15px">
+          <div style="padding: 10px 0; border-bottom: 2px solid #1F5C40; margin-bottom: -1px; font-weight: 600; color: #184A34">Code</div>
+          <div style="padding: 10px 0; color: #57534E">PDF</div>
+          <div style="padding: 10px 0; color: #57534E; display: flex; gap: 6px; align-items: center">Commentaires <span style="background: #94701F; color: #FFFFFF; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 7px">3</span></div>
+          <div style="padding: 10px 0; color: #57534E">Historique</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+    <div style="background: #FFFFFF; border: 1px solid #EBE8E1; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
+      <div style="font-size: 20px; font-weight: 600">Badges</div>
+      <div style="font-size: 13px; color: #57534E; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase">Offres</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span style="font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #EBE8E1; color: #403D39">Gratuit</span>
+        <span style="font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #F2E6C8; color: #5E4512">Pass semaine</span>
+        <span style="font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #D5E8DC; color: #123828">Étudiant</span>
+        <span style="font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #184A34; color: #FFFFFF">Chercheur</span>
+        <span style="font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #7A5A17; color: #FFFFFF">Encadreur</span>
+        <span style="font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #181715; color: #FFFFFF">Université</span>
+      </div>
+      <div style="font-size: 13px; color: #57534E; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase">Droits d'accès</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span style="font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 6px; border: 1px solid #BDB8AD">Lecture</span>
+        <span style="font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 6px; border: 1px solid #BDB8AD">Commentaire</span>
+        <span style="font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 6px; border: 1px solid #BDB8AD">Écriture</span>
+        <span style="font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 6px; border: 1px solid #BDB8AD">Propriétaire</span>
+      </div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #EBE8E1; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 12px">
+      <div style="font-size: 20px; font-weight: 600; margin-bottom: 6px">Alertes</div>
+      <div style="background: #ECF5E3; color: #3A741B; border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.45"><b>Paiement vérifié.</b> Votre Pass semaine est actif jusqu'au 20/11.</div>
+      <div style="background: #FFF4D6; color: #8A5A00; border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.45"><b>Plus que 1 requête IA aujourd'hui.</b> Le compteur revient à 5 à minuit.</div>
+      <div style="background: #EAF0F8; color: #2B5592; border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.45"><b>Hors ligne.</b> Vos modifications sont gardées sur l'appareil et seront envoyées au retour du réseau.</div>
+      <div style="background: #FDECEA; color: #B42318; border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.45"><b>Paiement refusé.</b> Solde insuffisant. Aucun montant n'a été prélevé.</div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #EBE8E1; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
+      <div style="font-size: 20px; font-weight: 600">Avatars et présence</div>
+      <div style="display: flex; align-items: center">
+        <div style="width: 36px; height: 36px; border-radius: 999px; background: #2E7553; color: #FFFFFF; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF">AO</div>
+        <div style="width: 36px; height: 36px; border-radius: 999px; background: #94701F; color: #FFFFFF; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; margin-left: -8px">KS</div>
+        <div style="width: 36px; height: 36px; border-radius: 999px; background: #3A741B; color: #FFFFFF; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; margin-left: -8px">FT</div>
+        <div style="width: 36px; height: 36px; border-radius: 999px; background: #EBE8E1; color: #403D39; font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; margin-left: -8px">+2</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 14px">
+        <div style="display: flex; align-items: center; gap: 10px"><span style="position: relative; width: 36px; height: 36px; border-radius: 999px; background: #2E7553; color: #FFFFFF; font-weight: 600; display: flex; align-items: center; justify-content: center">AO<span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; background: #3A741B; border: 2px solid #FFFFFF"></span></span><span><b>[Étudiant]</b> · en train d'écrire, chap. 2</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="position: relative; width: 36px; height: 36px; border-radius: 999px; background: #94701F; color: #FFFFFF; font-weight: 600; display: flex; align-items: center; justify-content: center">KS<span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; background: #96918A; border: 2px solid #FFFFFF"></span></span><span><b>[Encadreur]</b> · vu il y a 3 h</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

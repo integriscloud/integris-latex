@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accueil V2 — la nuit du dépôt</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1F5C40}a:hover{color:#123828}
+@keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@keyframes down{from{opacity:0;transform:translateY(-28px)}to{opacity:1;transform:none}}
+@keyframes slideR{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes slideL{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes ring{0%{transform:scale(1);opacity:.55}100%{transform:scale(2.4);opacity:0}}
+@keyframes beat{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes shake{0%,100%{transform:rotate(-1.5deg)}20%{transform:rotate(-2.4deg) translateX(-3px)}40%{transform:rotate(-.6deg) translateX(3px)}60%{transform:rotate(-1.5deg)}}
+@keyframes fill{0%{transform:scaleX(0)}70%,100%{transform:scaleX(1)}}
+@keyframes sun{from{opacity:0;transform:translateY(60px) scale(.9)}to{opacity:1;transform:none}}
+.cta{transition:transform 200ms cubic-bezier(.2,0,0,1),box-shadow 200ms cubic-bezier(.2,0,0,1)}
+.cta:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(24,23,21,.22)}
+.cta svg{transition:transform 200ms cubic-bezier(.2,0,0,1)}
+.cta:hover svg{transform:translateX(4px)}
+.lift{transition:transform 200ms cubic-bezier(.2,0,0,1)}
+.lift:hover{transform:translateY(-4px)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="width: 100%; min-height: 900px; background: #081A12; color: #EDF5F0; font-family: Plus Jakarta Sans, system-ui, sans-serif; display: flex; flex-direction: column">
+  <header>
+    <div style="max-width: 1200px; margin: 0 auto; padding: 18px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px">
+      <a href="#" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #FFFFFF"><span style="width: 36px; height: 36px; border-radius: 8px; background: #FFFFFF; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><path d="M8 4 L18 22" stroke="#184A34" stroke-width="3" stroke-linecap="round" fill="none"></path><circle cx="20" cy="7" r="3" fill="#94701F"></circle></svg></span><span style="font-weight: 700; font-size: 18px">[Nom du produit]</span></a>
+      <nav aria-label="Navigation principale" style="display: flex; flex-wrap: wrap; gap: 4px 24px; font-size: 15px; flex: 1 1 auto">
+        <a href="#" style="color: #D5E8DC; text-decoration: none">Modèles</a><a href="#" style="color: #D5E8DC; text-decoration: none">Encadreurs</a><a href="#" style="color: #D5E8DC; text-decoration: none">Tarifs</a><a href="#" style="color: #D5E8DC; text-decoration: none">Universités</a>
+      </nav>
+      <div style="display: flex; gap: 8px">
+        <a href="../04-ecrans-par-role/commun-01-se-connecter.html" style="height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #4E9470; display: inline-flex; align-items: center; text-decoration: none; color: #FFFFFF; font-size: 15px; font-weight: 500">Se connecter</a>
+        <a href="../04-ecrans-par-role/commun-02-creer-un-compte.html" style="height: 44px; padding: 0 18px; border-radius: 10px; background: #FFFFFF; display: inline-flex; align-items: center; text-decoration: none; color: #0C261C; font-size: 15px; font-weight: 600">Créer un compte</a>
+      </div>
+    </div>
+  </header>
+  <section style="max-width: 1200px; width: 100%; margin: 0 auto; padding: 48px 24px 80px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 56px; align-items: center">
+    <div style="flex: 1 1 500px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+      <div style="display: flex; align-items: baseline; gap: 14px; animation: up 700ms cubic-bezier(0.2, 0, 0, 1) 0ms both;"><span aria-label="Il est deux heures du matin" style="font-family: 'JetBrains Mono', monospace; font-size: 64px; font-weight: 500; color: #D6B566; letter-spacing: -0.02em; font-variant-numeric: tabular-nums">02<span style="animation: blink 1000ms cubic-bezier(0.2, 0, 0, 1) 0ms infinite;">:</span>14</span><span style="font-size: 15px; color: #7BB293">la veille du dépôt</span></div>
+      <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-weight: 600; font-size: 52px; line-height: 1.1; letter-spacing: -0.02em; color: #FFFFFF; animation: up 800ms cubic-bezier(0.2, 0, 0, 1) 150ms both;">Le dépôt, c'est demain. Votre mise en page vient de casser.</h1>
+      <div style="font-family: 'Source Serif 4', Georgia, serif; font-style: italic; font-size: 52px; font-weight: 600; line-height: 1; color: #D6B566; animation: pop 700ms cubic-bezier(0.2, 0, 0, 1) 3500ms both;">Plus jamais.</div>
+      <p style="margin: 0; font-size: 19px; line-height: 1.6; color: #D5E8DC; max-width: 540px; animation: up 800ms cubic-bezier(0.2, 0, 0, 1) 300ms both;">Écrivez votre mémoire dans un outil qui ne casse pas. Le modèle de votre université gère la forme. Vous, vous dormez.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; animation: up 800ms cubic-bezier(0.2, 0, 0, 1) 450ms both;">
+        <a class="cta" href="../04-ecrans-par-role/commun-02-creer-un-compte.html" style="height: 56px; padding: 0 28px; border-radius: 12px; background: #94701F; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: #FFFFFF; font-size: 17px; font-weight: 600">Sauver mon mémoire<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+        <a href="#" style="height: 56px; padding: 0 22px; border-radius: 12px; border: 1px solid #2E7553; display: inline-flex; align-items: center; text-decoration: none; color: #FFFFFF; font-size: 16px; font-weight: 500">Importer mon fichier Word</a>
+      </div>
+      <div style="font-size: 14px; color: #7BB293; animation: up 800ms cubic-bezier(0.2, 0, 0, 1) 560ms both;">Gratuit pour commencer · Pass semaine à 500 FCFA pour la période de dépôt</div>
+    </div>
+    <div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 0">
+      <div style="background: #2A1712; border: 1px solid #45320D; border-radius: 18px 18px 0 0; padding: 24px 26px; display: flex; flex-direction: column; gap: 12px; transform: rotate(-1.5deg); transform-origin: bottom right; animation: slideR 700ms cubic-bezier(0.2, 0, 0, 1) 300ms both, shake 900ms ease-in-out 1500ms 2;">
+        <div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #E5CF95">CETTE NUIT</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #B38A30">memoire_final_v7.docx</span></div>
+        <div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #F2E6C8; animation: slideL 600ms cubic-bezier(0.2, 0, 0, 1) 500ms both;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F6C9C4" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg><span style="position: relative">Le sommaire ne se met plus à jour<span style="position: absolute; left: -2px; right: -2px; top: 52%; height: 2px; background: #B38A30; transform-origin: left center; animation: grow 500ms cubic-bezier(0.2, 0, 0, 1) 1700ms both;"></span></span></div><div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #F2E6C8; animation: slideL 600ms cubic-bezier(0.2, 0, 0, 1) 750ms both;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F6C9C4" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg><span style="position: relative">La figure 3 a sauté à la page suivante<span style="position: absolute; left: -2px; right: -2px; top: 52%; height: 2px; background: #B38A30; transform-origin: left center; animation: grow 500ms cubic-bezier(0.2, 0, 0, 1) 2150ms both;"></span></span></div><div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #F2E6C8; animation: slideL 600ms cubic-bezier(0.2, 0, 0, 1) 1000ms both;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F6C9C4" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg><span style="position: relative">Les numéros de page recommencent à 1 au chapitre 4<span style="position: absolute; left: -2px; right: -2px; top: 52%; height: 2px; background: #B38A30; transform-origin: left center; animation: grow 500ms cubic-bezier(0.2, 0, 0, 1) 2600ms both;"></span></span></div><div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #F2E6C8; animation: slideL 600ms cubic-bezier(0.2, 0, 0, 1) 1250ms both;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F6C9C4" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg><span style="position: relative">« memoire_final_v7_VRAI.docx » ou « v8 » ?<span style="position: absolute; left: -2px; right: -2px; top: 52%; height: 2px; background: #B38A30; transform-origin: left center; animation: grow 500ms cubic-bezier(0.2, 0, 0, 1) 3050ms both;"></span></span></div>
+      </div>
+      <div style="background: #FFFFFF; color: #181715; border-radius: 18px; padding: 24px 26px; display: flex; flex-direction: column; gap: 14px; margin-top: -8px; box-shadow: 0 24px 60px rgba(0,0,0,0.5); position: relative; animation: up 900ms cubic-bezier(0.2, 0, 0, 1) 3300ms both;">
+        <div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #184A34">AVEC [NOM DU PRODUIT]</span><span style="font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: #ECF5E3; color: #3A741B; display: inline-block; animation: pop 600ms cubic-bezier(0.2, 0, 0, 1) 4900ms both;">PDF prêt en 12 s</span></div>
+        <div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #181715"><span style="display: inline-flex; animation: pop 500ms cubic-bezier(0.2, 0, 0, 1) 3900ms both;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3A741B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span><span style="animation: up 500ms cubic-bezier(0.2, 0, 0, 1) 3850ms both;">Sommaire, figures et pages numérotés automatiquement</span></div><div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #181715"><span style="display: inline-flex; animation: pop 500ms cubic-bezier(0.2, 0, 0, 1) 4200ms both;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3A741B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span><span style="animation: up 500ms cubic-bezier(0.2, 0, 0, 1) 4150ms both;">Normes de votre université appliquées d'office</span></div><div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #181715"><span style="display: inline-flex; animation: pop 500ms cubic-bezier(0.2, 0, 0, 1) 4500ms both;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3A741B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span><span style="animation: up 500ms cubic-bezier(0.2, 0, 0, 1) 4450ms both;">Une seule version, toujours la bonne</span></div>
+        <div style="display: flex; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px solid #EBE8E1; font-size: 13px; color: #57534E"><span style="width: 8px; height: 8px; border-radius: 999px; background: #3A741B"></span>Mémoire de master · 82 pages · conforme UJKZ</div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>
