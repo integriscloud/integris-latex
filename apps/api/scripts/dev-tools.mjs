@@ -1,9 +1,10 @@
 // Development tools for testing with several accounts on latex-dev (never in production).
 //   pnpm dev:share <project id or name> <phone> [EDITOR|SUPERVISOR|REVIEWER|VIEWER|remove]
 //   pnpm dev:otp <phone>
-// Sharing arrives in the app at step 8; until then, this adds an account to a project with a
-// role. The account is created when the phone number has none (sign-in by SMS code, the code
-// being read with dev:otp since SMS are only written to the logs on latex-dev).
+// Sharing is done in the app since step 8 (invitation accepted by the invitee). This tool stays
+// for tests: it gives an account a role at once, without invitation nor audit entry. The account
+// is created when the phone number has none (sign-in by SMS code, the code being read with
+// dev:otp since SMS are only written to the logs on latex-dev).
 import { createPrismaClient } from '@integris/db';
 import { COLLAB_EVENTS_CHANNEL, normalizePhone } from '@integris/shared';
 import { Redis } from 'ioredis';

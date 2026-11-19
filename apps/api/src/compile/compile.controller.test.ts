@@ -249,10 +249,17 @@ describe('compile API', () => {
       expect(link!.expires * 1000 - Date.now()).toBeGreaterThan(14 * 60_000);
       expect(ctx.queue.jobs.has(id)).toBe(false);
 
+      // The plan of the owner is told to the owner and editors only, never to the other roles.
+      expect(view.maxSeconds).toBeNull();
       const state = (await as(viewer).get(`${projectId}/compile`).expect(200)).body;
       expect(state).toMatchObject({
         canCompile: false,
         autoCompile: false,
+        maxSeconds: null,
+        maxPerHour: null,
+      });
+      expect(state.lastPdf.maxSeconds).toBeNull();
+      expect((await as(owner).get(`${projectId}/compile`)).body).toMatchObject({
         maxSeconds: 20,
         maxPerHour: 30,
       });

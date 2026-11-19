@@ -28,7 +28,8 @@
       "terms": "Conditions d'utilisation",
       "privacy": "Données personnelles",
       "copyright": "© {year} Integris Cloud. Tous droits réservés."
-    }
+    },
+    "justNow": "à l'instant"
   },
   "Home": {
     "hero": {
@@ -310,7 +311,8 @@
       "readyTitle": "Votre compte est créé.",
       "readyText": "Bienvenue, {name}. Votre espace est prêt.",
       "emailSent": "Un lien de confirmation a été envoyé à {email}. Ouvrez-le pour confirmer votre adresse.",
-      "open": "Ouvrir mon espace"
+      "open": "Ouvrir mon espace",
+      "openInvitation": "Ouvrir l'invitation"
     },
     "captcha": {
       "title": "Vérification anti-robot",
@@ -601,7 +603,9 @@
     "replaceTitle": "Remplacer les fichiers existants ?",
     "replaceText": "Des fichiers du même nom existent déjà dans ce dossier. Les remplacer par les nouveaux ?",
     "replace": "Remplacer",
-    "uploadDone": "{count, plural, one {# fichier téléversé.} other {# fichiers téléversés.}}"
+    "uploadDone": "{count, plural, one {# fichier téléversé.} other {# fichiers téléversés.}}",
+    "share": "Partager",
+    "readOnlyCommenter": "Vous pouvez commenter et proposer des modifications, sans modifier les fichiers."
   },
   "ProjectErrors": {
     "not_found": "Ce projet ou ce fichier n'existe pas, ou vous n'y avez pas accès.",
@@ -633,7 +637,18 @@
     "auto_compile_unavailable": "La compilation automatique est réservée aux offres payantes.",
     "main_missing": "Le fichier principal du projet est introuvable. Choisissez un fichier .tex principal.",
     "compile_unavailable": "Le service de compilation ne répond pas. Réessayez dans un instant.",
-    "no_output": "Ce résultat de compilation n'est plus disponible."
+    "no_output": "Ce résultat de compilation n'est plus disponible.",
+    "collaborator_limit": "La limite de collaborateurs de votre offre est atteinte (invitations en attente comprises ; les encadrants ne comptent pas).",
+    "already_member": "Cette personne a déjà accès au projet.",
+    "already_invited": "Une invitation est déjà en attente pour ce contact.",
+    "cannot_invite_self": "Vous ne pouvez pas vous inviter vous-même.",
+    "invalid_contact": "Ce numéro de téléphone n'est pas valide.",
+    "invitation_invalid": "Cette invitation n'est plus valide.",
+    "invitation_other_account": "Cette invitation a été envoyée à une autre personne.",
+    "link_exists": "Un lien public est déjà actif : révoquez-le pour en créer un autre.",
+    "link_invalid": "Ce lien n'est plus valide.",
+    "suggestion_decided": "Cette proposition a déjà été appliquée ou refusée.",
+    "file_missing": "Le fichier de ce commentaire n'existe plus."
   },
   "Editor": {
     "metaTitle": "Éditeur",
@@ -707,7 +722,6 @@
     "pdfTitle": "Aperçu PDF",
     "comments": "Commentaires",
     "submissions": "Soumissions",
-    "commentsSoon": "Les commentaires sur le texte arrivent bientôt.",
     "submissionsSoon": "Les soumissions à un encadrant arrivent bientôt.",
     "phrases": {
       "find": "Rechercher",
@@ -806,7 +820,15 @@
     "reload": "Recharger la page",
     "history": "Historique",
     "online": "Personnes en ligne sur ce projet",
-    "onlineMore": "+{count}"
+    "onlineMore": "+{count}",
+    "share": "Partager",
+    "commentSelection": "Commenter la sélection",
+    "commentSelectFirst": "Sélectionnez d'abord un passage du code, puis commentez-le.",
+    "commentTooLong": "La sélection dépasse {max} caractères : commentez un passage plus court.",
+    "readOnlyCommenter": "Vous pouvez commenter et proposer des modifications, sans modifier les fichiers.",
+    "commentLine": "Commenter la ligne {line}",
+    "commentEmptyLine": "Cette ligne est vide : choisissez une ligne avec du texte, ou sélectionnez un passage.",
+    "outcomeTimeoutOther": "La compilation a dépassé la durée maximale permise pour ce projet."
   },
   "History": {
     "title": "Historique des versions",
@@ -1113,5 +1135,137 @@
     "text": "{product} risque de ne pas fonctionner correctement : l'éditeur et l'aperçu PDF demandent un navigateur récent. Installez la dernière version de <chrome>Google Chrome</chrome> ou de <firefox>Mozilla Firefox</firefox>.",
     "chromeUrl": "https://www.google.com/intl/fr/chrome/",
     "firefoxUrl": "https://www.mozilla.org/fr/firefox/new/"
+  },
+  "Sharing": {
+    "title": "Partager « {name} »",
+    "loading": "Chargement du partage…",
+    "inviteTitle": "Inviter une personne",
+    "channel": "Moyen d'invitation",
+    "byPhone": "Par téléphone",
+    "byEmail": "Par e-mail",
+    "phone": "Numéro de téléphone",
+    "dialCode": "Indicatif du pays",
+    "email": "Adresse e-mail",
+    "role": "Son rôle sur ce projet",
+    "roles": {
+      "OWNER": "Propriétaire",
+      "EDITOR": "Éditeur",
+      "SUPERVISOR": "Encadrant",
+      "REVIEWER": "Relecteur",
+      "VIEWER": "Lecteur"
+    },
+    "roleHelp": {
+      "EDITOR": "modifie les fichiers, commente, applique les propositions",
+      "SUPERVISOR": "commente, propose, valide les soumissions, fixe les échéances",
+      "REVIEWER": "commente et propose des remplacements",
+      "VIEWER": "lit seulement"
+    },
+    "message": "Message",
+    "optional": "(facultatif)",
+    "messageHelp": "{count}/{max} caractères · dans l'e-mail et sur la page d'invitation, jamais dans le SMS",
+    "collaborators": "Collaborateurs : {used} sur {max} (le propriétaire et les encadrants ne comptent pas)",
+    "collaboratorsUnlimited": "Collaborateurs : {used} (sans limite avec votre offre)",
+    "limitReached": "Votre offre permet {max, plural, one {# collaborateur} other {# collaborateurs}} par projet, invitations en attente comprises. Les encadrants ne comptent pas.",
+    "upgrade": "Voir les offres",
+    "sent": "Invitation envoyée. L'accès sera donné quand la personne l'acceptera.",
+    "sendSms": "Envoyer l'invitation par SMS",
+    "sendEmail": "Envoyer l'invitation par e-mail",
+    "people": "Personnes ayant accès",
+    "ownerOnly": "Seul le propriétaire peut partager ce projet ou changer les rôles.",
+    "roleOf": "Rôle de {name}",
+    "remove": "Retirer l'accès de {name}",
+    "pending": "Invitation en attente · {role} · expire le {date}",
+    "cancelInvitation": "Annuler l'invitation",
+    "linkTitle": "Lien public",
+    "linkHelp": "Sans compte et en lecture seule : le dernier PDF compilé avec succès, et les fichiers source si vous les incluez. Jamais les commentaires, l'historique ni la compilation.",
+    "linkAddress": "Adresse du lien",
+    "linkWithSources": "PDF et fichiers source",
+    "linkPdfOnly": "PDF seul",
+    "linkExpires": "expire le {date}",
+    "linkNoExpiry": "sans expiration",
+    "copy": "Copier le lien",
+    "copied": "Lien copié",
+    "revoke": "Révoquer le lien",
+    "includeSources": "Inclure les fichiers source (lecture seule)",
+    "expiry": "Date d'expiration",
+    "createLink": "Créer le lien public"
+  },
+  "Comments": {
+    "you": "Vous",
+    "fileGone": "Fichier supprimé",
+    "cannotWrite": "Vous ne pouvez pas modifier ce fichier en ce moment (lecture seule ou hors connexion).",
+    "textGone": "Le texte commenté a été supprimé.",
+    "applied": "Appliquée par {name}",
+    "rejected": "Refusée par {name}",
+    "show": "Afficher dans le code",
+    "resolvedBadge": "Résolu",
+    "proposal": "Proposition de remplacement",
+    "apply": "Appliquer",
+    "refuse": "Refuser",
+    "reply": "Répondre",
+    "resolve": "Marquer résolu",
+    "reopen": "Rouvrir",
+    "replyLabel": "Votre réponse",
+    "cancel": "Annuler",
+    "send": "Envoyer",
+    "commentSelection": "Commenter la sélection",
+    "readerOnly": "En tant que lecteur, vous lisez les commentaires sans pouvoir en écrire.",
+    "newLabel": "Votre commentaire",
+    "propose": "Proposer un remplacement",
+    "proposalLabel": "Texte proposé",
+    "proposalHelp": "Le propriétaire ou un éditeur l'applique en un clic ou le refuse. Laissez vide pour proposer de supprimer le passage.",
+    "publish": "Publier",
+    "filter": "Afficher les commentaires",
+    "open": "Ouverts ({count})",
+    "resolved": "Résolus ({count})",
+    "loading": "Chargement des commentaires…",
+    "emptyTitle": "Aucun commentaire ouvert",
+    "emptyResolved": "Aucun commentaire résolu",
+    "emptyHint": "Sélectionnez un passage du code, puis « Commenter la sélection ».",
+    "emptyReader": "Les commentaires des autres apparaîtront ici.",
+    "changedTitle": "Le texte a changé",
+    "changedText": "Le passage commenté est maintenant « {current} ». Le remplacer quand même par « {proposal} » ?"
+  },
+  "Invitation": {
+    "metaTitle": "Invitation",
+    "title": "Invitation à collaborer",
+    "loading": "Lecture de l'invitation…",
+    "invalid": "Ce lien d'invitation n'est pas valide. Demandez une nouvelle invitation.",
+    "declined": "Invitation refusée. Rien n'a changé pour vous.",
+    "text": "{inviter} vous invite à collaborer sur « {project} ».",
+    "sentToPhone": "Invitation envoyée au {contact}, valable jusqu'au {date}.",
+    "sentToEmail": "Invitation envoyée à {contact}, valable jusqu'au {date}.",
+    "status": {
+      "PENDING": "Invitation en attente.",
+      "ACCEPTED": "Cette invitation a déjà été acceptée.",
+      "EXPIRED": "Cette invitation a expiré : demandez-en une nouvelle.",
+      "DECLINED": "Cette invitation a été refusée.",
+      "REVOKED": "Cette invitation a été annulée par le propriétaire du projet."
+    },
+    "signedInAs": "Connecté en tant que {name}.",
+    "otherPhone": "Cette invitation a été envoyée au {contact}. Connectez-vous avec le compte de ce numéro pour l'accepter.",
+    "otherEmail": "Cette invitation a été envoyée à {contact}. Ajoutez et confirmez cette adresse dans votre compte, ou connectez-vous avec le compte qui l'utilise.",
+    "account": "Mon compte",
+    "accept": "Accepter et ouvrir le projet",
+    "decline": "Refuser",
+    "signInPhone": "Pour accepter, connectez-vous avec le compte du numéro {contact}, ou créez-le.",
+    "signInEmail": "Pour accepter, connectez-vous avec un compte dont l'adresse {contact} est confirmée, ou créez-en un.",
+    "signIn": "Se connecter",
+    "signUp": "Créer un compte"
+  },
+  "PublicLink": {
+    "metaTitle": "Projet partagé",
+    "loading": "Chargement…",
+    "invalid": "Ce lien n'est plus valide : il a été révoqué, a expiré ou n'existe pas.",
+    "rateLimited": "Trop de consultations depuis votre connexion. Réessayez dans un moment.",
+    "readOnly": "Lecture seule",
+    "pdf": "PDF du projet",
+    "noPdf": "Pas encore de PDF",
+    "noPdfHint": "Le projet n'a pas encore été compilé avec succès.",
+    "sources": "Fichiers source",
+    "fileFailed": "Ce fichier n'a pas pu être lu.",
+    "binary": "Aperçu indisponible pour ce type de fichier.",
+    "unavailable": "Le lien n'a pas pu être lu pour l'instant (connexion ou serveur). Réessayez.",
+    "retry": "Réessayer"
   }
 }

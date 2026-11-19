@@ -151,8 +151,8 @@ export const compilationSchema = z.object({
   durationMs: z.number().int().nonnegative().nullable(),
   /** Place in the queue (1 = next) while queued. */
   position: z.number().int().positive().nullable(),
-  /** Maximum duration of the plan, in seconds. */
-  maxSeconds: z.number().int().positive(),
+  /** Maximum duration of the plan, in seconds; null for the roles that do not edit. */
+  maxSeconds: z.number().int().positive().nullable(),
   issues: z.array(compileIssueSchema),
   errorCount: z.number().int().nonnegative(),
   warningCount: z.number().int().nonnegative(),
@@ -172,10 +172,13 @@ export const compileStateSchema = z.object({
   lastPdf: compilationSchema.nullable(),
   /** Owner and editor of a project that is not read-only (docs/spec.md, "Compilation"). */
   canCompile: z.boolean(),
-  /** Automatic compilation allowed by the plan of the project owner. */
+  /**
+   * Plan of the project owner (automatic compilation, duration, compilations per hour): told to
+   * the owner and editors only; false and null for the other roles.
+   */
   autoCompile: z.boolean(),
-  maxSeconds: z.number().int().positive(),
-  maxPerHour: z.number().int().positive(),
+  maxSeconds: z.number().int().positive().nullable(),
+  maxPerHour: z.number().int().positive().nullable(),
 });
 export type CompileState = z.infer<typeof compileStateSchema>;
 

@@ -37,6 +37,15 @@ const nextConfig: NextConfig = {
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
         ],
       },
+      // Pages reached through a token (public links, invitations): never indexed, and the token
+      // never leaves in a Referer header.
+      ...['/:locale/p/:token', '/:locale/invite'].map((source) => ({
+        source,
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      })),
     ];
   },
 };

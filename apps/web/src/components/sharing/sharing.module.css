@@ -1,0 +1,133 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+  padding-top: var(--espace-4);
+  border-top: 1px solid var(--bordure);
+}
+
+.section:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.heading {
+  margin: 0;
+  font: var(--t-titre-4);
+  color: var(--texte);
+}
+
+.muted {
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--texte-3);
+}
+
+.people {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.person {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2) var(--espace-3);
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--cible-tactile);
+  padding: var(--espace-2) 0;
+  border-bottom: 1px solid var(--bordure);
+}
+
+.person:last-child {
+  border-bottom: 0;
+}
+
+.name {
+  display: flex;
+  flex: 1 1 160px;
+  flex-direction: column;
+  min-width: 0;
+  font: var(--t-texte);
+  font-weight: 600;
+  color: var(--texte);
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  font: var(--t-texte-sm);
+  font-weight: 400;
+  color: var(--texte-3);
+}
+
+.controls {
+  display: flex;
+  gap: var(--espace-2);
+  align-items: center;
+}
+
+.select {
+  min-height: var(--cible-tactile);
+  padding: 0 var(--espace-3);
+  border: 1px solid var(--bordure-forte);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  font: var(--t-texte-sm);
+  color: var(--texte);
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  padding: var(--espace-3);
+  border-radius: var(--r-lg);
+  background: var(--surface-creuse);
+}
+
+.url {
+  font: var(--t-code);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+}
+
+.lead {
+  margin: 0;
+  font: var(--t-texte-lg);
+  color: var(--texte);
+}
+
+/* Optional message of an invitation (280 characters at most). */
+.message {
+  margin: 0;
+  padding: var(--espace-3) var(--espace-4);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--or-50);
+}
+
+.message blockquote {
+  margin: 0;
+  font: var(--t-texte);
+  color: var(--texte);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message figcaption {
+  margin-top: var(--espace-1);
+  font: var(--t-texte-sm);
+  color: var(--texte-3);
+}

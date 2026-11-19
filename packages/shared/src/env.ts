@@ -112,6 +112,14 @@ export const apiEnvSchema = z
     HISTORY_SCAN_SECONDS: positiveInt(30),
     // Named versions and restorations per user per hour (each one copies files to the history).
     HISTORY_ACTIONS_PER_HOUR: positiveInt(30),
+    // Sharing (step 8). Limits rest on the account and on the token first; the per-address
+    // limits are only a high backstop, since many mobile users share one address (CGNAT).
+    SHARE_INVITATIONS_PER_DAY: positiveInt(50), // per owner account, every project together
+    INVITATION_ACTIONS_PER_HOUR: positiveInt(30), // accept or decline, per signed-in account
+    INVITATION_VIEWS_PER_HOUR_PER_TOKEN: positiveInt(60),
+    INVITATION_VIEWS_PER_HOUR_PER_IP: positiveInt(2000),
+    PUBLIC_LINK_READS_PER_HOUR_PER_TOKEN: positiveInt(3000), // openings and source files
+    PUBLIC_LINK_READS_PER_HOUR_PER_IP: positiveInt(6000),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

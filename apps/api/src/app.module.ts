@@ -13,6 +13,7 @@ import { PlansModule } from './plans/plans.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { RedisModule } from './redis/redis.module.js';
+import { SharingModule } from './sharing/sharing.module.js';
 import { SmsModule } from './sms/sms.module.js';
 import { StorageModule } from './storage/storage.module.js';
 
@@ -43,6 +44,7 @@ import { StorageModule } from './storage/storage.module.js';
     CompileModule,
     HistoryModule,
     CollabModule,
+    SharingModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
 })

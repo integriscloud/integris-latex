@@ -10,4 +10,5 @@ export * from './plans.js';
 export * from './ports.js';
 export * from './projects.js';
 export * from './queues.js';
+export * from './sharing.js';
 export * from './storage.js';

@@ -71,11 +71,24 @@ describe('pathConflicts', () => {
 });
 
 describe('projectRights', () => {
-  it('follows the rights table of docs/spec.md', () => {
-    expect(projectRights('OWNER')).toEqual({ read: true, edit: true, manage: true });
-    expect(projectRights('EDITOR')).toEqual({ read: true, edit: true, manage: false });
-    for (const role of ['SUPERVISOR', 'REVIEWER', 'VIEWER'] as const) {
-      expect(projectRights(role)).toEqual({ read: true, edit: false, manage: false });
+  it('follows the rights table of docs/spec.md for the five roles', () => {
+    // Read, comment and propose, apply a proposal, edit, share and delete.
+    const table = {
+      OWNER: [true, true, true, true, true],
+      EDITOR: [true, true, true, true, false],
+      SUPERVISOR: [true, true, false, false, false],
+      REVIEWER: [true, true, false, false, false],
+      VIEWER: [true, false, false, false, false],
+    } as const;
+    for (const [role, [read, comment, apply, edit, share]] of Object.entries(table)) {
+      expect(projectRights(role as keyof typeof table)).toEqual({
+        read,
+        comment,
+        applySuggestion: apply,
+        edit,
+        share,
+        manage: share,
+      });
     }
   });
 });

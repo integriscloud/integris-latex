@@ -117,6 +117,10 @@ export const collabServerMessageSchema = z.discriminatedUnion('type', [
   }),
   // Outcome of the last write to storage, sent to everyone on the document when it changes.
   z.object({ type: z.literal('stored'), code: z.enum(STORE_BLOCK_CODES).nullable() }),
+  // On the presence document: the comments of the project changed (read them again).
+  z.object({ type: z.literal('comments') }),
+  // On the presence document: rights on the project changed (read the project again).
+  z.object({ type: z.literal('access') }),
 ]);
 export type CollabServerMessage = z.infer<typeof collabServerMessageSchema>;
 
@@ -138,6 +142,8 @@ export const collabEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('file-deleted'), projectId: z.string(), fileId: z.string() }),
   // Rights, read-only state or trash changed: every connection of the project is checked again.
   z.object({ type: z.literal('project-access'), projectId: z.string() }),
+  // A comment was added, answered, resolved or decided: the open editors read them again.
+  z.object({ type: z.literal('comments-changed'), projectId: z.string() }),
 ]);
 export type CollabEvent = z.infer<typeof collabEventSchema>;
 

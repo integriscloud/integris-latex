@@ -19,7 +19,7 @@ import {
   Panel,
   type TreeFile,
 } from '@integris/ui';
-import { ArrowLeft, Copy, FilePlus, FilePen, Pencil, Star, Trash2 } from 'lucide-react';
+import { ArrowLeft, Copy, FilePlus, FilePen, Pencil, Share2, Star, Trash2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getPathname, useRouter } from '../../i18n/navigation';
@@ -28,6 +28,7 @@ import { formatBytes } from '../../lib/format';
 import styles from './app.module.css';
 import { ConfirmDialog, TextDialog } from './dialogs';
 import { ProjectBadges } from './ProjectBadges';
+import { ShareDialog } from '../sharing/ShareDialog';
 import { useApiErrorMessage } from './use-api-error';
 
 type Action =
@@ -52,6 +53,7 @@ export function ProjectFiles({
   const router = useRouter();
   const message = useApiErrorMessage(locale);
   const [project, setProject] = useState(initial);
+  const [shareOpen, setShareOpen] = useState(false);
   const [action, setAction] = useState<Action>(null);
   const [folder, setFolder] = useState('');
   const [progress, setProgress] = useState<string | null>(null);
@@ -232,6 +234,10 @@ export function ProjectFiles({
                 {t('open')}
               </ButtonLink>
             )}
+            <Button variant="secondary" onClick={() => setShareOpen(true)}>
+              <Share2 size={20} strokeWidth={1.75} aria-hidden="true" />
+              {t('share')}
+            </Button>
             {manage && (
               <>
                 <Button variant="secondary" onClick={() => setAction({ kind: 'rename-project' })}>
@@ -252,8 +258,21 @@ export function ProjectFiles({
         }
       />
 
+      <ShareDialog
+        projectId={project.id}
+        projectName={project.name}
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+      />
+
       {!edit && (
-        <Alert tone="info">{project.readOnly ? t('readOnlyProject') : t('readOnlyRole')}</Alert>
+        <Alert tone="info">
+          {project.readOnly
+            ? t('readOnlyProject')
+            : project.rights.comment
+              ? t('readOnlyCommenter')
+              : t('readOnlyRole')}
+        </Alert>
       )}
 
       <Panel

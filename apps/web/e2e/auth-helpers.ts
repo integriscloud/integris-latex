@@ -87,8 +87,16 @@ export async function forgetMessages(e164: string, email?: string): Promise<void
  */
 export async function deleteTestUsers(phones: string[]): Promise<void> {
   const owner = { owner: { phone: { in: phones } } };
+  const users = { phone: { in: phones } };
+  await prisma().commentReply.deleteMany({
+    where: { OR: [{ comment: { project: owner } }, { author: users }] },
+  });
+  await prisma().comment.deleteMany({ where: { OR: [{ project: owner }, { author: users }] } });
+  await prisma().projectInvitation.deleteMany({ where: { project: owner } });
+  await prisma().shareLinkOpening.deleteMany({ where: { link: { project: owner } } });
+  await prisma().shareLink.deleteMany({ where: { project: owner } });
   await prisma().projectMember.deleteMany({
-    where: { OR: [{ project: owner }, { user: { phone: { in: phones } } }] },
+    where: { OR: [{ project: owner }, { user: users }] },
   });
   await prisma().projectVersion.deleteMany({ where: { project: owner } });
   await prisma().projectFile.deleteMany({ where: { project: owner } });
@@ -143,9 +151,9 @@ export async function eraseAllProjects(page: Page): Promise<void> {
 }
 
 /**
- * Gives an account a role on a project, as sharing will at step 8, and asks the collaboration
- * server to check the open connections again. No audit entry: the dev database keeps none for
- * tests.
+ * Gives an account a role on a project at once (like `pnpm dev:share`), and asks the
+ * collaboration server to check the open connections again. No invitation and no audit entry:
+ * an account with audit entries can no longer be deleted (append-only table).
  */
 export async function shareProject(
   projectId: string,
@@ -166,4 +174,45 @@ export async function closeHelpers(): Promise<void> {
   await prismaClient?.$disconnect();
   redisClient = null;
   prismaClient = null;
+}
+
+/**
+ * Signs in with an account kept between runs (created on first use). The sharing tests use
+ * them: sharing writes append-only audit entries, after which an account can no longer be
+ * deleted. Their projects are erased by the tests (eraseAllProjects).
+ */
+export async function signInKept(page: Page, phone: { local: string; e164: string }) {
+  const existing = await prisma().user.findUnique({ where: { phone: phone.e164 } });
+  if (!existing) {
+    await signUp(page, phone);
+    return;
+  }
+  await forgetMessages(phone.e164);
+  await resetLimits([phone.e164]);
+  await page.goto('/fr/login');
+  await page.getByLabel('Numéro de téléphone').fill(phone.local);
+  await page.getByRole('button', { name: 'Recevoir le code' }).click();
+  await enterCode(page, await lastSmsCode(phone.e164));
+  await page.getByRole('button', { name: 'Se connecter', exact: true }).click();
+  await expect(page).toHaveURL(/\/fr\/(app|spaces)$/);
+}
+
+/** The link of the last fake SMS sent to a number (an invitation). */
+export async function lastSmsLink(e164: string): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const link = /https?:\/\/\S+#token=[\w-]{43}/.exec(
+      (await redis().get(`dev:sms:${e164}`)) ?? '',
+    );
+    if (link) return link[0];
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`No invitation SMS for ${e164}`);
+}
+
+/** Pending invitations and public links of the projects of these accounts (left by a failure). */
+export async function forgetInvitations(phones: string[]): Promise<void> {
+  await prisma().projectInvitation.updateMany({
+    where: { phone: { in: phones }, status: 'PENDING' },
+    data: { status: 'REVOKED' },
+  });
 }

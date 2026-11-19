@@ -1,7 +1,13 @@
 'use client';
 
 import { CircleAlert, Eye, EyeOff } from 'lucide-react';
-import { type InputHTMLAttributes, type ReactNode, useId, useState } from 'react';
+import {
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+  useId,
+  useState,
+} from 'react';
 import styles from './field.module.css';
 
 interface FieldFrameProps {
@@ -158,6 +164,35 @@ export function PhoneField({
           inputMode="tel"
           autoComplete="tel-national"
           className={`${styles.input} ${styles.tel}`}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy(id, help, error)}
+          {...props}
+        />
+      </div>
+    </FieldFrame>
+  );
+}
+
+export interface TextAreaFieldProps extends Omit<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  'id'
+> {
+  label: string;
+  optionalLabel?: string;
+  help?: string;
+  error?: string;
+}
+
+/** Text on several lines (comments, messages); grows with the text up to a few lines. */
+export function TextAreaField({ label, optionalLabel, help, error, ...props }: TextAreaFieldProps) {
+  const id = useId();
+  return (
+    <FieldFrame id={id} label={label} optionalLabel={optionalLabel} help={help} error={error}>
+      <div className={boxClass(error)}>
+        <textarea
+          id={id}
+          rows={3}
+          className={`${styles.input} ${styles.textarea}`}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy(id, help, error)}
           {...props}

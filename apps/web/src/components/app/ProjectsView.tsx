@@ -14,7 +14,7 @@ import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import { getPathname, useRouter } from '../../i18n/navigation';
 import { apiRequest } from '../../lib/api-client';
-import { formatBytes } from '../../lib/format';
+import { formatBytes, relativeOrNow } from '../../lib/format';
 import { ConfirmDialog, TextDialog } from './dialogs';
 import styles from './app.module.css';
 import { ProjectBadges } from './ProjectBadges';
@@ -28,6 +28,7 @@ type Action = { kind: 'rename' | 'duplicate' | 'trash'; project: ProjectSummary 
  */
 export function ProjectsView({ list, now }: { list: ProjectList; now: string }) {
   const t = useTranslations('Projects');
+  const tCommon = useTranslations('Common');
   const locale = useLocale();
   const format = useFormatter();
   const router = useRouter();
@@ -108,7 +109,12 @@ export function ProjectsView({ list, now }: { list: ProjectList; now: string }) 
               name={project.name}
               href={href(`/app/projects/${project.id}`)}
               meta={t('meta', {
-                when: format.relativeTime(new Date(project.lastActivityAt), new Date(now)),
+                when: relativeOrNow(
+                  format,
+                  new Date(project.lastActivityAt),
+                  new Date(now),
+                  tCommon('justNow'),
+                ),
                 size: formatBytes(project.sizeBytes, locale),
               })}
               people={

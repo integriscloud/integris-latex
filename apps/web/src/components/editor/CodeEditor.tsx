@@ -40,7 +40,9 @@ import {
   latexCompletion,
   type ProjectSymbols,
 } from '../../lib/editor/completion';
+import { type CommentMark, commentMarks, setCommentMarks } from '../../lib/editor/comment-marks';
 import { latexFolding } from '../../lib/editor/folding';
+import { type LineSelection, lineComments } from '../../lib/editor/line-comment';
 import { codeHighlight, languageFor, textKindOf } from '../../lib/editor/language';
 import { editorTheme } from '../../lib/editor/theme';
 import styles from './editor.module.css';
@@ -51,6 +53,10 @@ export interface CodeEditorHandle {
   openSearch: () => void;
   /** Line of the cursor in the open file (SyncTeX, "show in the PDF"). */
   cursorLine: () => number | null;
+  /** The selected text of the open file (to comment it), or null without selection. */
+  selection: () => { from: number; to: number; text: string } | null;
+  /** Selects a range of the open file and scrolls it into view (a comment's text). */
+  select: (from: number, to: number) => void;
 }
 
 /** The shared text of a file and what goes with it (collaboration server). */
@@ -68,6 +74,8 @@ export interface CodeEditorProps {
   path: string;
   shared: SharedText;
   readOnly: boolean;
+  /** Read-only text that can still be selected with the keyboard (to comment it). */
+  selectable?: boolean;
   /** Browser spell checker in the code (editor settings, kept on the account). */
   spellcheck: boolean;
   /** Language of the interface: spell checking of the browser. */
@@ -80,7 +88,28 @@ export interface CodeEditorProps {
   index: { ready: () => boolean; load: () => Promise<void> };
   /** Ctrl+S, Ctrl+Enter: save and compile. */
   onCompile: () => void;
+  /** Commented selections of the open file. */
+  marks?: readonly CommentMark[];
+  /** A click on commented text. */
+  onMarkClick?: (id: string) => void;
+  /**
+   * Comment a whole line in one click ("+" in the margin, long press on phones): given to the
+   * roles that comment. Null for an empty line.
+   */
+  onCommentLine?: (line: LineSelection | null) => void;
+  /** Accessible name of the "+" of a line ("Commenter la ligne 12"). */
+  commentLineLabel?: (line: number) => string;
 }
+
+/**
+ * Read-only state. A text that is commented stays focusable (keyboard selection), still refusing
+ * every change, without opening the virtual keyboard of phones.
+ */
+const readOnlyState = (readOnly: boolean, selectable: boolean) => [
+  EditorState.readOnly.of(readOnly),
+  EditorView.editable.of(!readOnly || selectable),
+  readOnly && selectable ? EditorView.contentAttributes.of({ inputmode: 'none' }) : [],
+];
 
 const spellcheckAttribute = (on: boolean) =>
   EditorView.contentAttributes.of({ spellcheck: on ? 'true' : 'false' });
@@ -91,7 +120,7 @@ const spellcheckAttribute = (on: boolean) =>
  * files rebuilds the state from the shared text and puts the cursor back where it was.
  */
 export function CodeEditor(props: CodeEditorProps) {
-  const { ref, fileId, path, shared, readOnly, spellcheck } = props;
+  const { ref, fileId, path, shared, readOnly, spellcheck, marks, selectable = false } = props;
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const selections = useRef(new Map<string, EditorSelection>());
@@ -99,6 +128,15 @@ export function CodeEditor(props: CodeEditorProps) {
   const readOnlyCompartment = useRef(new Compartment());
   const languageCompartment = useRef(new Compartment());
   const spellcheckCompartment = useRef(new Compartment());
+  const lineCommentCompartment = useRef(new Compartment());
+  const canCommentLines = Boolean(props.onCommentLine);
+  const lineCommentExtension = (on: boolean) =>
+    on
+      ? lineComments(
+          (line) => latest.current.commentLineLabel?.(line) ?? String(line),
+          (line) => latest.current.onCommentLine?.(line),
+        )
+      : [];
   // Callbacks change on every render; the extensions read the latest ones.
   const latest = useRef(props);
   useLayoutEffect(() => {
@@ -143,11 +181,14 @@ export function CodeEditor(props: CodeEditorProps) {
         ...completionKeymap,
         indentWithTab,
       ]),
-      readOnlyCompartment.current.of([
-        EditorState.readOnly.of(latest.current.readOnly),
-        EditorView.editable.of(!latest.current.readOnly),
-      ]),
+      readOnlyCompartment.current.of(
+        readOnlyState(latest.current.readOnly, latest.current.selectable ?? false),
+      ),
       languageCompartment.current.of([]),
+      commentMarks((id) => latest.current.onMarkClick?.(id)),
+      lineCommentCompartment.current.of(
+        lineCommentExtension(Boolean(latest.current.onCommentLine)),
+      ),
     ];
     if (latex) {
       extensions.push(
@@ -204,12 +245,21 @@ export function CodeEditor(props: CodeEditorProps) {
   // Rights can change (save refused, read-only project).
   useEffect(() => {
     view.current?.dispatch({
-      effects: readOnlyCompartment.current.reconfigure([
-        EditorState.readOnly.of(readOnly),
-        EditorView.editable.of(!readOnly),
-      ]),
+      effects: readOnlyCompartment.current.reconfigure(readOnlyState(readOnly, selectable)),
     });
-  }, [readOnly, fileId]);
+  }, [readOnly, selectable, fileId]);
+
+  // The "+" of the lines follows the right to comment (a role can change while open).
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: lineCommentCompartment.current.reconfigure(lineCommentExtension(canCommentLines)),
+    });
+  }, [canCommentLines, fileId]);
+
+  // Comments of the file, placed by their anchors in the shared text.
+  useEffect(() => {
+    view.current?.dispatch({ effects: setCommentMarks.of(marks ?? []) });
+  }, [marks, fileId]);
 
   // The setting is changed from the editor menu; each file keeps its own state.
   useEffect(() => {
@@ -238,6 +288,26 @@ export function CodeEditor(props: CodeEditorProps) {
       cursorLine() {
         const editor = view.current;
         return editor ? editor.state.doc.lineAt(editor.state.selection.main.head).number : null;
+      },
+      selection() {
+        const editor = view.current;
+        const range = editor?.state.selection.main;
+        if (!editor || !range || range.empty) return null;
+        return {
+          from: range.from,
+          to: range.to,
+          text: editor.state.sliceDoc(range.from, range.to),
+        };
+      },
+      select(from, to) {
+        const editor = view.current;
+        if (!editor) return;
+        const length = editor.state.doc.length;
+        editor.dispatch({
+          selection: EditorSelection.range(Math.min(from, length), Math.min(to, length)),
+          effects: EditorView.scrollIntoView(Math.min(from, length), { y: 'center' }),
+        });
+        editor.focus();
       },
     }),
     [],

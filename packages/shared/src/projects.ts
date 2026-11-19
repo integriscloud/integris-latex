@@ -95,15 +95,34 @@ export type ProjectRoleValue = (typeof PROJECT_ROLES)[number];
 /** What a role may do on a project (docs/spec.md, rights table). */
 export interface ProjectRights {
   read: boolean;
+  /** Comment, reply and propose a replacement: every role except the reader (Lecteur). */
+  comment: boolean;
+  /** Apply or refuse a replacement proposal: owner and editor. */
+  applySuggestion: boolean;
   edit: boolean;
-  /** Rename, move to the trash, restore, erase, duplicate (and share, step 8). */
+  /** Invite, change a role, remove an access, create and revoke public links. */
+  share: boolean;
+  /** Rename, move to the trash, restore, erase, duplicate. */
   manage: boolean;
 }
 
+export const projectRightsSchema = z.object({
+  read: z.boolean(),
+  comment: z.boolean(),
+  applySuggestion: z.boolean(),
+  edit: z.boolean(),
+  share: z.boolean(),
+  manage: z.boolean(),
+});
+
 export function projectRights(role: ProjectRoleValue): ProjectRights {
+  const writer = role === 'OWNER' || role === 'EDITOR';
   return {
     read: true,
-    edit: role === 'OWNER' || role === 'EDITOR',
+    comment: role !== 'VIEWER',
+    applySuggestion: writer,
+    edit: writer,
+    share: role === 'OWNER',
     manage: role === 'OWNER',
   };
 }
@@ -197,7 +216,7 @@ export type ProjectFileInfo = z.infer<typeof projectFileSchema>;
 export const projectDetailSchema = projectSummarySchema.extend({
   mainFilePath: z.string(),
   engine: z.enum(['PDFLATEX', 'XELATEX', 'LUALATEX']),
-  rights: z.object({ read: z.boolean(), edit: z.boolean(), manage: z.boolean() }),
+  rights: projectRightsSchema,
   files: z.array(projectFileSchema),
 });
 export type ProjectDetail = z.infer<typeof projectDetailSchema>;

@@ -237,6 +237,11 @@ model User {
   auditLogs             AuditLog[]
   validationRecords     ValidationRecord[]
   invitationsSent       Invitation[]         @relation("InvitedBy")
+  projectInvitesSent    ProjectInvitation[]  @relation("ProjectInvitedBy")
+  projectInvitesTaken   ProjectInvitation[]  @relation("ProjectInvitationAcceptedBy")
+  shareLinksCreated     ShareLink[]
+  commentsResolved      Comment[]            @relation("CommentResolvedBy")
+  suggestionsDecided    Comment[]            @relation("SuggestionDecidedBy")
 }
 
 // ───────────── Plans & billing ─────────────
@@ -491,6 +496,7 @@ model Project {
 
   files         ProjectFile[]
   members       ProjectMember[]
+  invitations   ProjectInvitation[]
   shareLinks    ShareLink[]
   versions      ProjectVersion[]
   comments      Comment[]
@@ -543,14 +549,65 @@ model ProjectMember {
   @@unique([projectId, userId])
 }
 
+// Invitation to a project by phone or e-mail (docs/spec.md, "Partage"): always accepted by the
+// invitee; access is given on acceptance. Only one PENDING invitation per contact and project
+// (partial unique indexes in the migration).
+model ProjectInvitation {
+  id           String           @id @default(cuid())
+  projectId    String
+  project      Project          @relation(fields: [projectId], references: [id])
+  invitedById  String
+  invitedBy    User             @relation("ProjectInvitedBy", fields: [invitedById], references: [id])
+  phone        String? // E.164
+  email        String? // lower case
+  role         ProjectRole
+  // At most 280 characters: shown in the e-mail and on the invitation page, never in the SMS.
+  message      String?
+  locale       Locale
+  tokenHash    String           @unique
+  status       InvitationStatus @default(PENDING)
+  expiresAt    DateTime
+  acceptedById String?
+  acceptedBy   User?            @relation("ProjectInvitationAcceptedBy", fields: [acceptedById], references: [id])
+  decidedAt    DateTime?
+  createdAt    DateTime         @default(now())
+
+  @@index([projectId, status])
+}
+
+// Public read-only link: the last successful PDF, and the sources when includeSources. The token
+// is derived from the id with a server key (shown again to the owner); only its hash is stored.
 model ShareLink {
-  id        String    @id @default(cuid())
-  projectId String
-  project   Project   @relation(fields: [projectId], references: [id])
-  tokenHash String    @unique
-  expiresAt DateTime?
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
+  id             String    @id @default(cuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id])
+  tokenHash      String    @unique
+  includeSources Boolean   @default(false)
+  createdById    String?
+  createdBy      User?     @relation(fields: [createdById], references: [id])
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  openings ShareLinkOpening[]
+
+  @@index([projectId, revokedAt])
+}
+
+// Openings of a public link, one row per link, address and hour with a counter. The first
+// opening of the hour also writes the audit entry (PUBLIC_LINK_OPENED, append-only) in the same
+// transaction; the following ones only increase `count`.
+model ShareLinkOpening {
+  id      String    @id @default(cuid())
+  linkId  String
+  link    ShareLink @relation(fields: [linkId], references: [id])
+  ip      String // "" when unknown
+  hour    DateTime // start of the hour (UTC)
+  count   Int       @default(1)
+  firstAt DateTime  @default(now())
+  lastAt  DateTime  @default(now())
+
+  @@unique([linkId, ip, hour])
 }
 
 model Template {
@@ -592,23 +649,29 @@ model ProjectVersion {
 // ───────────── Comments ─────────────
 
 model Comment {
-  id               String            @id @default(cuid())
-  projectId        String
-  project          Project           @relation(fields: [projectId], references: [id])
-  fileId           String
-  file             ProjectFile       @relation(fields: [fileId], references: [id])
-  authorId         String
-  author           User              @relation(fields: [authorId], references: [id])
-  anchor           Json // Yjs relative positions (start/end)
-  quotedText       String
-  body             String
-  suggestedText    String? // replacement proposal
-  suggestionStatus SuggestionStatus?
-  status           CommentStatus     @default(OPEN)
-  submissionId     String?
-  submission       Submission?       @relation(fields: [submissionId], references: [id])
-  createdAt        DateTime          @default(now())
-  resolvedAt       DateTime?
+  id                    String            @id @default(cuid())
+  projectId             String
+  project               Project           @relation(fields: [projectId], references: [id])
+  // Null once the file is deleted: the comment and its replies are kept.
+  fileId                String?
+  file                  ProjectFile?      @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  authorId              String
+  author                User              @relation(fields: [authorId], references: [id])
+  anchor                Json // Yjs relative positions of the selection: { start, end }
+  quotedText            String
+  body                  String
+  suggestedText         String? // replacement proposal
+  suggestionStatus      SuggestionStatus?
+  suggestionDecidedById String?
+  suggestionDecidedBy   User?             @relation("SuggestionDecidedBy", fields: [suggestionDecidedById], references: [id])
+  suggestionDecidedAt   DateTime?
+  status                CommentStatus     @default(OPEN)
+  submissionId          String?
+  submission            Submission?       @relation(fields: [submissionId], references: [id])
+  createdAt             DateTime          @default(now())
+  resolvedAt            DateTime?
+  resolvedById          String?
+  resolvedBy            User?             @relation("CommentResolvedBy", fields: [resolvedById], references: [id])
 
   replies CommentReply[]
 

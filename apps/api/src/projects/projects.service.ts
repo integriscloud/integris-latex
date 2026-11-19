@@ -1,5 +1,6 @@
 import type { Engine, Prisma, Project, ProjectRole } from '@integris/db';
 import {
+  type ApiErrorCode,
   COMPILE_CACHE_BUCKET,
   COMPILE_OUTPUT_BUCKET,
   type ImportResult,
@@ -8,7 +9,6 @@ import {
   PROJECTS_BUCKET,
   projectRights,
   type ProjectDetail,
-  type ProjectErrorCode,
   type ProjectList,
   type ProjectRights,
   projectStoragePrefix,
@@ -51,9 +51,9 @@ export interface ProjectAccess {
   rights: ProjectRights;
 }
 
-type Right = 'edit' | 'manage';
+type Right = Exclude<keyof ProjectRights, 'read'>;
 
-export const fail = (status: HttpStatus, code: ProjectErrorCode): never => {
+export const fail = (status: HttpStatus, code: ApiErrorCode): never => {
   throw new ApiError(status, code);
 };
 
@@ -544,7 +544,9 @@ export class ProjectsService {
       db.submission.deleteMany({ where: { projectId } }),
       db.projectVersion.deleteMany({ where: { projectId } }),
       db.compilation.deleteMany({ where: { projectId } }),
+      db.shareLinkOpening.deleteMany({ where: { link: { projectId } } }),
       db.shareLink.deleteMany({ where: { projectId } }),
+      db.projectInvitation.deleteMany({ where: { projectId } }),
       db.projectMember.deleteMany({ where: { projectId } }),
       db.projectFile.deleteMany({ where: { projectId } }),
       db.project.delete({ where: { id: projectId } }),

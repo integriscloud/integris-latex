@@ -4,6 +4,7 @@ import {
   awarenessUserSchema,
   COLLAB_CLOSE,
   COLLAB_PATH,
+  type CollabServerMessage,
   collabServerMessageSchema,
   FILE_TEXT_NAME,
   fileDocumentName,
@@ -67,6 +68,15 @@ export interface CollabSnapshot {
 
 const FLUSH_TIMEOUT_MS = 20_000;
 
+function parseServerMessage(payload: string): CollabServerMessage | null {
+  try {
+    const message = collabServerMessageSchema.safeParse(JSON.parse(payload));
+    return message.success ? message.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Collaboration of one project: one WebSocket for every document, a presence document (who is
  * online and in which file) and one Yjs document per open text file. Changes are kept in the
@@ -79,6 +89,7 @@ export class ProjectCollab {
   private readonly listeners = new Set<() => void>();
   private readonly textListeners = new Set<TextListener>();
   private readonly deletedListeners = new Set<(fileId: string) => void>();
+  private readonly projectListeners = new Set<(change: 'comments' | 'access') => void>();
   private readonly flushes = new Map<number, (code: StoreBlockCode | null) => void>();
   private nextFlush = 1;
   private everConnected = false;
@@ -103,6 +114,13 @@ export class ProjectCollab {
       this.changed();
     });
     this.presence.awareness!.on('change', () => this.changed());
+    // The server tells every editor of the project when comments or rights change.
+    this.presence.on('stateless', ({ payload }: { payload: string }) => {
+      const message = parseServerMessage(payload);
+      if (message?.type === 'comments' || message?.type === 'access') {
+        for (const listener of this.projectListeners) listener(message.type);
+      }
+    });
   }
 
   // The browser knows first when the network goes: the socket follows at once instead of
@@ -128,6 +146,14 @@ export class ProjectCollab {
     this.textListeners.add(listener);
     return () => {
       this.textListeners.delete(listener);
+    };
+  }
+
+  /** Comments of the project changed, or the rights on it (read them again). */
+  onProjectChange(listener: (change: 'comments' | 'access') => void) {
+    this.projectListeners.add(listener);
+    return () => {
+      this.projectListeners.delete(listener);
     };
   }
 
@@ -223,20 +249,13 @@ export class ProjectCollab {
         update({ writable: false, closed: 'deleted' });
     });
     provider.on('stateless', ({ payload }: { payload: string }) => {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(payload);
-      } catch {
-        return;
-      }
-      const message = collabServerMessageSchema.safeParse(parsed);
-      if (!message.success) return;
-      if (message.data.type === 'stored') {
-        update({ storeCode: message.data.code });
-      } else {
-        update({ storeCode: message.data.code });
-        this.flushes.get(message.data.id)?.(message.data.code);
-        this.flushes.delete(message.data.id);
+      const message = parseServerMessage(payload);
+      if (message?.type === 'stored') {
+        update({ storeCode: message.code });
+      } else if (message?.type === 'flushed') {
+        update({ storeCode: message.code });
+        this.flushes.get(message.id)?.(message.code);
+        this.flushes.delete(message.id);
       }
     });
     provider.attach();
@@ -340,5 +359,6 @@ export class ProjectCollab {
     this.listeners.clear();
     this.textListeners.clear();
     this.deletedListeners.clear();
+    this.projectListeners.clear();
   }
 }

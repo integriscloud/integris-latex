@@ -28,7 +28,8 @@
       "terms": "Terms of use",
       "privacy": "Privacy",
       "copyright": "© {year} Integris Cloud. All rights reserved."
-    }
+    },
+    "justNow": "just now"
   },
   "Home": {
     "hero": {
@@ -310,7 +311,8 @@
       "readyTitle": "Your account is created.",
       "readyText": "Welcome, {name}. Your space is ready.",
       "emailSent": "A confirmation link has been sent to {email}. Open it to confirm your address.",
-      "open": "Open my space"
+      "open": "Open my space",
+      "openInvitation": "Open the invitation"
     },
     "captcha": {
       "title": "Anti-robot check",
@@ -601,7 +603,9 @@
     "replaceTitle": "Replace existing files?",
     "replaceText": "Files with the same name already exist in this folder. Replace them with the new ones?",
     "replace": "Replace",
-    "uploadDone": "{count, plural, one {# file uploaded.} other {# files uploaded.}}"
+    "uploadDone": "{count, plural, one {# file uploaded.} other {# files uploaded.}}",
+    "share": "Share",
+    "readOnlyCommenter": "You can comment and propose changes, without changing the files."
   },
   "ProjectErrors": {
     "not_found": "This project or file does not exist, or you do not have access to it.",
@@ -633,7 +637,18 @@
     "auto_compile_unavailable": "Automatic compilation is for paid plans.",
     "main_missing": "The main file of the project cannot be found. Choose a main .tex file.",
     "compile_unavailable": "The compilation service does not answer. Try again in a moment.",
-    "no_output": "This compilation result is no longer available."
+    "no_output": "This compilation result is no longer available.",
+    "collaborator_limit": "The collaborator limit of your plan is reached (pending invitations included; supervisors do not count).",
+    "already_member": "This person already has access to the project.",
+    "already_invited": "An invitation is already pending for this contact.",
+    "cannot_invite_self": "You cannot invite yourself.",
+    "invalid_contact": "This phone number is not valid.",
+    "invitation_invalid": "This invitation is no longer valid.",
+    "invitation_other_account": "This invitation was sent to someone else.",
+    "link_exists": "A public link is already active: revoke it to create another one.",
+    "link_invalid": "This link is no longer valid.",
+    "suggestion_decided": "This proposal was already applied or refused.",
+    "file_missing": "The file of this comment no longer exists."
   },
   "Editor": {
     "metaTitle": "Editor",
@@ -707,7 +722,6 @@
     "pdfTitle": "PDF preview",
     "comments": "Comments",
     "submissions": "Submissions",
-    "commentsSoon": "Comments on the text are coming soon.",
     "submissionsSoon": "Submissions to a supervisor are coming soon.",
     "phrases": {
       "find": "Find",
@@ -806,7 +820,15 @@
     "reload": "Reload the page",
     "history": "History",
     "online": "People online in this project",
-    "onlineMore": "+{count}"
+    "onlineMore": "+{count}",
+    "share": "Share",
+    "commentSelection": "Comment on the selection",
+    "commentSelectFirst": "First select a passage of the code, then comment on it.",
+    "commentTooLong": "The selection is longer than {max} characters: comment on a shorter passage.",
+    "readOnlyCommenter": "You can comment and propose changes, without changing the files.",
+    "commentLine": "Comment on line {line}",
+    "commentEmptyLine": "This line is empty: choose a line with text, or select a passage.",
+    "outcomeTimeoutOther": "The compilation went over the maximum duration allowed for this project."
   },
   "History": {
     "title": "Version history",
@@ -1113,5 +1135,137 @@
     "text": "{product} may not work properly: the editor and the PDF preview need a recent browser. Install the latest version of <chrome>Google Chrome</chrome> or <firefox>Mozilla Firefox</firefox>.",
     "chromeUrl": "https://www.google.com/intl/en/chrome/",
     "firefoxUrl": "https://www.mozilla.org/en-US/firefox/new/"
+  },
+  "Sharing": {
+    "title": "Share \"{name}\"",
+    "loading": "Loading sharing…",
+    "inviteTitle": "Invite someone",
+    "channel": "Invitation channel",
+    "byPhone": "By phone",
+    "byEmail": "By e-mail",
+    "phone": "Phone number",
+    "dialCode": "Country code",
+    "email": "E-mail address",
+    "role": "Their role on this project",
+    "roles": {
+      "OWNER": "Owner",
+      "EDITOR": "Editor",
+      "SUPERVISOR": "Supervisor",
+      "REVIEWER": "Reviewer",
+      "VIEWER": "Reader"
+    },
+    "roleHelp": {
+      "EDITOR": "edits files, comments, applies proposals",
+      "SUPERVISOR": "comments, proposes, validates submissions, sets deadlines",
+      "REVIEWER": "comments and proposes replacements",
+      "VIEWER": "reads only"
+    },
+    "message": "Message",
+    "optional": "(optional)",
+    "messageHelp": "{count}/{max} characters · in the e-mail and on the invitation page, never in the SMS",
+    "collaborators": "Collaborators: {used} of {max} (the owner and supervisors do not count)",
+    "collaboratorsUnlimited": "Collaborators: {used} (no limit with your plan)",
+    "limitReached": "Your plan allows {max, plural, one {# collaborator} other {# collaborators}} per project, pending invitations included. Supervisors do not count.",
+    "upgrade": "See plans",
+    "sent": "Invitation sent. Access is given once the person accepts it.",
+    "sendSms": "Send the invitation by SMS",
+    "sendEmail": "Send the invitation by e-mail",
+    "people": "People with access",
+    "ownerOnly": "Only the owner can share this project or change roles.",
+    "roleOf": "Role of {name}",
+    "remove": "Remove the access of {name}",
+    "pending": "Pending invitation · {role} · expires on {date}",
+    "cancelInvitation": "Cancel the invitation",
+    "linkTitle": "Public link",
+    "linkHelp": "No account needed, read only: the last successfully compiled PDF, and the source files if you include them. Never comments, history or compilation.",
+    "linkAddress": "Link address",
+    "linkWithSources": "PDF and source files",
+    "linkPdfOnly": "PDF only",
+    "linkExpires": "expires on {date}",
+    "linkNoExpiry": "no expiry",
+    "copy": "Copy the link",
+    "copied": "Link copied",
+    "revoke": "Revoke the link",
+    "includeSources": "Include the source files (read only)",
+    "expiry": "Expiry date",
+    "createLink": "Create the public link"
+  },
+  "Comments": {
+    "you": "You",
+    "fileGone": "File deleted",
+    "cannotWrite": "You cannot change this file right now (read only or offline).",
+    "textGone": "The commented text was deleted.",
+    "applied": "Applied by {name}",
+    "rejected": "Refused by {name}",
+    "show": "Show in the code",
+    "resolvedBadge": "Resolved",
+    "proposal": "Replacement proposal",
+    "apply": "Apply",
+    "refuse": "Refuse",
+    "reply": "Reply",
+    "resolve": "Mark as resolved",
+    "reopen": "Reopen",
+    "replyLabel": "Your reply",
+    "cancel": "Cancel",
+    "send": "Send",
+    "commentSelection": "Comment on the selection",
+    "readerOnly": "As a reader, you read comments but cannot write any.",
+    "newLabel": "Your comment",
+    "propose": "Propose a replacement",
+    "proposalLabel": "Proposed text",
+    "proposalHelp": "The owner or an editor applies it in one click or refuses it. Leave it empty to propose deleting the passage.",
+    "publish": "Publish",
+    "filter": "Show comments",
+    "open": "Open ({count})",
+    "resolved": "Resolved ({count})",
+    "loading": "Loading comments…",
+    "emptyTitle": "No open comments",
+    "emptyResolved": "No resolved comments",
+    "emptyHint": "Select a passage of the code, then \"Comment on the selection\".",
+    "emptyReader": "Comments from the others will appear here.",
+    "changedTitle": "The text has changed",
+    "changedText": "The commented passage is now \"{current}\". Replace it with \"{proposal}\" anyway?"
+  },
+  "Invitation": {
+    "metaTitle": "Invitation",
+    "title": "Invitation to collaborate",
+    "loading": "Reading the invitation…",
+    "invalid": "This invitation link is not valid. Ask for a new invitation.",
+    "declined": "Invitation declined. Nothing changed for you.",
+    "text": "{inviter} invites you to collaborate on \"{project}\".",
+    "sentToPhone": "Invitation sent to {contact}, valid until {date}.",
+    "sentToEmail": "Invitation sent to {contact}, valid until {date}.",
+    "status": {
+      "PENDING": "Pending invitation.",
+      "ACCEPTED": "This invitation was already accepted.",
+      "EXPIRED": "This invitation has expired: ask for a new one.",
+      "DECLINED": "This invitation was declined.",
+      "REVOKED": "This invitation was cancelled by the owner of the project."
+    },
+    "signedInAs": "Signed in as {name}.",
+    "otherPhone": "This invitation was sent to {contact}. Sign in with the account of that number to accept it.",
+    "otherEmail": "This invitation was sent to {contact}. Add and confirm that address in your account, or sign in with the account that uses it.",
+    "account": "My account",
+    "accept": "Accept and open the project",
+    "decline": "Decline",
+    "signInPhone": "To accept, sign in with the account of the number {contact}, or create it.",
+    "signInEmail": "To accept, sign in with an account whose address {contact} is confirmed, or create one.",
+    "signIn": "Sign in",
+    "signUp": "Create an account"
+  },
+  "PublicLink": {
+    "metaTitle": "Shared project",
+    "loading": "Loading…",
+    "invalid": "This link is no longer valid: it was revoked, has expired or does not exist.",
+    "rateLimited": "Too many views from your connection. Try again in a moment.",
+    "readOnly": "Read only",
+    "pdf": "PDF of the project",
+    "noPdf": "No PDF yet",
+    "noPdfHint": "The project has not been compiled successfully yet.",
+    "sources": "Source files",
+    "fileFailed": "This file could not be read.",
+    "binary": "No preview for this kind of file.",
+    "unavailable": "The link could not be read right now (connection or server). Try again.",
+    "retry": "Try again"
   }
 }

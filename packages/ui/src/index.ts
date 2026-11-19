@@ -28,6 +28,11 @@ export {
 } from './button/Button';
 export { CaptchaBox, type CaptchaBoxProps, type CaptchaState } from './captcha-box/CaptchaBox';
 export { Checkbox, type CheckboxProps } from './checkbox/Checkbox';
+export {
+  ChoiceCards,
+  type ChoiceCardOption,
+  type ChoiceCardsProps,
+} from './choice-cards/ChoiceCards';
 export { Callout, type CalloutProps } from './callout/Callout';
 export { ComingSoon, type ComingSoonProps } from './coming-soon/ComingSoon';
 export { Container } from './container/Container';
@@ -43,6 +48,7 @@ export {
   type CompileButtonProps,
   type CompileButtonState,
 } from './editor/CompileButton';
+export { CommentCard, type CommentCardProps, type CommentMessage } from './editor/CommentCard';
 export { IssueCard, type IssueCardProps } from './editor/IssueCard';
 export { MenuButton, type MenuButtonProps } from './editor/MenuButton';
 export { PresenceList, type PresenceListProps, type PresencePerson } from './editor/PresenceList';
@@ -59,9 +65,11 @@ export { Faq, type FaqItem } from './faq/Faq';
 export {
   PasswordField,
   PhoneField,
+  TextAreaField,
   TextField,
   type PasswordFieldProps,
   type PhoneFieldProps,
+  type TextAreaFieldProps,
   type TextFieldProps,
 } from './field/Field';
 export { FeatureGrid, type Feature } from './feature-grid/FeatureGrid';

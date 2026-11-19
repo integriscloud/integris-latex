@@ -22,6 +22,7 @@ import styles from './auth-forms.module.css';
 import { CaptchaNotice } from './CaptchaNotice';
 import { CodeStep } from './CodeStep';
 import { useAuthRequest, useErrorMessage } from './use-auth-request';
+import { inviteFromHash } from './token-from-hash';
 
 type Step = 0 | 1 | 2;
 
@@ -38,6 +39,8 @@ export function SignupForm({ config, locale, brand, barEnd }: SignupFormProps) {
   const message = useErrorMessage();
   const { send, captchaRequired, captchaState } = useAuthRequest();
 
+  // Signing up from an invitation: the invitation opens again once the account exists.
+  const [invite] = useState(() => (typeof window === 'undefined' ? null : inviteFromHash()));
   const [step, setStep] = useState<Step>(0);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -231,18 +234,28 @@ export function SignupForm({ config, locale, brand, barEnd }: SignupFormProps) {
               </p>
             )}
             <div>
-              <ButtonLink
-                href={getPathname({ href: me.currentSpaceId ? '/app' : '/spaces', locale })}
-                size="large"
-                arrow
-                onClick={(event) => {
-                  event.preventDefault();
-                  router.replace(me.currentSpaceId ? '/app' : '/spaces');
-                  router.refresh();
-                }}
-              >
-                {t('signup.open')}
-              </ButtonLink>
+              {invite ? (
+                <ButtonLink
+                  href={`${getPathname({ href: '/invite', locale })}#token=${invite}`}
+                  size="large"
+                  arrow
+                >
+                  {t('signup.openInvitation')}
+                </ButtonLink>
+              ) : (
+                <ButtonLink
+                  href={getPathname({ href: me.currentSpaceId ? '/app' : '/spaces', locale })}
+                  size="large"
+                  arrow
+                  onClick={(event) => {
+                    event.preventDefault();
+                    router.replace(me.currentSpaceId ? '/app' : '/spaces');
+                    router.refresh();
+                  }}
+                >
+                  {t('signup.open')}
+                </ButtonLink>
+              )}
             </div>
           </AuthCard>
         )}

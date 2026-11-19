@@ -12,6 +12,7 @@ import {
   fileDocumentName,
   MAX_DOCUMENT_STATE_BYTES,
   parseDocumentName,
+  presenceDocumentName,
   SESSION_COOKIE,
   type StoreBlockCode,
 } from '@integris/shared';
@@ -462,9 +463,21 @@ export function createCollabServer(options: CollabServerOptions): CollabServer {
     }
   }
 
+  /** Tells the editors open on a project (through its presence document) what changed. */
+  function notifyProject(projectId: string, message: CollabServerMessage) {
+    const presence = server.hocuspocus.documents.get(presenceDocumentName(projectId));
+    if (presence) send(presence, message);
+  }
+
   async function handleEvent(event: CollabEvent) {
     if (event.type === 'project-access') {
       await recheck((context) => context.projectId === event.projectId);
+      // Connections that kept their access read their rights again (role changed).
+      notifyProject(event.projectId, { type: 'access' });
+      return;
+    }
+    if (event.type === 'comments-changed') {
+      notifyProject(event.projectId, { type: 'comments' });
       return;
     }
     const name = fileDocumentName(event.projectId, event.fileId);

@@ -10,6 +10,6 @@ import { CompileService } from './compile.service.js';
   imports: [AuthModule, ProjectsModule],
   controllers: [CompileController],
   providers: [CompileQueueService, CompileService, FilesServer],
-  exports: [FilesServer],
+  exports: [FilesServer, CompileService],
 })
 export class CompileModule {}

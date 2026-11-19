@@ -18,3 +18,16 @@ export function formatBytes(bytes: number, locale: string): string {
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(value);
   return `${number}\u00a0${units[unit]}`;
 }
+
+/**
+ * Relative date ("il y a 2 h"). Under a minute, or in the future (clock of the device ahead of the
+ * server's), it is `justNow` ("à l'instant"), never "dans 6 secondes".
+ */
+export function relativeOrNow(
+  format: { relativeTime: (date: Date, now: Date) => string },
+  date: Date,
+  now: Date,
+  justNow: string,
+): string {
+  return now.getTime() - date.getTime() < 60_000 ? justNow : format.relativeTime(date, now);
+}

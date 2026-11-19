@@ -34,7 +34,7 @@ Quatre plans. Seuls **Team** et **Business** rattachent d'autres comptes, et seu
 | Requêtes IA par jour (V2) | 5 | 50 | 100 | 100 |
 | Priorité de compilation | Basse | Normale | Haute | Haute |
 
-Stockage en unités binaires : 1 Mo = 1 048 576 octets, 1 Go = 1 073 741 824 octets. Le taux de la dégressivité Business au-delà de 100 sièges reste à fixer (voir Points ouverts) : aucune remise n'est appliquée d'ici là.
+Stockage en unités binaires : 1 Mo = 1 048 576 octets, 1 Go = 1 073 741 824 octets. Le taux de la dégressivité Business au-delà de 100 sièges reste à fixer (voir Points ouverts) : aucune remise n'est appliquée d'ici là. « Collaborateurs par projet » ne compte ni le propriétaire ni les Encadrants, mais compte les invitations en attente (voir « Partage »).
 
 **Règles des comptes et des sièges :**
 
@@ -68,16 +68,25 @@ Un projet est un dossier LaTeX complet. On le partage en entier (droits au nivea
   - *Hors connexion* (décision étape 7) : les modifications restent dans l'onglet ouvert et sont synchronisées au retour du réseau ; rien n'est stocké dans le navigateur (le mode hors ligne complet reste hors V1).
 - **Suppression** : corbeille de 30 jours, puis effacement définitif. Le propriétaire peut restaurer un projet ou l'effacer définitivement depuis la corbeille. Les projets en corbeille comptent dans le stockage, pas dans la limite de projets (la restauration revérifie cette limite). L'effacement conserve la trace des validations (voir « Encadrement ») et le journal des demandes d'impression.
 
-| Rôle sur un projet | Lire | Commenter | Modifier | Partager, supprimer |
-| --- | --- | --- | --- | --- |
-| Propriétaire | Oui | Oui | Oui | Oui |
-| Éditeur | Oui | Oui | Oui | Non |
-| Relecteur | Oui | Oui | Non | Non |
-| Lecteur | Oui | Non | Non | Non |
+| Rôle sur un projet | Lire | Commenter et proposer | Appliquer une proposition | Modifier | Partager, supprimer |
+| --- | --- | --- | --- | --- | --- |
+| Propriétaire | Oui | Oui | Oui | Oui | Oui |
+| Éditeur | Oui | Oui | Oui | Oui | Non |
+| Encadrant | Oui | Oui | Non | Non | Non |
+| Relecteur | Oui | Oui | Non | Non | Non |
+| Lecteur | Oui | Non | Non | Non | Non |
 
-**Partage** : invitation par téléphone ou e-mail avec un rôle. Lien public en lecture seule désactivé par défaut, révocable, avec expiration possible.
+L'Encadrant valide en plus les soumissions et fixe les échéances (étape 9). Le Lecteur lit seulement : ni commentaire, ni réponse, ni proposition.
 
-**Commentaires** : ancrés sur une sélection de texte, avec réponses et résolution. Un commentaire peut contenir une **proposition de remplacement** que le propriétaire ou un éditeur applique en un clic ou refuse.
+**Partage** : invitation par téléphone ou e-mail avec un rôle (Éditeur, Encadrant, Relecteur, Lecteur), depuis l'éditeur et la page du projet ; seul le propriétaire partage, change un rôle ou retire un accès.
+
+- *Invitation* (décision étape 8) : toujours une invitation à accepter, y compris pour un compte existant. L'invité reçoit un SMS (numéro) ou un e-mail (adresse) avec un lien valable 14 jours ; le lien crée le compte s'il n'existe pas ; l'accès est donné à l'acceptation. Le propriétaire peut annuler une invitation en attente.
+- *Message facultatif* : 280 caractères au plus, affiché dans l'e-mail et sur la page d'invitation, jamais dans le SMS.
+- *Limite « Collaborateurs par projet »* (grille des plans) : appliquée selon le plan du propriétaire, lue dans la table des plans. Les invitations en attente comptent ; le propriétaire et les Encadrants ne comptent pas (la soumission à un encadreur est permise dans tous les plans, Gratuit compris). Au-delà : action bloquée avec un message clair et une proposition de plan supérieur.
+
+**Lien public** (décision étape 8) : désactivé par défaut, créé par le propriétaire, sans compte pour le visiteur. Par défaut, il ne donne que le dernier PDF compilé avec succès ; à la création, une case « Inclure les fichiers source (lecture seule) », décochée par défaut, ajoute les sources. Jamais de commentaires, d'historique ni de compilation. Jeton long et aléatoire, expiration facultative, révocation immédiate, pages en `noindex`. Chaque création, ouverture et révocation est écrite dans le journal d'audit.
+
+**Commentaires** : ancrés sur une sélection de texte, avec réponses et résolution ; l'ancrage suit le texte quand il change autour (collaboration en temps réel). Un commentaire peut contenir une **proposition de remplacement** que le propriétaire ou un éditeur applique en un clic ou refuse.
 
 **Encadrement :**
 
@@ -98,7 +107,7 @@ Un projet est un dossier LaTeX complet. On le partage en entier (droits au nivea
 - **Plusieurs espaces par personne** : espace personnel et un espace par organisation, avec un rôle (étudiant, enseignant, administrateur). Écran « Choisir son espace » après connexion, sauté s'il n'y en a qu'un ; changement depuis le menu latéral sans reconnexion.
 - **Rattachement à confirmer** : dans un Business, un enseignant qui se déclare membre de l'établissement reste en attente jusqu'à la confirmation d'un administrateur. Hors Business, l'enseignant est un compte normal.
 - **Import d'utilisateurs** : un Business invite ses membres en masse par fichier CSV (Excel en V2), avec un rapport des lignes en erreur. Chaque ligne importée consomme un siège.
-- **Rôle « Encadrant »** : cinquième rôle de projet, qui peut commenter, proposer, valider les soumissions et fixer les échéances. Le Relecteur commente seulement ; le Lecteur lit seulement.
+- **Rôle « Encadrant »** : cinquième rôle de projet, qui peut commenter, proposer, valider les soumissions et fixer les échéances. Le Relecteur commente et propose des remplacements (décision étape 8) ; le Lecteur lit seulement (la maquette de partage, qui le montre « lit et commente », ne fait pas foi).
 - **Classes et filières** : nom affiché des groupes d'un Business.
 - **Hors V1** : SSO d'établissement, import Excel.
 

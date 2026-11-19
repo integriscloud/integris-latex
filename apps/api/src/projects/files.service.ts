@@ -185,6 +185,11 @@ export class FilesService {
    */
   async readText(userId: string, projectId: string, fileId: string): Promise<Uint8Array> {
     await this.projects.access(userId, projectId);
+    return this.storedText(projectId, fileId);
+  }
+
+  /** Stored content of a text file, without any access check (callers check first). */
+  async storedText(projectId: string, fileId: string): Promise<Uint8Array> {
     const find = () =>
       this.prisma.client.projectFile.findFirst({ where: { id: fileId, projectId } });
     let file = await find();

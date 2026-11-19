@@ -114,3 +114,12 @@
   outline: 2px solid var(--action);
   outline-offset: -4px;
 }
+
+.textarea {
+  min-height: 96px;
+  max-height: 240px;
+  padding: var(--espace-3);
+  resize: vertical;
+  font: var(--t-texte);
+  line-height: 1.5;
+}

@@ -1,6 +1,11 @@
 'use client';
 
-import type { ProjectDetail, UserPreferences } from '@integris/shared';
+import {
+  COMMENT_LIMITS,
+  type CommentInfo,
+  type ProjectDetail,
+  type UserPreferences,
+} from '@integris/shared';
 import {
   Alert,
   Badge,
@@ -29,9 +34,11 @@ import {
   FolderTree,
   LocateFixed,
   Lock,
+  MessageSquarePlus,
   MessagesSquare,
   Search,
   Settings,
+  Share2,
   SquarePen,
   X,
 } from 'lucide-react';
@@ -47,15 +54,19 @@ import {
 } from 'react';
 import { getPathname } from '../../i18n/navigation';
 import { apiRead, apiRequest, type ClientErrorCode } from '../../lib/api-client';
+import { anchorOf, rangeOf } from '../../lib/collab/anchors';
 import { collabUrl, ProjectCollab } from '../../lib/collab/project-collab';
 import { replaceText } from '../../lib/collab/text';
 import { textKindOf } from '../../lib/editor/language';
+import type { LineSelection } from '../../lib/editor/line-comment';
 import { type OutlineEntry, parseOutline } from '../../lib/editor/outline';
 import { formatBytes } from '../../lib/format';
 import { forwardSearch, inverseSearch, type PdfArea } from '../../lib/pdf/synctex';
 import { TextDialog } from '../app/dialogs';
 import { useApiErrorMessage } from '../app/use-api-error';
+import { ShareDialog } from '../sharing/ShareDialog';
 import { CodeEditor, type CodeEditorHandle } from './CodeEditor';
+import { type CommentDraft, CommentsPanel } from './CommentsPanel';
 import { CompileResult } from './CompileResult';
 import styles from './editor.module.css';
 import { HistoryPanel } from './HistoryPanel';
@@ -64,6 +75,7 @@ import { PdfViewer } from './PdfViewer';
 import { ProjectSearch, type ReplaceReport } from './ProjectSearch';
 import { useEditorPhrases } from './phrases';
 import { useCompiler } from './use-compiler';
+import { useComments } from './use-comments';
 import { useProjectIndex } from './use-project-index';
 
 /** First file shown: the one asked in the URL, else the main file, else the first text file. */
@@ -80,6 +92,8 @@ function firstFile(project: ProjectDetail, asked: string | null): string | null 
 
 const MOBILE_NOTICE_KEY = 'integris.editor.mobileNoticeClosed';
 const SIDE_KEY = 'integris.editor.sideOpen';
+
+const isPhone = () => window.matchMedia('(max-width: 599.98px)').matches;
 
 const readFlag = (key: string) => {
   try {
@@ -101,8 +115,8 @@ const writeFlag = (key: string, value: boolean) => {
  * compilation, PDF and SyncTeX (step 6), real-time collaboration and version history (step 7).
  * Open files are shared documents of the collaboration server, which writes them to storage a
  * few seconds after a change; changes typed offline stay in the page and are sent when the
- * network comes back. Ctrl+S and Ctrl+Enter store and compile. Comments and submissions
- * (steps 8–9) only have their place here.
+ * network comes back. Ctrl+S and Ctrl+Enter store and compile. Sharing and comments anchored
+ * to the text (step 8); submissions (step 9) only have their place here.
  */
 export function ProjectEditor({
   initial,
@@ -143,6 +157,11 @@ export function ProjectEditor({
   const [syncMissed, setSyncMissed] = useState(false);
   const [resultHidden, setResultHidden] = useState(false);
   const outlineTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [draft, setDraft] = useState<CommentDraft | null>(null);
+  const [commentHint, setCommentHint] = useState<string | null>(null);
+  const [activeComment, setActiveComment] = useState<string | null>(null);
+  const pendingShow = useRef<string | null>(null);
 
   const index = useProjectIndex(project.id, project.files);
   const filesById = useMemo(
@@ -287,6 +306,64 @@ export function ProjectEditor({
   // A file deleted elsewhere: the list of files is read again.
   useEffect(() => collab.onDeleted(() => void reloadProject()), [collab, reloadProject]);
 
+  // The owner changed a role: the rights shown here follow (the servers already apply them).
+  useEffect(
+    () =>
+      collab.onProjectChange((change) => {
+        if (change === 'access') void reloadProject();
+      }),
+    [collab, reloadProject],
+  );
+
+  // ───────────── Comments ─────────────
+
+  const commentsState = useComments(project.id, collab);
+  const comments = commentsState.comments;
+
+  // Places of the comments of the open file, computed again after each change of its text
+  // (once per frame): the anchors follow the text whoever changes it.
+  const [textVersion, setTextVersion] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const stop = collab.onText((id) => {
+      if (id !== latestText.current.activeId || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        setTextVersion((version) => version + 1);
+      });
+    });
+    return () => {
+      stop();
+      cancelAnimationFrame(frame);
+    };
+  }, [collab]);
+
+  const ranges = useMemo(() => {
+    const places = new Map<string, { from: number; to: number } | null>();
+    const text = activeSession?.shared.text;
+    if (!text || !comments) return places;
+    for (const comment of comments) {
+      if (comment.fileId === activeSession.fileId) {
+        places.set(comment.id, rangeOf(text, comment.anchor));
+      }
+    }
+    return places;
+    // textVersion: the shared text changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comments, activeSession, textVersion]);
+
+  const marks = useMemo(
+    () =>
+      (comments ?? [])
+        .filter((comment) => comment.status === 'OPEN' && ranges.get(comment.id))
+        .map((comment) => ({
+          id: comment.id,
+          ...ranges.get(comment.id)!,
+          active: comment.id === activeComment,
+        })),
+    [comments, ranges, activeComment],
+  );
+
   const tracked = [...live.files].filter(([, file]) => file.writable || file.unsynced > 0);
   const failed = tracked.find(([, file]) => file.storeCode && file.storeCode !== 'unavailable');
   const lost = tracked.some(([, file]) => !file.writable && file.unsynced > 0);
@@ -319,6 +396,75 @@ export function ProjectEditor({
     }
     return list;
   }, [live.peers, live.me, filesById]);
+
+  const openComments = () => {
+    setSideTab('comments');
+    if (isPhone()) {
+      setView('side');
+    } else if (!sideOpen) {
+      setSideOpen(true);
+      writeFlag(SIDE_KEY, true);
+    }
+  };
+
+  /** Starts a comment on the selection of the code. */
+  const requestDraft = () => {
+    const selection = editor.current?.selection();
+    setCommentHint(null);
+    if (!selection || !activeSession) {
+      setCommentHint(t('commentSelectFirst'));
+    } else if (selection.text.length > COMMENT_LIMITS.quoted) {
+      setCommentHint(t('commentTooLong', { max: COMMENT_LIMITS.quoted }));
+    } else {
+      setDraft({
+        fileId: activeSession.fileId,
+        quotedText: selection.text,
+        anchor: anchorOf(activeSession.shared.text, selection.from, selection.to),
+      });
+    }
+    openComments();
+  };
+
+  /** Comments a whole line ("+" in the margin, long press on phones). */
+  const commentLine = (line: LineSelection | null) => {
+    setCommentHint(null);
+    if (!line || !activeSession) {
+      setCommentHint(t('commentEmptyLine'));
+    } else if (line.text.length > COMMENT_LIMITS.quoted) {
+      setCommentHint(t('commentTooLong', { max: COMMENT_LIMITS.quoted }));
+    } else {
+      setDraft({
+        fileId: activeSession.fileId,
+        quotedText: line.text,
+        anchor: anchorOf(activeSession.shared.text, line.from, line.to),
+      });
+    }
+    openComments();
+  };
+
+  /** Shows the text of a comment in the code (opening its file first when needed). */
+  const showComment = (comment: CommentInfo) => {
+    setActiveComment(comment.id);
+    if (!comment.fileId) return;
+    if (comment.fileId !== activeId) {
+      pendingShow.current = comment.id;
+      openFile(comment.fileId);
+      return;
+    }
+    const range = ranges.get(comment.id);
+    setView('code');
+    if (range) requestAnimationFrame(() => editor.current?.select(range.from, range.to));
+  };
+
+  // A comment of another file is shown once that file is open.
+  useEffect(() => {
+    const id = pendingShow.current;
+    if (!id || !activeSession) return;
+    pendingShow.current = null;
+    const comment = comments?.find((item) => item.id === id);
+    const range = comment ? rangeOf(activeSession.shared.text, comment.anchor) : null;
+    if (range) requestAnimationFrame(() => editor.current?.select(range.from, range.to));
+  });
 
   // ───────────── Replace in the project ─────────────
 
@@ -497,7 +643,8 @@ export function ProjectEditor({
       {compileState && !compileState.canCompile && (
         <p className={styles.menuHelp}>{t('compileReadOnly')}</p>
       )}
-      {compileState && (
+      {/* The plan of the owner: given to the owner and editors only. */}
+      {compileState?.maxSeconds && compileState.maxPerHour && (
         <p className={styles.menuHelp}>
           {t('compileLimits', {
             seconds: compileState.maxSeconds,
@@ -538,7 +685,9 @@ export function ProjectEditor({
   // ───────────── Rendering ─────────────
 
   const readOnlyReason = !project.rights.edit
-    ? t('readOnlyRole')
+    ? project.rights.comment
+      ? t('readOnlyCommenter')
+      : t('readOnlyRole')
     : project.readOnly
       ? t('readOnlyProject')
       : active?.locked
@@ -678,6 +827,13 @@ export function ProjectEditor({
         {activeSession && compiler.synctex && activeKind === 'latex' && (
           <IconButton icon={LocateFixed} label={t('syncToPdf')} onClick={showInPdf} />
         )}
+        {activeSession && project.rights.comment && (
+          <IconButton
+            icon={MessageSquarePlus}
+            label={t('commentSelection')}
+            onClick={requestDraft}
+          />
+        )}
         {activeSession && (
           <IconButton
             icon={Search}
@@ -707,6 +863,7 @@ export function ProjectEditor({
             path={active.path}
             shared={activeSession.shared}
             readOnly={Boolean(readOnlyReason) || !activeState?.writable}
+            selectable={project.rights.comment}
             spellcheck={spellcheck}
             lang={locale}
             label={t('codeLabel', { path: active.path })}
@@ -719,6 +876,13 @@ export function ProjectEditor({
             symbols={index.symbols}
             index={index}
             onCompile={() => void compile()}
+            marks={marks}
+            onCommentLine={project.rights.comment ? commentLine : undefined}
+            commentLineLabel={(line) => t('commentLine', { line })}
+            onMarkClick={(id) => {
+              setActiveComment(id);
+              if (!isPhone()) openComments();
+            }}
           />
         ) : (
           <EmptyState icon={FileText} title={t('noFile')} text={t('noFileHint')} />
@@ -802,12 +966,28 @@ export function ProjectEditor({
             flush={flushAll}
             onRestored={() => void reloadProject()}
           />
-        ) : (
-          <EmptyState
-            icon={MessagesSquare}
-            title={sideTab === 'comments' ? t('comments') : t('submissions')}
-            text={sideTab === 'comments' ? t('commentsSoon') : t('submissionsSoon')}
+        ) : sideTab === 'comments' ? (
+          <CommentsPanel
+            projectId={project.id}
+            collab={collab}
+            rights={project.rights}
+            readOnly={project.readOnly}
+            files={filesById}
+            activeFileId={activeId}
+            comments={comments}
+            error={commentsState.error}
+            ranges={ranges}
+            activeCommentId={activeComment}
+            meId={live.me?.id ?? null}
+            draft={draft}
+            hint={commentHint}
+            onRequestDraft={requestDraft}
+            onCancelDraft={() => setDraft(null)}
+            onChanged={commentsState.update}
+            onShow={showComment}
           />
+        ) : (
+          <EmptyState icon={MessagesSquare} title={t('submissions')} text={t('submissionsSoon')} />
         )}
       </div>
     </>
@@ -849,6 +1029,7 @@ export function ProjectEditor({
               menuLabel={t('compileMenu')}
               menu={compileMenu}
             />
+            <IconButton icon={Share2} label={t('share')} onClick={() => setShareOpen(true)} />
             <MenuButton icon={Settings} label={t('settings')}>
               <label className={styles.choice}>
                 <input
@@ -901,6 +1082,16 @@ export function ProjectEditor({
           resizeFiles: t('resizeFiles'),
           resizePdf: t('resizePdf'),
           resizeSide: t('resizeSide'),
+        }}
+      />
+      <ShareDialog
+        projectId={project.id}
+        projectName={project.name}
+        open={shareOpen}
+        onClose={() => {
+          setShareOpen(false);
+          // Rights may have changed (someone removed): the project is read again.
+          void reloadProject();
         }}
       />
       <TextDialog

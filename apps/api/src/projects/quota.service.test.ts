@@ -2,9 +2,10 @@ import type { Plan } from '@integris/db';
 import { describe, expect, it } from 'vitest';
 import { combineQuotas } from './quota.service.js';
 
-// Compilation quotas of the V1 grid (docs/spec.md); the tests read them from here, never the code.
+// Collaborator and compilation quotas of the V1 grid (docs/spec.md); the tests read them from here, never the code.
 const COMPILE: Record<Plan['code'], Partial<Plan>> = {
   FREE: {
+    maxCollaboratorsPerProject: 1,
     maxCompileSeconds: 20,
     maxCompilesPerHour: 30,
     autoCompile: false,
@@ -12,6 +13,7 @@ const COMPILE: Record<Plan['code'], Partial<Plan>> = {
     historyDays: 1,
   },
   STANDARD: {
+    maxCollaboratorsPerProject: 5,
     maxCompileSeconds: 120,
     maxCompilesPerHour: 120,
     autoCompile: true,
@@ -19,6 +21,7 @@ const COMPILE: Record<Plan['code'], Partial<Plan>> = {
     historyDays: 90,
   },
   TEAM: {
+    maxCollaboratorsPerProject: null,
     maxCompileSeconds: 240,
     maxCompilesPerHour: 200,
     autoCompile: true,
@@ -26,6 +29,7 @@ const COMPILE: Record<Plan['code'], Partial<Plan>> = {
     historyDays: null,
   },
   BUSINESS: {
+    maxCollaboratorsPerProject: null,
     maxCompileSeconds: 240,
     maxCompilesPerHour: 200,
     autoCompile: true,
@@ -63,6 +67,7 @@ describe('combineQuotas', () => {
       planCode: 'FREE',
       planName: { fr: 'FREE', en: 'FREE' },
       maxProjects: 3,
+      maxCollaborators: 1,
       storageBytes: 100n,
       maxCompileSeconds: 20,
       maxCompilesPerHour: 30,
@@ -78,6 +83,16 @@ describe('combineQuotas', () => {
     expect(
       combineQuotas([plan('FREE', 3, 1n), plan('STANDARD', null, 1n), plan('TEAM', null, 1n)])
         .historyDays,
+    ).toBeNull();
+  });
+
+  it('keeps the largest collaborator limit per project, unlimited winning (1, 5, unlimited)', () => {
+    expect(combineQuotas([plan('FREE', 3, 1n)]).maxCollaborators).toBe(1);
+    expect(combineQuotas([plan('FREE', 3, 1n), plan('STANDARD', null, 1n)]).maxCollaborators).toBe(
+      5,
+    );
+    expect(
+      combineQuotas([plan('STANDARD', null, 1n), plan('TEAM', null, 1n)]).maxCollaborators,
     ).toBeNull();
   });
 

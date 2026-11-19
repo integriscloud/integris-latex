@@ -1,13 +1,18 @@
 import type {
   AuditLog,
+  Comment,
+  CommentReply,
   Compilation,
   FileDocument,
   Plan,
   Project,
   ProjectFile,
+  ProjectInvitation,
   ProjectMember,
   ProjectRole,
   ProjectVersion,
+  ShareLink,
+  ShareLinkOpening,
   User,
 } from '@integris/db';
 import { Readable } from 'node:stream';
@@ -74,6 +79,28 @@ export class FakeProjectsDb {
   versions: ProjectVersion[] = [];
   documents = new Map<string, FileDocument>();
   audits: Partial<AuditLog>[] = [];
+  invitations: ProjectInvitation[] = [];
+  links: ShareLink[] = [];
+  comments: Comment[] = [];
+  replies: CommentReply[] = [];
+  openings: ShareLinkOpening[] = [];
+  /** Makes the next audit entry fail (tests of the transactions). */
+  failNextAudit = false;
+
+  private snapshot() {
+    const copy = <T extends object>(rows: T[]) => rows.map((row) => ({ ...row }));
+    return {
+      members: copy(this.members),
+      invitations: copy(this.invitations),
+      links: copy(this.links),
+      openings: copy(this.openings),
+      audits: copy(this.audits),
+    };
+  }
+
+  private restore(saved: ReturnType<FakeProjectsDb['snapshot']>) {
+    Object.assign(this, saved);
+  }
 
   reset(): void {
     this.plans = defaultPlans();
@@ -88,6 +115,12 @@ export class FakeProjectsDb {
     this.versions = [];
     this.documents.clear();
     this.audits = [];
+    this.invitations = [];
+    this.links = [];
+    this.comments = [];
+    this.replies = [];
+    this.openings = [];
+    this.failNextAudit = false;
   }
 
   addUser(displayName: string): User {
@@ -113,6 +146,44 @@ export class FakeProjectsDb {
 
   share(projectId: string, userId: string, role: ProjectRole): void {
     this.members.push({ id: randomUUID(), projectId, userId, role, createdAt: new Date() });
+  }
+
+  private person(id: string | null) {
+    if (!id) return null;
+    const user = this.users.find((item) => item.id === id)!;
+    return { id: user.id, displayName: user.displayName };
+  }
+
+  /** A comment with what CommentsService includes (authors, replies). */
+  private commentView(row: Comment) {
+    return {
+      ...row,
+      author: this.person(row.authorId),
+      resolvedBy: this.person(row.resolvedById),
+      suggestionDecidedBy: this.person(row.suggestionDecidedById),
+      replies: this.replies
+        .filter((reply) => reply.commentId === row.id)
+        .map((reply) => ({ ...reply, author: this.person(reply.authorId) })),
+    };
+  }
+
+  /** The `where` clauses used by the sharing service on invitations. */
+  private matchesInvitation(row: ProjectInvitation, where: Where): boolean {
+    if (where.id !== undefined && row.id !== where.id) return false;
+    if (where.projectId !== undefined && row.projectId !== where.projectId) return false;
+    if (where.status !== undefined && row.status !== where.status) return false;
+    const expires = where.expiresAt as { lte?: Date; gt?: Date } | undefined;
+    if (expires?.lte && !(row.expiresAt <= expires.lte)) return false;
+    if (expires?.gt && !(row.expiresAt > expires.gt)) return false;
+    return true;
+  }
+
+  private matchesLink(row: ShareLink, where: Where): boolean {
+    if (where.id !== undefined && row.id !== where.id) return false;
+    if (where.projectId !== undefined && row.projectId !== where.projectId) return false;
+    if (where.revokedAt === null && row.revokedAt !== null) return false;
+    if (Array.isArray(where.OR) && row.expiresAt && row.expiresAt <= new Date()) return false;
+    return true;
   }
 
   private project(id: string): Project {
@@ -223,10 +294,25 @@ export class FakeProjectsDb {
   }
 
   readonly client = {
-    $transaction: async (operations: Promise<unknown>[]) => Promise.all(operations),
+    // Batches and interactive transactions; a failed interactive one undoes its rows (tests of
+    // "no change without its audit entry" rely on it).
+    $transaction: async (operations: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => {
+      if (Array.isArray(operations)) return Promise.all(operations);
+      const saved = this.snapshot();
+      try {
+        return await operations(this.client);
+      } catch (error) {
+        this.restore(saved);
+        throw error;
+      }
+    },
     user: {
       findUnique: async ({ where }: { where: { id: string } }) =>
         this.users.find((item) => item.id === where.id) ?? null,
+      findFirst: async ({ where }: { where: { phone?: string; email?: string } }) =>
+        this.users.find((item) =>
+          where.phone !== undefined ? item.phone === where.phone : item.email === where.email,
+        ) ?? null,
       findMany: async ({ where }: { where: { id: { in: string[] } } }) =>
         this.users.filter((item) => where.id.in.includes(item.id)),
       findUniqueOrThrow: async ({ where }: { where: { id: string } }) => {
@@ -248,8 +334,139 @@ export class FakeProjectsDb {
     seat: { findMany: async () => [] },
     printRequest: { count: async () => 0 },
     template: { findMany: async () => [], findFirst: async () => null },
-    commentReply: { deleteMany: async () => ({ count: 0 }) },
-    comment: { deleteMany: async () => ({ count: 0 }) },
+    commentReply: {
+      create: async ({ data }: { data: Pick<CommentReply, 'commentId' | 'authorId' | 'body'> }) => {
+        const row: CommentReply = { id: randomUUID(), createdAt: new Date(), ...data };
+        this.replies.push(row);
+        return row;
+      },
+      deleteMany: async ({ where }: { where: { comment: { projectId: string } } }) => {
+        const ids = new Set(
+          this.comments.filter((c) => c.projectId === where.comment.projectId).map((c) => c.id),
+        );
+        this.replies = this.replies.filter((reply) => !ids.has(reply.commentId));
+        return { count: 0 };
+      },
+    },
+    comment: {
+      create: async ({ data }: { data: Partial<Comment> }) => {
+        const row: Comment = {
+          id: randomUUID(),
+          projectId: data.projectId!,
+          fileId: data.fileId ?? null,
+          authorId: data.authorId!,
+          anchor: data.anchor!,
+          quotedText: data.quotedText!,
+          body: data.body!,
+          suggestedText: data.suggestedText ?? null,
+          suggestionStatus: data.suggestionStatus ?? null,
+          suggestionDecidedById: null,
+          suggestionDecidedAt: null,
+          status: 'OPEN',
+          submissionId: null,
+          createdAt: new Date(Date.now() + this.comments.length),
+          resolvedAt: null,
+          resolvedById: null,
+        };
+        this.comments.push(row);
+        return { ...row };
+      },
+      findMany: async ({ where }: { where: { projectId: string } }) =>
+        this.comments
+          .filter((row) => row.projectId === where.projectId)
+          .map((row) => this.commentView(row)),
+      findFirst: async ({ where }: { where: { id: string; projectId: string } }) => {
+        const row = this.comments.find(
+          (item) => item.id === where.id && item.projectId === where.projectId,
+        );
+        return row ? this.commentView(row) : null;
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Partial<Comment> }) => {
+        const row = this.comments.find((item) => item.id === where.id)!;
+        Object.assign(row, data);
+        return { ...row };
+      },
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { id: string; suggestionStatus: string };
+        data: Partial<Comment>;
+      }) => {
+        const rows = this.comments.filter(
+          (row) => row.id === where.id && row.suggestionStatus === where.suggestionStatus,
+        );
+        for (const row of rows) Object.assign(row, data);
+        return { count: rows.length };
+      },
+      deleteMany: async ({ where }: { where: { projectId: string } }) => {
+        this.comments = this.comments.filter((row) => row.projectId !== where.projectId);
+        return { count: 0 };
+      },
+    },
+    projectInvitation: {
+      create: async ({ data }: { data: Partial<ProjectInvitation> }) => {
+        const clash = this.invitations.some(
+          (row) =>
+            row.projectId === data.projectId &&
+            row.status === 'PENDING' &&
+            ((data.phone && row.phone === data.phone) || (data.email && row.email === data.email)),
+        );
+        if (clash) throw Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+        const row: ProjectInvitation = {
+          id: randomUUID(),
+          projectId: data.projectId!,
+          invitedById: data.invitedById!,
+          phone: data.phone ?? null,
+          email: data.email ?? null,
+          role: data.role!,
+          message: data.message ?? null,
+          locale: data.locale ?? 'fr',
+          tokenHash: data.tokenHash!,
+          status: 'PENDING',
+          expiresAt: data.expiresAt!,
+          acceptedById: null,
+          decidedAt: null,
+          createdAt: new Date(Date.now() + this.invitations.length),
+        };
+        this.invitations.push(row);
+        return { ...row };
+      },
+      findMany: async ({ where }: { where: Where }) =>
+        this.invitations
+          .filter((row) => this.matchesInvitation(row, where))
+          .map((row) => ({ ...row })),
+      findUnique: async ({ where }: { where: { tokenHash: string } }) => {
+        const row = this.invitations.find((item) => item.tokenHash === where.tokenHash);
+        if (!row) return null;
+        const project = this.projects.find((item) => item.id === row.projectId)!;
+        return {
+          ...row,
+          project: { name: project.name, deletedAt: project.deletedAt, ownerId: project.ownerId },
+          invitedBy: { displayName: this.person(row.invitedById)!.displayName },
+        };
+      },
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: Partial<ProjectInvitation>;
+      }) => {
+        const row = this.invitations.find((item) => item.id === where.id)!;
+        Object.assign(row, data);
+        return { ...row };
+      },
+      updateMany: async ({ where, data }: { where: Where; data: Partial<ProjectInvitation> }) => {
+        const rows = this.invitations.filter((row) => this.matchesInvitation(row, where));
+        for (const row of rows) Object.assign(row, data);
+        return { count: rows.length };
+      },
+      deleteMany: async ({ where }: { where: { projectId: string } }) => {
+        this.invitations = this.invitations.filter((row) => row.projectId !== where.projectId);
+        return { count: 0 };
+      },
+    },
     submissionReviewer: { deleteMany: async () => ({ count: 0 }) },
     submission: {
       findMany: async ({ where }: { where: { projectId: string } }) =>
@@ -317,6 +534,10 @@ export class FakeProjectsDb {
     },
     auditLog: {
       create: async ({ data }: { data: Partial<AuditLog> }) => {
+        if (this.failNextAudit) {
+          this.failNextAudit = false;
+          throw new Error('Audit write failed');
+        }
         this.audits.push(data);
         return data;
       },
@@ -373,8 +594,119 @@ export class FakeProjectsDb {
         return { count: 0 };
       },
     },
-    shareLink: { deleteMany: async () => ({ count: 0 }) },
+    shareLinkOpening: {
+      createMany: async ({
+        data,
+      }: {
+        data: Pick<ShareLinkOpening, 'linkId' | 'ip' | 'hour'>[];
+      }) => {
+        let count = 0;
+        for (const row of data) {
+          const exists = this.openings.some(
+            (item) =>
+              item.linkId === row.linkId &&
+              item.ip === row.ip &&
+              item.hour.getTime() === row.hour.getTime(),
+          );
+          if (exists) continue;
+          this.openings.push({
+            id: randomUUID(),
+            count: 1,
+            firstAt: new Date(),
+            lastAt: new Date(),
+            ...row,
+          });
+          count++;
+        }
+        return { count };
+      },
+      update: async ({
+        where,
+      }: {
+        where: { linkId_ip_hour: Pick<ShareLinkOpening, 'linkId' | 'ip' | 'hour'> };
+      }) => {
+        const key = where.linkId_ip_hour;
+        const row = this.openings.find(
+          (item) =>
+            item.linkId === key.linkId &&
+            item.ip === key.ip &&
+            item.hour.getTime() === key.hour.getTime(),
+        )!;
+        row.count++;
+        row.lastAt = new Date();
+        return { ...row };
+      },
+      deleteMany: async ({ where }: { where: { link: { projectId: string } } }) => {
+        const ids = new Set(
+          this.links.filter((link) => link.projectId === where.link.projectId).map((l) => l.id),
+        );
+        this.openings = this.openings.filter((row) => !ids.has(row.linkId));
+        return { count: 0 };
+      },
+    },
+    shareLink: {
+      create: async ({ data }: { data: Partial<ShareLink> }) => {
+        const row: ShareLink = {
+          id: data.id ?? randomUUID(),
+          projectId: data.projectId!,
+          tokenHash: data.tokenHash!,
+          includeSources: data.includeSources ?? false,
+          createdById: data.createdById ?? null,
+          expiresAt: data.expiresAt ?? null,
+          revokedAt: null,
+          createdAt: new Date(),
+        };
+        this.links.push(row);
+        return { ...row };
+      },
+      findFirst: async ({ where }: { where: Where }) => {
+        const row = this.links.filter((item) => this.matchesLink(item, where)).at(-1);
+        return row ? { ...row } : null;
+      },
+      findUnique: async ({ where }: { where: { tokenHash: string } }) => {
+        const row = this.links.find((item) => item.tokenHash === where.tokenHash);
+        return row ? { ...row, project: this.project(row.projectId) } : null;
+      },
+      updateMany: async ({ where, data }: { where: Where; data: Partial<ShareLink> }) => {
+        const rows = this.links.filter((row) => this.matchesLink(row, where));
+        for (const row of rows) Object.assign(row, data);
+        return { count: rows.length };
+      },
+      deleteMany: async ({ where }: { where: { projectId: string } }) => {
+        this.links = this.links.filter((row) => row.projectId !== where.projectId);
+        return { count: 0 };
+      },
+    },
     projectMember: {
+      findMany: async ({ where }: { where: { projectId: string } }) =>
+        this.members
+          .filter((m) => m.projectId === where.projectId)
+          .map((m) => ({ ...m, user: { displayName: this.person(m.userId)!.displayName } })),
+      findUnique: async ({
+        where,
+      }: {
+        where: { projectId_userId: { projectId: string; userId: string } };
+      }) => {
+        const row = this.members.find(
+          (m) =>
+            m.projectId === where.projectId_userId.projectId &&
+            m.userId === where.projectId_userId.userId,
+        );
+        return row ? { ...row } : null;
+      },
+      create: async ({ data }: { data: Pick<ProjectMember, 'projectId' | 'userId' | 'role'> }) => {
+        const row: ProjectMember = { id: randomUUID(), createdAt: new Date(), ...data };
+        this.members.push(row);
+        return { ...row };
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Partial<ProjectMember> }) => {
+        const row = this.members.find((m) => m.id === where.id)!;
+        Object.assign(row, data);
+        return { ...row };
+      },
+      delete: async ({ where }: { where: { id: string } }) => {
+        this.members = this.members.filter((m) => m.id !== where.id);
+      },
       deleteMany: async ({ where }: { where: { projectId: string } }) => {
         this.members = this.members.filter((m) => m.projectId !== where.projectId);
         return { count: 0 };
@@ -458,8 +790,9 @@ export class FakeProjectsDb {
       },
       delete: async ({ where }: { where: { id: string } }) => {
         this.files = this.files.filter((file) => file.id !== where.id);
-        // ON DELETE CASCADE
+        // ON DELETE CASCADE, and SET NULL on comments
         this.documents.delete(where.id);
+        for (const comment of this.comments) if (comment.fileId === where.id) comment.fileId = null;
       },
       deleteMany: async ({ where }: { where: Where }) => {
         const before = this.files.length;

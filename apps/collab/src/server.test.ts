@@ -379,6 +379,31 @@ describe('collab server', () => {
     );
   });
 
+  it('makes an editor read-only at once when the owner changes the role, and tells the editors', async () => {
+    const editor = connect('editor');
+    const presence = connect('editor', presenceDocumentName(PROJECT));
+    await synced(editor);
+    await synced(presence);
+    expect(editor.readOnly()).toBe(false);
+    api.roles.set('editor', 'REVIEWER');
+    await collab.handleEvent({ type: 'project-access', projectId: PROJECT });
+    await until(() => presence.stateless.some((payload) => JSON.parse(payload).type === 'access'));
+    // The server now refuses the changes of this connection.
+    editor.text.insert(0, 'refused ');
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(serverText()).not.toContain('refused');
+  });
+
+  it('tells the editors open on a project that its comments changed', async () => {
+    const reviewer = connect('reviewer', presenceDocumentName(PROJECT));
+    await synced(reviewer);
+    await collab.handleEvent({ type: 'comments-changed', projectId: PROJECT });
+    await until(() => reviewer.stateless.includes(JSON.stringify({ type: 'comments' })));
+    // Other projects are not told.
+    await collab.handleEvent({ type: 'comments-changed', projectId: 'other-project-1' });
+    expect(reviewer.stateless.filter((payload) => payload.includes('comments'))).toHaveLength(1);
+  });
+
   it('gives presence documents to every role, read-only and without storage', async () => {
     const viewer = connect('viewer', presenceDocumentName(PROJECT));
     await synced(viewer);

@@ -87,7 +87,9 @@ export function CompileResult({ projectId, compilation, onOpen }: CompileResultP
       ) : (
         outcome && (
           <Alert tone={outcome === 'tex_errors' ? 'warning' : 'error'}>
-            {t(`outcome.${outcome}`, { seconds: compilation.maxSeconds })}
+            {outcome === 'timeout' && compilation.maxSeconds === null
+              ? t('outcomeTimeoutOther')
+              : t(`outcome.${outcome}`, { seconds: compilation.maxSeconds ?? 0 })}
           </Alert>
         )
       )}

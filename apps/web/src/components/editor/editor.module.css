@@ -486,3 +486,48 @@ button.versionFile {
   overflow-wrap: anywhere;
   background: var(--surface-creuse);
 }
+
+/* Comments panel */
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+  padding: var(--espace-4);
+}
+
+.commentList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.commentForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+}
+
+.commentFormActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  justify-content: flex-end;
+}
+
+.commentQuote {
+  margin: 0;
+  padding: var(--espace-2) var(--espace-3);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--or-50);
+  font: var(--t-texte-sm);
+  font-style: italic;
+  color: var(--texte-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 120px;
+  overflow: auto;
+}

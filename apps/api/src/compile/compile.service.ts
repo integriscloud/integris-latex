@@ -301,7 +301,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     await this.dropOldOutputs(row.projectId);
   }
 
-  /** Keeps the outputs of the last compilation and of the last PDF only. */
+  /** Keeps the outputs of the last compilation, of the last PDF and of the last success only. */
   private async dropOldOutputs(projectId: string): Promise<void> {
     const db = this.prisma.client;
     const finished = await db.compilation.findMany({
@@ -309,7 +309,9 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
       orderBy: { queuedAt: 'desc' },
     });
     const lastPdf = finished.find((row) => row.pdfKey);
-    const keep = new Set([finished[0]?.id, lastPdf?.id]);
+    // The last successful PDF is also what public links show.
+    const lastSucceeded = finished.find((row) => row.pdfKey && row.status === 'SUCCEEDED');
+    const keep = new Set([finished[0]?.id, lastPdf?.id, lastSucceeded?.id]);
     for (const row of finished) {
       if (keep.has(row.id)) continue;
       await this.storage.deletePrefix(
@@ -338,17 +340,15 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
       }),
     ]);
     const refreshed = current ? await this.refresh(current, quotas.maxCompileSeconds) : null;
+    // The plan of the owner is told to the owner and editors only.
+    const shown = rights.edit ? quotas.maxCompileSeconds : null;
     return {
-      current: refreshed
-        ? await this.view(refreshed, quotas.maxCompileSeconds, project.name, rights.read)
-        : null,
-      lastPdf: lastPdf
-        ? await this.view(lastPdf, quotas.maxCompileSeconds, project.name, rights.read)
-        : null,
+      current: refreshed ? await this.view(refreshed, shown, project.name, rights.read) : null,
+      lastPdf: lastPdf ? await this.view(lastPdf, shown, project.name, rights.read) : null,
       canCompile: rights.edit && !project.readOnlyReason,
-      autoCompile: quotas.autoCompile,
-      maxSeconds: quotas.maxCompileSeconds,
-      maxPerHour: quotas.maxCompilesPerHour,
+      autoCompile: rights.edit && quotas.autoCompile,
+      maxSeconds: shown,
+      maxPerHour: rights.edit ? quotas.maxCompilesPerHour : null,
     };
   }
 
@@ -358,7 +358,12 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     const row = await this.row(projectId, id);
     const quotas = await this.quota.quotas(project.ownerId);
     const refreshed = await this.refresh(row, quotas.maxCompileSeconds);
-    return this.view(refreshed, quotas.maxCompileSeconds, project.name, rights.read);
+    return this.view(
+      refreshed,
+      rights.edit ? quotas.maxCompileSeconds : null,
+      project.name,
+      rights.read,
+    );
   }
 
   private async row(projectId: string, id: string): Promise<CompilationRow> {
@@ -389,26 +394,42 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     return this.row(row.projectId, row.id);
   }
 
+  /** Short-lived signed links of a PDF on the files domain (shown, and downloaded). */
+  private pdfLinks(pdfKey: string, projectName: string) {
+    const expires = Math.floor(Date.now() / 1000) + PDF_LINK_SECONDS;
+    const name = downloadName(projectName);
+    const base = this.config.env.FILES_PUBLIC_URL.replace(/\/+$/, '');
+    const link = (download: boolean) =>
+      `${base}/pdf/${signFileLink(this.linkKey, { key: pdfKey, expires, download })}/${name}`;
+    return {
+      url: link(false),
+      downloadUrl: link(true),
+      expiresAt: new Date(expires * 1000).toISOString(),
+    };
+  }
+
+  /** PDF of the last successful compilation, for a public link (no account, no compilation). */
+  async publicPdf(projectId: string, projectName: string) {
+    const row = await this.prisma.client.compilation.findFirst({
+      where: { projectId, status: 'SUCCEEDED', pdfKey: { not: null } },
+      orderBy: { queuedAt: 'desc' },
+    });
+    if (!row?.pdfKey) return null;
+    const { url, downloadUrl } = this.pdfLinks(row.pdfKey, projectName);
+    return { url, downloadUrl };
+  }
+
   private async view(
     row: CompilationRow,
-    maxSeconds: number,
+    /** Null for the roles that do not edit: the plan of the owner is not told to them. */
+    maxSeconds: number | null,
     projectName: string,
     canRead: boolean,
   ): Promise<Compilation> {
     const stored = (row.errors ?? null) as StoredResult | null;
     let pdf: Compilation['pdf'] = null;
     if (row.pdfKey && canRead) {
-      const expires = Math.floor(Date.now() / 1000) + PDF_LINK_SECONDS;
-      const name = downloadName(projectName);
-      const base = this.config.env.FILES_PUBLIC_URL.replace(/\/+$/, '');
-      const link = (download: boolean) =>
-        `${base}/pdf/${signFileLink(this.linkKey, { key: row.pdfKey!, expires, download })}/${name}`;
-      pdf = {
-        url: link(false),
-        downloadUrl: link(true),
-        expiresAt: new Date(expires * 1000).toISOString(),
-        bytes: stored?.pdfBytes ?? 0,
-      };
+      pdf = { ...this.pdfLinks(row.pdfKey, projectName), bytes: stored?.pdfBytes ?? 0 };
     }
     return {
       id: row.id,

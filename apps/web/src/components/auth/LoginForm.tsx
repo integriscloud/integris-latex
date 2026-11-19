@@ -10,6 +10,7 @@ import type { ClientError } from '../../lib/api-client';
 import styles from './auth-forms.module.css';
 import { CaptchaNotice } from './CaptchaNotice';
 import { CodeStep } from './CodeStep';
+import { inviteFromHash } from './token-from-hash';
 import { useAuthRequest, useErrorMessage } from './use-auth-request';
 
 type Mode = 'phone' | 'email';
@@ -31,8 +32,11 @@ export function LoginForm({ config, locale }: { config: AuthConfig; locale: stri
   const [error, setError] = useState<ClientError | null>(null);
   const [resent, setResent] = useState(false);
 
+  // Signing in from an invitation: back to it afterwards.
+  const [invite] = useState(() => (typeof window === 'undefined' ? null : inviteFromHash()));
+
   const open = (me: MeResponse) => {
-    router.replace(me.currentSpaceId ? '/app' : '/spaces');
+    router.replace(invite ? `/invite#token=${invite}` : me.currentSpaceId ? '/app' : '/spaces');
     router.refresh();
   };
 

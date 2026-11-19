@@ -1,16 +1,23 @@
 'use client';
 
-import { PROJECT_ERROR_CODES, type ProjectErrorCode } from '@integris/shared';
+import {
+  PROJECT_ERROR_CODES,
+  type ProjectErrorCode,
+  SHARING_ERROR_CODES,
+  type SharingErrorCode,
+} from '@integris/shared';
 import { useTranslations } from 'next-intl';
 import { useCallback } from 'react';
 import type { ClientError } from '../../lib/api-client';
 import { formatBytes } from '../../lib/format';
 import { useErrorMessage } from '../auth/use-auth-request';
 
-const isProjectError = (code: string): code is ProjectErrorCode =>
-  (PROJECT_ERROR_CODES as readonly string[]).includes(code);
+const PROJECT_CODES: readonly string[] = [...PROJECT_ERROR_CODES, ...SHARING_ERROR_CODES];
 
-/** Translated message of an error of the project, file or template endpoints. */
+const isProjectError = (code: string): code is ProjectErrorCode | SharingErrorCode =>
+  PROJECT_CODES.includes(code);
+
+/** Translated message of an error of the project, file, template, sharing or comment endpoints. */
 export function useApiErrorMessage(locale: string) {
   const t = useTranslations('ProjectErrors');
   const authMessage = useErrorMessage();

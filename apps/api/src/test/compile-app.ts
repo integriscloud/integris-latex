@@ -1,6 +1,6 @@
 import type { CompileResult } from '@integris/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { CanActivate, ExecutionContext } from '@nestjs/common';
+import type { CanActivate, ExecutionContext, Type } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { AuthGuard } from '../auth/auth.guard.js';
@@ -87,6 +87,7 @@ export interface CompileTestApp {
 /** The compile API wired as in production, with fakes for the database, storage and queue. */
 export async function createCompileTestApp(
   overrides: Record<string, string> = {},
+  modules: Type[] = [],
 ): Promise<CompileTestApp> {
   const env = testEnv(overrides);
   const db = new FakeProjectsDb();
@@ -110,6 +111,7 @@ export async function createCompileTestApp(
       SmsModule,
       MailModule,
       CompileModule,
+      ...modules,
     ],
     providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
   })

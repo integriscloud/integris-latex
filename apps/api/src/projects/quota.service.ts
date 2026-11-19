@@ -12,6 +12,8 @@ export interface EffectiveQuotas {
   planCode: PlanCode;
   planName: { fr: string; en: string };
   maxProjects: number | null;
+  /** Collaborators per project (owner and supervisors not counted); null = unlimited. */
+  maxCollaborators: number | null;
   storageBytes: bigint;
   maxCompileSeconds: number;
   maxCompilesPerHour: number;
@@ -36,6 +38,7 @@ export function combineQuotas(plans: readonly Plan[]): EffectiveQuotas {
     planCode: highest.code,
     planName: { fr: highest.nameFr, en: highest.nameEn },
     maxProjects: best(plans.map((plan) => plan.maxProjects)),
+    maxCollaborators: best(plans.map((plan) => plan.maxCollaboratorsPerProject)),
     storageBytes: plans.map((plan) => plan.storageBytes).reduce((a, b) => (b > a ? b : a)),
     maxCompileSeconds: Math.max(...plans.map((plan) => plan.maxCompileSeconds)),
     maxCompilesPerHour: Math.max(...plans.map((plan) => plan.maxCompilesPerHour)),

@@ -1,0 +1,83 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+  padding: var(--espace-8) 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font: var(--t-titre-2);
+  font-family: var(--font-doc);
+  color: var(--texte);
+  overflow-wrap: anywhere;
+}
+
+.subtitle {
+  margin: 0;
+  font: var(--t-titre-4);
+  color: var(--texte);
+}
+
+.layout {
+  display: grid;
+  gap: var(--espace-4);
+}
+
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+/* The viewer fills a fixed height; it scrolls inside. */
+.pdf {
+  display: flex;
+  flex-direction: column;
+  height: min(80vh, 960px);
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-lg);
+  background: var(--surface-creuse);
+}
+
+.sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  min-width: 0;
+}
+
+.code {
+  max-height: 60vh;
+  margin: 0;
+  padding: var(--espace-3);
+  overflow: auto;
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font: var(--t-code);
+  color: var(--texte);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.code:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.muted {
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--texte-3);
+}

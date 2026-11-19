@@ -16,3 +16,18 @@ export function takeTokenFromHash(): string | null {
 }
 
 let taken: string | null | undefined;
+
+/**
+ * Token of a project invitation carried to the sign-in and sign-up pages (`#invite=…`), so the
+ * invitation opens again once signed in. Kept in the fragment: never sent to a server.
+ */
+export function inviteFromHash(): string | null {
+  const match = /(?:^#|&)invite=([A-Za-z0-9_-]{43})(?:&|$)/.exec(window.location.hash);
+  return match?.[1] ?? null;
+}
+
+/** Token of the invitation page (`/invite#token=…`), left in the address for a reload. */
+export function invitationTokenFromHash(): string | null {
+  const match = /(?:^#|&)token=([A-Za-z0-9_-]{43})(?:&|$)/.exec(window.location.hash);
+  return match?.[1] ?? null;
+}

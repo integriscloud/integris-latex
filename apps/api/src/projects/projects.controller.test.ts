@@ -76,7 +76,7 @@ describe('projects API', () => {
         role: 'OWNER',
         mainFilePath: 'main.tex',
       });
-      expect(detail.rights).toEqual({ read: true, edit: true, manage: true });
+      expect(detail.rights).toMatchObject({ read: true, edit: true, manage: true });
       expect(detail.files.map((file: { path: string }) => file.path)).toEqual(['main.tex']);
       const key = ctx.db.files[0]!.storageKey!;
       const text = new TextDecoder().decode(ctx.storage.objects.get(`projects/${key}`));
@@ -142,7 +142,7 @@ describe('projects API', () => {
       const id = await create(owner);
       ctx.db.share(id, other.id, role);
       const detail = (await as(other).get(`projects/${id}`).expect(200)).body;
-      expect(detail.rights).toEqual({ read: true, edit: false, manage: false });
+      expect(detail.rights).toMatchObject({ read: true, edit: false, manage: false });
       await as(other).upload(id, 'x.tex', MAIN).expect(403, { code: 'forbidden' });
       await as(other).post(`projects/${id}/files`, { path: 'y.tex' }).expect(403);
       await as(other).delete(`projects/${id}/files/${detail.files[0].id}`).expect(403);

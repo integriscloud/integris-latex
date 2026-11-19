@@ -30,6 +30,34 @@ export const editorTheme = EditorView.theme({
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':
     { backgroundColor: 'var(--toge-100)' },
   '.cm-selectionMatch': { backgroundColor: 'var(--or-50)' },
+  // "+" in the margin of the line under the pointer: comment the whole line.
+  '.cm-commentGutter': { width: '24px' },
+  '.cm-commentGutter .cm-gutterElement': { display: 'flex', alignItems: 'center' },
+  '.cm-commentLine': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '22px',
+    height: '22px',
+    padding: '0',
+    border: 'none',
+    borderRadius: 'var(--r-sm)',
+    background: 'var(--action-doux)',
+    color: 'var(--action)',
+    cursor: 'pointer',
+  },
+  '.cm-commentLine:hover': { background: 'var(--toge-100)' },
+  '.cm-commentLine:focus-visible': { outline: '2px solid var(--action)', outlineOffset: '1px' },
+  // Commented text: gold underline, stronger for the comment shown in the panel.
+  '.cm-comment': {
+    backgroundColor: 'var(--or-50)',
+    borderBottom: '2px solid var(--or-300)',
+    cursor: 'pointer',
+  },
+  '.cm-comment-active': {
+    backgroundColor: 'var(--or-100)',
+    borderBottomColor: 'var(--accent)',
+  },
   '.cm-searchMatch': { backgroundColor: 'var(--or-100)', outline: '1px solid var(--or-300)' },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--or-200)' },
   '&.cm-focused .cm-matchingBracket': {

@@ -1,9 +1,14 @@
 import { z } from 'zod';
 import { AUTH_ERROR_CODES } from './auth.js';
 import { PROJECT_ERROR_CODES } from './projects.js';
+import { SHARING_ERROR_CODES } from './sharing.js';
 
 /** Every `{ code }` the API can answer with. The web app translates each one. */
-export const API_ERROR_CODES = [...AUTH_ERROR_CODES, ...PROJECT_ERROR_CODES] as const;
+export const API_ERROR_CODES = [
+  ...AUTH_ERROR_CODES,
+  ...PROJECT_ERROR_CODES,
+  ...SHARING_ERROR_CODES,
+] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 
 export const apiErrorSchema = z.object({
