@@ -1,0 +1,9 @@
+% Opens a network connection from Lua.
+\documentclass{article}
+\begin{document}
+\directlua{
+  local socket = require('socket')
+  local connection = assert(socket.connect('93.184.215.14', 80))
+  texio.write_nl('ATTACK: connected')
+}
+\end{document}

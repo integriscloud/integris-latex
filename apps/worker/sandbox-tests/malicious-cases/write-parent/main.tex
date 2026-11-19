@@ -1,0 +1,8 @@
+% Writes in the parent directory.
+\documentclass{article}
+\newwrite\attack
+\begin{document}
+\immediate\openout\attack=../pwned.tex
+\immediate\write\attack{pwned}
+\immediate\closeout\attack
+\end{document}

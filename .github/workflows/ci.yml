@@ -51,3 +51,7 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # Client build against .browserslistrc (docs/spec.md, "Navigateurs").
+      - name: Browser compatibility
+        run: pnpm --filter @integris/web check:browsers

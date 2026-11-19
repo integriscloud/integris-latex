@@ -23,17 +23,24 @@ export function wrapWith(command: string): Command {
   };
 }
 
-/** Shortcuts of docs/spec.md: bold, italic, comment (LaTeX files), save. */
-export function editorShortcuts({ latex, save }: { latex: boolean; save: () => void }): Extension {
+/**
+ * Shortcuts of docs/spec.md: bold, italic, comment (LaTeX files), compile (Ctrl+S or Ctrl+Enter;
+ * compiling saves first).
+ */
+export function editorShortcuts({
+  latex,
+  compile,
+}: {
+  latex: boolean;
+  compile: () => void;
+}): Extension {
+  const run = () => {
+    compile();
+    return true;
+  };
   return keymap.of([
-    {
-      key: 'Mod-s',
-      preventDefault: true,
-      run: () => {
-        save();
-        return true;
-      },
-    },
+    { key: 'Mod-s', preventDefault: true, run },
+    { key: 'Mod-Enter', preventDefault: true, run },
     ...(latex
       ? [
           { key: 'Mod-b', run: wrapWith('textbf') },

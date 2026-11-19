@@ -203,19 +203,21 @@ enum Locale {
 // ───────────── Users ─────────────
 
 model User {
-  id              String    @id @default(cuid())
-  phone           String?   @unique
-  phoneVerifiedAt DateTime?
-  email           String?   @unique
-  emailVerifiedAt DateTime?
-  passwordHash    String?
-  displayName     String
-  locale          Locale    @default(fr)
-  lastSpace       String? // last chosen space: "personal" or an organization id
-  isSuperAdmin    Boolean   @default(false)
-  disabledAt      DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  phone            String?   @unique
+  phoneVerifiedAt  DateTime?
+  email            String?   @unique
+  emailVerifiedAt  DateTime?
+  passwordHash     String?
+  displayName      String
+  locale           Locale    @default(fr)
+  // Browser spell checker in the editor's code (off by default; comments and fields keep it).
+  editorSpellcheck Boolean   @default(false)
+  lastSpace        String? // last chosen space: "personal" or an organization id
+  isSuperAdmin     Boolean   @default(false)
+  disabledAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   personalSubscriptions Subscription[]       @relation("PersonalSubscription")
   seats                 Seat[]

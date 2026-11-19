@@ -1,17 +1,20 @@
 'use client';
 
-import type { ProjectDetail, ProjectFileInfo } from '@integris/shared';
+import type { ProjectDetail, ProjectFileInfo, UserPreferences } from '@integris/shared';
 import {
   Alert,
   Badge,
   Button,
   ButtonLink,
   buildFileTree,
+  CompileButton,
+  type CompileButtonState,
   EditorLayout,
   type EditorPane,
   EmptyState,
   FileTree,
   IconButton,
+  MenuButton,
   SaveStatus,
   type SaveStatusValue,
   Tabs,
@@ -22,10 +25,11 @@ import {
   Code,
   FileText,
   FolderTree,
+  LocateFixed,
   Lock,
   MessagesSquare,
-  Play,
   Search,
+  Settings,
   SquarePen,
   X,
 } from 'lucide-react';
@@ -38,14 +42,18 @@ import { textKindOf } from '../../lib/editor/language';
 import { type OutlineEntry, parseOutline } from '../../lib/editor/outline';
 import { SaveQueue, type SaveSnapshot, worstStatus } from '../../lib/editor/save-queue';
 import { formatBytes } from '../../lib/format';
+import { forwardSearch, inverseSearch, type PdfArea } from '../../lib/pdf/synctex';
 import { TextDialog } from '../app/dialogs';
 import { useApiErrorMessage } from '../app/use-api-error';
 import { CodeEditor, type CodeEditorHandle } from './CodeEditor';
+import { CompileResult } from './CompileResult';
 import { ConflictDialog } from './ConflictDialog';
 import styles from './editor.module.css';
 import { OutlinePanel } from './OutlinePanel';
+import { PdfViewer } from './PdfViewer';
 import { ProjectSearch, type ReplaceReport } from './ProjectSearch';
 import { useEditorPhrases } from './phrases';
+import { useCompiler } from './use-compiler';
 import { useProjectIndex } from './use-project-index';
 
 /** An open file: its first text and, when the user may write it, its save queue. */
@@ -88,17 +96,20 @@ const writeFlag = (key: string, value: boolean) => {
 };
 
 /**
- * Editor of a project (step 5): files, CodeMirror, outline, search in the file and in the project.
- * Every change is saved to storage 2 s after the last keystroke (Ctrl+S at once), against the
- * version loaded. The PDF (step 6), collaborators (step 7), comments and submissions (steps 8–9)
- * only have their place here.
+ * Editor of a project: files, CodeMirror, outline, search in the file and in the project (step 5),
+ * compilation, PDF and SyncTeX (step 6). Every change is saved to storage 2 s after the last
+ * keystroke, against the version loaded; Ctrl+S and Ctrl+Enter save and compile. Collaborators
+ * (step 7), comments and submissions (steps 8–9) only have their place here.
  */
 export function ProjectEditor({
   initial,
   initialFileId,
+  initialSpellcheck,
 }: {
   initial: ProjectDetail;
   initialFileId: string | null;
+  /** Spell checker in the code, a setting of the user's account. */
+  initialSpellcheck: boolean;
 }) {
   const t = useTranslations('Editor');
   const locale = useLocale();
@@ -124,11 +135,16 @@ export function ProjectEditor({
   const [mobileNotice, setMobileNotice] = useState(
     () => window.matchMedia('(max-width: 599.98px)').matches && !readFlag(MOBILE_NOTICE_KEY),
   );
+  const [spellcheck, setSpellcheck] = useState(initialSpellcheck);
+  const [settingsFailed, setSettingsFailed] = useState(false);
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
   const [newFile, setNewFile] = useState(false);
   /** Conflict whose dialog was closed with "later". */
   const [conflictLater, setConflictLater] = useState<string | null>(null);
   const pendingGoTo = useRef<{ line: number; column: number } | null>(null);
+  const [highlight, setHighlight] = useState<(PdfArea & { at: number }) | null>(null);
+  const [syncMissed, setSyncMissed] = useState(false);
+  const [resultHidden, setResultHidden] = useState(false);
   const outlineTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const index = useProjectIndex(project.id, project.files);
@@ -234,6 +250,31 @@ export function ProjectEditor({
     requestAnimationFrame(() => editor.current?.goTo(line, column));
   });
 
+  // ───────────── Compiling ─────────────
+
+  /** Saves every open file at once; true when all of them are stored. */
+  const flushAll = useCallback(async () => {
+    const results = await Promise.all(
+      [...sessionsRef.current.values()].map((session) => session.queue?.flush() ?? true),
+    );
+    return results.every(Boolean);
+  }, []);
+
+  const compiler = useCompiler(project.id, flushAll);
+  const { compile, edited } = compiler;
+
+  // Ctrl+Enter and Ctrl+S outside the code editor (which handles them itself).
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !(event.ctrlKey || event.metaKey)) return;
+      if (event.key !== 'Enter' && event.key.toLowerCase() !== 's') return;
+      event.preventDefault();
+      void compile();
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [compile]);
+
   // ───────────── Editing and saving ─────────────
 
   const onChange = useCallback(
@@ -243,13 +284,10 @@ export function ProjectEditor({
       sessionsRef.current.get(id)?.queue?.edit(text);
       index.update({ id, path: file.path, text }, null);
       if (id === activeId) refreshOutline(file.path, text, 300);
+      edited();
     },
-    [filesById, index, activeId, refreshOutline],
+    [filesById, index, activeId, refreshOutline, edited],
   );
-
-  const saveAll = useCallback(() => {
-    for (const session of sessionsRef.current.values()) session.queue?.saveNow();
-  }, []);
 
   // Back online: send at once what is waiting.
   useEffect(() => {
@@ -377,6 +415,164 @@ export function ProjectEditor({
     created.current = null;
     openFile(id);
   }, [filesById, openFile]);
+
+  // ───────────── Compilation and SyncTeX ─────────────
+
+  const { state: compileState, current: compilation } = compiler;
+  const lastPdf = compileState?.lastPdf ?? null;
+  const finished =
+    compilation && compilation.status !== 'QUEUED' && compilation.status !== 'RUNNING';
+  const showResult = finished && compilation.outcome && !resultHidden ? compilation : null;
+
+  const filesByPath = useMemo(
+    () => new Map(project.files.map((file) => [file.path, file])),
+    [project.files],
+  );
+
+  /** Opens a project file at a line (an issue, a double-click in the PDF). */
+  const openAt = useCallback(
+    (path: string, line: number) => {
+      const file = filesByPath.get(path);
+      if (!file || file.kind !== 'TEXT') return false;
+      openFile(file.id, { line });
+      return true;
+    },
+    [filesByPath, openFile],
+  );
+
+  const showInPdf = () => {
+    const line = editor.current?.cursorLine();
+    const area =
+      compiler.synctex && active && line
+        ? forwardSearch(compiler.synctex, active.path, line)
+        : null;
+    setSyncMissed(!area);
+    if (area) {
+      setHighlight({ ...area, at: Date.now() });
+      setView('pdf');
+    }
+  };
+
+  const showInCode = (page: number, x: number, y: number) => {
+    const found = compiler.synctex ? inverseSearch(compiler.synctex, page, x, y) : null;
+    if (found) openAt(found.path, found.line);
+  };
+
+  /** Kept on the account: the same choice on every device. Undone when it cannot be saved. */
+  const changeSpellcheck = async (on: boolean) => {
+    setSpellcheck(on);
+    setSettingsFailed(false);
+    const result = await apiRequest<UserPreferences>('PATCH', 'auth/preferences', {
+      editorSpellcheck: on,
+    });
+    if (result.ok) {
+      setSpellcheck(result.data.editorSpellcheck);
+    } else {
+      setSpellcheck(!on);
+      setSettingsFailed(true);
+    }
+  };
+
+  const changeEngine = async (engine: ProjectDetail['engine']) => {
+    const result = await apiRequest<ProjectDetail>('PATCH', `projects/${project.id}`, { engine });
+    if (result.ok) setProject(result.data);
+  };
+
+  const running = compilation?.status === 'RUNNING';
+  const queued = compilation?.status === 'QUEUED';
+  const buttonState: CompileButtonState = running
+    ? 'running'
+    : queued
+      ? 'queued'
+      : compiler.changed
+        ? 'changed'
+        : finished && compilation.errorCount > 0
+          ? 'failed'
+          : 'idle';
+  const buttonLabel =
+    buttonState === 'running'
+      ? t('compileRunning', { seconds: compiler.elapsed })
+      : buttonState === 'queued'
+        ? t('compileQueued', { position: compilation?.position ?? 1 })
+        : buttonState === 'failed'
+          ? t('compileErrors', { count: compilation?.errorCount ?? 0 })
+          : t('compileAction');
+
+  const compileMenu = (
+    <>
+      {canEdit && (
+        <fieldset className={styles.engines}>
+          <legend>{t('engine')}</legend>
+          {(['PDFLATEX', 'XELATEX', 'LUALATEX'] as const).map((engine) => (
+            <label key={engine} className={styles.choice}>
+              <input
+                type="radio"
+                name="engine"
+                checked={project.engine === engine}
+                onChange={() => void changeEngine(engine)}
+              />
+              {{ PDFLATEX: 'pdfLaTeX', XELATEX: 'XeLaTeX', LUALATEX: 'LuaLaTeX' }[engine]}
+            </label>
+          ))}
+          <p className={styles.menuHelp}>{t('engineHelp')}</p>
+        </fieldset>
+      )}
+      {compileState?.canCompile &&
+        (compileState.autoCompile ? (
+          <label className={styles.choice}>
+            <input
+              type="checkbox"
+              checked={compiler.autoEnabled}
+              onChange={(event) => compiler.setAutoEnabled(event.target.checked)}
+            />
+            {t('autoCompile')}
+          </label>
+        ) : (
+          <p className={styles.menuHelp}>
+            {t('autoCompileFree')}{' '}
+            <a href={`${getPathname({ href: '/', locale })}#pricing`}>{t('upgrade')}</a>
+          </p>
+        ))}
+      {compileState && !compileState.canCompile && (
+        <p className={styles.menuHelp}>{t('compileReadOnly')}</p>
+      )}
+      {compileState && (
+        <p className={styles.menuHelp}>
+          {t('compileLimits', {
+            seconds: compileState.maxSeconds,
+            perHour: compileState.maxPerHour,
+          })}
+        </p>
+      )}
+      {finished && compilation.outcome && resultHidden && (
+        <Button variant="secondary" onClick={() => setResultHidden(false)}>
+          {t('showIssues')}
+        </Button>
+      )}
+      {showResult && (
+        <Button variant="secondary" onClick={() => setResultHidden(true)}>
+          {t('hideIssues')}
+        </Button>
+      )}
+    </>
+  );
+
+  const requestError = compiler.requestError;
+  const compileNotice = requestError && (
+    <Alert tone="error">
+      {requestError.code === 'compile_limit'
+        ? t('compileLimit', {
+            perHour: compileState?.maxPerHour ?? 0,
+            minutes: Math.max(1, Math.ceil((requestError.retryAfter ?? 60) / 60)),
+          })
+        : errorMessage(requestError)}{' '}
+      {requestError.code === 'compile_limit' && (
+        <ButtonLink href={`${getPathname({ href: '/', locale })}#pricing`} variant="accent">
+          {t('upgrade')}
+        </ButtonLink>
+      )}
+    </Alert>
+  );
 
   // ───────────── Rendering ─────────────
 
@@ -533,6 +729,9 @@ export function ProjectEditor({
         <p className={styles.path} title={active?.path}>
           {active?.path ?? t('noFile')}
         </p>
+        {activeSession && compiler.synctex && activeKind === 'latex' && (
+          <IconButton icon={LocateFixed} label={t('syncToPdf')} onClick={showInPdf} />
+        )}
         {activeSession && (
           <IconButton
             icon={Search}
@@ -560,6 +759,7 @@ export function ProjectEditor({
             path={active.path}
             initialText={activeSession.text}
             readOnly={Boolean(readOnlyReason)}
+            spellcheck={spellcheck}
             lang={locale}
             label={t('codeLabel', { path: active.path })}
             phrases={phrases}
@@ -571,7 +771,7 @@ export function ProjectEditor({
             symbols={index.symbols}
             index={index}
             onChange={onChange}
-            onSave={saveAll}
+            onCompile={() => void compile()}
           />
         ) : (
           <EmptyState icon={FileText} title={t('noFile')} text={t('noFileHint')} />
@@ -581,8 +781,48 @@ export function ProjectEditor({
   );
 
   const pdfPane = (
-    <div className={styles.placeholder}>
-      <EmptyState icon={FileText} title={t('pdfTitle')} text={t('pdfSoon')} />
+    <div className={styles.pdfPane}>
+      {showResult && (
+        <CompileResult projectId={project.id} compilation={showResult} onOpen={openAt} />
+      )}
+      {syncMissed && (
+        <div className={styles.notices}>
+          <Alert tone="info">{t('syncNotFound')}</Alert>
+        </div>
+      )}
+      <div className={styles.pdfBody}>
+        {lastPdf?.pdf ? (
+          <PdfViewer
+            documentKey={lastPdf.id}
+            url={lastPdf.pdf.url}
+            downloadUrl={lastPdf.pdf.downloadUrl}
+            highlight={highlight}
+            onInverse={compiler.synctex ? showInCode : undefined}
+            labels={{
+              toolbar: t('pdfViewer.toolbar'),
+              previous: t('pdfViewer.previous'),
+              next: t('pdfViewer.next'),
+              page: (page, pages) => t('pdfViewer.page', { page, pages }),
+              pageLabel: (page) => t('pdfViewer.pageLabel', { page }),
+              zoomIn: t('pdfViewer.zoomIn'),
+              zoomOut: t('pdfViewer.zoomOut'),
+              fit: t('pdfViewer.fit'),
+              download: t('pdfViewer.download'),
+              loading: t('pdfViewer.loading'),
+              failed: t('pdfViewer.failed'),
+              retry: t('retry'),
+            }}
+          />
+        ) : (
+          <div className={styles.placeholder}>
+            <EmptyState
+              icon={FileText}
+              title={t('pdfEmpty')}
+              text={compileState?.canCompile === false ? t('pdfEmptyReader') : t('pdfEmptyHint')}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -639,10 +879,31 @@ export function ProjectEditor({
         status={tracked.length > 0 && <SaveStatus status={status} labels={statusLabels} />}
         actions={
           <>
-            <Button disabled title={t('compileSoon')}>
-              <Play size={20} strokeWidth={1.75} aria-hidden="true" />
-              <span className={styles.compileLabel}>{t('compile')}</span>
-            </Button>
+            <CompileButton
+              state={buttonState}
+              label={buttonLabel}
+              actionLabel={t('compileAction')}
+              onCompile={() => void compile()}
+              disabled={!compileState?.canCompile || compiler.sending}
+              menuLabel={t('compileMenu')}
+              menu={compileMenu}
+            />
+            <MenuButton icon={Settings} label={t('settings')}>
+              <label className={styles.choice}>
+                <input
+                  type="checkbox"
+                  checked={spellcheck}
+                  onChange={(event) => void changeSpellcheck(event.target.checked)}
+                />
+                {t('spellcheck')}
+              </label>
+              <p className={styles.menuHelp}>{t('spellcheckHelp')}</p>
+              {settingsFailed && (
+                <p className={styles.menuHelp} role="alert">
+                  {t('settingsFailed')}
+                </p>
+              )}
+            </MenuButton>
             <IconButton
               icon={MessagesSquare}
               label={sideOpen ? t('hideSide') : t('showSide')}
@@ -653,9 +914,10 @@ export function ProjectEditor({
           </>
         }
         notice={
-          (mobileNotice || offline || failed || conflictId || readOnlyReason) && (
+          (mobileNotice || offline || failed || conflictId || readOnlyReason || compileNotice) && (
             <div className={styles.notices}>
               {notices}
+              {compileNotice}
               {readOnlyReason && activeSession && <Alert tone="info">{readOnlyReason}</Alert>}
             </div>
           )

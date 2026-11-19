@@ -47,6 +47,8 @@ export class SaveQueue {
   private saveAfterFlight = false;
   private failures = 0;
   private disposed = false;
+  /** Callers of `flush` waiting for the outcome of the save. */
+  private waiters: ((saved: boolean) => void)[] = [];
   private readonly debounceMs: number;
   private readonly retryBaseMs: number;
   private readonly retryMaxMs: number;
@@ -111,6 +113,19 @@ export class SaveQueue {
     void this.run();
   }
 
+  /**
+   * Saves at once and resolves with true once the text is stored, or false when it cannot be now
+   * (offline, conflict, refused): a compilation must use what the user sees.
+   */
+  flush(): Promise<boolean> {
+    if (this.disposed || this.status === 'conflict') return Promise.resolve(false);
+    if (!this.dirty && !this.inFlight) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      this.waiters.push(resolve);
+      this.saveNow();
+    });
+  }
+
   /** The browser is back online: retry without waiting for the next delay. */
   online(): void {
     if (this.status === 'offline' && !this.inFlight) {
@@ -143,6 +158,7 @@ export class SaveQueue {
   dispose(): void {
     this.disposed = true;
     this.clearTimer();
+    this.settle(false);
   }
 
   private schedule(delay: number): void {
@@ -205,6 +221,14 @@ export class SaveQueue {
 
   private emit(): void {
     this.options.onChange(this.snapshot);
+    if (this.status === 'saved' && !this.dirty) this.settle(true);
+    else if (['offline', 'conflict', 'error'].includes(this.status)) this.settle(false);
+  }
+
+  private settle(saved: boolean): void {
+    const waiters = this.waiters;
+    this.waiters = [];
+    for (const resolve of waiters) resolve(saved);
   }
 }
 

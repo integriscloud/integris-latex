@@ -19,5 +19,6 @@ import { TrashPurgeService } from './trash-purge.service.js';
     TemplatesService,
     TrashPurgeService,
   ],
+  exports: [ProjectsService, QuotaService],
 })
 export class ProjectsModule {}

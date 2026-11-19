@@ -14,6 +14,35 @@ test.describe('visitor whose browser language is not supported', () => {
   });
 });
 
+test('an up-to-date browser never sees the outdated-browser banner', async ({ page }) => {
+  await page.goto('/fr');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByText('Navigateur trop ancien.')).toBeHidden();
+});
+
+test.describe('visitor with Opera Mini', () => {
+  test.use({
+    userAgent:
+      'Opera/9.80 (Android; Opera Mini/7.6.40234/191.308; U; fr) Presto/2.12.423 Version/12.16',
+  });
+
+  test('sees a banner advising Chrome or Firefox, and the page still works', async ({ page }) => {
+    await page.goto('/fr');
+    await expect(page.getByText('Navigateur trop ancien.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Google Chrome' })).toHaveAttribute(
+      'href',
+      'https://www.google.com/intl/fr/chrome/',
+    );
+    await expect(page.getByRole('link', { name: 'Mozilla Firefox' })).toBeVisible();
+    // Advice only: the public page stays usable.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Vos idées méritent un document impeccable.',
+    );
+    await page.goto('/en');
+    await expect(page.getByText('Outdated browser.')).toBeVisible();
+  });
+});
+
 test('language switcher opens the English home page', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/fr');

@@ -1,6 +1,7 @@
 import { API_PREFIX, parseEnv, PORTS, webEnvSchema } from '@integris/shared';
 import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
+import { browserMinimums } from './browser-target';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
@@ -12,6 +13,8 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['test-latex.integriscloud.com'],
   // The floating dev badge would cover the bottom tabs of the editor on phones.
   devIndicators: false,
+  // Oldest versions of the browser target, for the outdated-browser banner (inlined at build).
+  env: { BROWSER_MINIMUMS: JSON.stringify(browserMinimums()) },
   // Browser calls go to the same origin. Nginx routes /api/ to the API before Next.js; this
   // rewrite does the same when the web app is reached directly (local runs, Playwright).
   async rewrites() {

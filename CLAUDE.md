@@ -37,6 +37,10 @@ If a rule is missing or ambiguous there, STOP and ask; never invent business rul
 - Code, identifiers, commits and comments in English. Every user-facing string goes through
   next-intl with both `fr` and `en` keys — no hard-coded UI text.
 - Amounts are integers in XOF (FCFA). Never use floats for money. Prices are TTC.
+- Browser target: `.browserslistrc` (Chrome, Android WebView, Samsung Internet and Firefox of the last 3 years, Safari iOS 15+;
+  docs/spec.md, "Navigateurs"). Browser code, pages and workers, dependencies included, only uses what these
+  versions support or a polyfill loaded first (`apps/web/src/lib/polyfills.ts`); no regexp lookbehind.
+  `pnpm --filter @integris/web check:browsers` (after the build, in CI) and the `chromium-120` e2e project must pass.
 - Plans, prices and quotas are read from the database (`Plan` table), never hard-coded.
 
 ## Design (docs/design/)

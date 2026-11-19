@@ -5,6 +5,8 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import {
+  COMPILE_CACHE_BUCKET,
+  COMPILE_OUTPUT_BUCKET,
   parseEnv,
   PROJECTS_BUCKET,
   publicTemplateKey,
@@ -74,8 +76,10 @@ async function seedTemplates(): Promise<void> {
 try {
   await seedPlans();
   await seedTemplates();
-  await ensureBucket(PROJECTS_BUCKET);
-  console.log(`Bucket "${PROJECTS_BUCKET}" ensured.`);
+  for (const bucket of [PROJECTS_BUCKET, COMPILE_OUTPUT_BUCKET, COMPILE_CACHE_BUCKET]) {
+    await ensureBucket(bucket);
+    console.log(`Bucket "${bucket}" ensured.`);
+  }
 } finally {
   await prisma.$disconnect();
   s3.destroy();

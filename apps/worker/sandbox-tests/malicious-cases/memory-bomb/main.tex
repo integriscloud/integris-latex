@@ -1,0 +1,8 @@
+% Allocates memory until the sandbox is killed.
+\documentclass{article}
+\begin{document}
+\directlua{
+  local hoard = {}
+  for i = 1, 100000 do hoard[i] = string.rep('x', 1048576) .. i end
+}
+\end{document}

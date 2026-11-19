@@ -1,0 +1,10 @@
+% Reads a system file from Lua (LuaTeX ignores openin_any).
+\documentclass{article}
+\begin{document}
+\directlua{
+  local file = assert(io.open('/etc/passwd', 'r'))
+  local text = file:read('a')
+  texio.write_nl('ATTACK: ' .. text)
+  tex.print(-2, text)
+}
+\end{document}

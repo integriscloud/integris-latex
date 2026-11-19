@@ -1,0 +1,8 @@
+% Writes outside the project from Lua through io.output.
+\documentclass{article}
+\begin{document}
+\directlua{
+  io.output('/tmp/integris/status')
+  io.write('exit=0')
+}
+\end{document}

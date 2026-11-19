@@ -48,6 +48,25 @@ export default tseslint.config(
     },
   },
   {
+    // Code run by browsers (docs/spec.md, "Navigateurs"): a regexp lookbehind
+    // throws a SyntaxError in Safari before 16.4, even when built from a string.
+    files: [...reactFiles, 'packages/shared/src/**/*.ts'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...[
+          'Literal[regex.pattern=/\\(\\?<[=!]/]',
+          'Literal[value=/\\(\\?<[=!]/]',
+          'TemplateElement[value.raw=/\\(\\?<[=!]/]',
+        ].map((selector) => ({
+          selector,
+          message: 'No regexp lookbehind: Safari before 16.4 (iOS 15 and 16) rejects it.',
+        })),
+      ],
+    },
+  },
+  {
     // Nest decorator metadata needs runtime imports of injected classes.
     files: ['apps/api/**/*.ts'],
     rules: {

@@ -1,0 +1,22 @@
+/* Drop-down panel of the editor's menus (compilation, editor settings). */
+.menu {
+  position: absolute;
+  top: calc(100% + var(--espace-1));
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  min-width: 260px;
+  padding: var(--espace-4);
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--ombre-2);
+  color: var(--texte);
+  font: var(--t-texte-sm);
+}
+
+.menu[hidden] {
+  display: none;
+}

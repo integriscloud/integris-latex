@@ -41,6 +41,7 @@ export class FakePrisma {
       passwordHash: null,
       displayName: 'Test User',
       locale: 'fr',
+      editorSpellcheck: false,
       lastSpace: null,
       isSuperAdmin: false,
       disabledAt: null,

@@ -629,7 +629,12 @@
     "erase_blocked": "Ce projet ne peut pas être effacé pour l'instant : la trace de certaines de ses validations ou demandes d'impression doit d'abord être conservée. Contactez l'assistance Integris.",
     "too_many_files": "Ce projet a atteint le nombre maximal de fichiers.",
     "edit_conflict": "Ce fichier a été modifié ailleurs depuis que vous l'avez ouvert.",
-    "not_text": "Ce fichier ne s'ouvre pas dans l'éditeur : seuls les fichiers texte (.tex, .bib, .sty, .cls, .txt, .md) s'y ouvrent."
+    "not_text": "Ce fichier ne s'ouvre pas dans l'éditeur : seuls les fichiers texte (.tex, .bib, .sty, .cls, .txt, .md) s'y ouvrent.",
+    "compile_limit": "Vous avez atteint le nombre de compilations par heure de votre offre. Réessayez plus tard ou passez à une offre supérieure.",
+    "auto_compile_unavailable": "La compilation automatique est réservée aux offres payantes.",
+    "main_missing": "Le fichier principal du projet est introuvable. Choisissez un fichier .tex principal.",
+    "compile_unavailable": "Le service de compilation ne répond pas. Réessayez dans un instant.",
+    "no_output": "Ce résultat de compilation n'est plus disponible."
   },
   "Editor": {
     "metaTitle": "Éditeur",
@@ -654,7 +659,6 @@
     "mobileNotice": "Sur téléphone, l'édition du code est possible mais n'est pas optimisée. Pour rédiger confortablement, utilisez un ordinateur.",
     "closeNotice": "Fermer ce message",
     "compile": "Compiler",
-    "compileSoon": "La compilation arrive bientôt.",
     "showSide": "Afficher les commentaires et soumissions",
     "hideSide": "Masquer les commentaires et soumissions",
     "panes": "Zones de l'éditeur",
@@ -703,7 +707,6 @@
     "replaceDone": "{count, plural, =0 {Aucun remplacement.} one {# remplacement} other {# remplacements}}{count, plural, =0 {} other { dans {files, plural, one {# fichier} other {# fichiers}}.}}",
     "replaceFailed": "Non modifiés (changés ailleurs ou en lecture seule) : {paths}.",
     "pdfTitle": "Aperçu PDF",
-    "pdfSoon": "La compilation et l'aperçu du PDF arrivent bientôt.",
     "comments": "Commentaires",
     "submissions": "Soumissions",
     "commentsSoon": "Les commentaires sur le texte arrivent bientôt.",
@@ -743,6 +746,328 @@
       "completions": "Suggestions",
       "controlCharacter": "Caractère de contrôle"
     },
-    "upgrade": "Voir les offres"
+    "upgrade": "Voir les offres",
+    "compileAction": "Compiler",
+    "compileShortcut": "Compiler (Ctrl + Entrée ou Ctrl + S)",
+    "compileQueued": "{position, plural, =1 {1er} other {#e}} dans la file",
+    "compileRunning": "Compilation… {seconds} s",
+    "compileErrors": "{count, plural, one {# erreur} other {# erreurs}}",
+    "compileFailed": "Échec",
+    "compileMenu": "Réglages de compilation",
+    "engine": "Moteur",
+    "engineHelp": "Le moteur s'applique à tout le projet, pour tous ses membres.",
+    "autoCompile": "Compiler automatiquement 2 s après la frappe",
+    "settings": "Réglages de l'éditeur",
+    "spellcheck": "Correcteur orthographique",
+    "spellcheckHelp": "Souligne les fautes dans le code, avec le correcteur du navigateur. Désactivé par défaut car il souligne aussi les commandes LaTeX ; les commentaires et les champs de texte le gardent toujours. Réglage mémorisé sur votre compte.",
+    "settingsFailed": "Le réglage n'a pas pu être enregistré. Réessayez.",
+    "autoCompileFree": "La compilation automatique est réservée aux offres payantes.",
+    "compileLimits": "Votre offre : {seconds} s par compilation, {perHour} compilations par heure.",
+    "compileReadOnly": "Vous pouvez consulter le dernier PDF ; seuls le propriétaire et les éditeurs compilent.",
+    "compileSaveFirst": "Certaines modifications ne sont pas enregistrées : la compilation utilisera la dernière version enregistrée.",
+    "compileLimit": "Vous avez atteint les {perHour} compilations par heure de votre offre. Réessayez dans {minutes, plural, one {# minute} other {# minutes}} ou passez à une offre supérieure.",
+    "pdfEmpty": "Pas encore de PDF",
+    "pdfEmptyHint": "Compilez le projet pour voir son PDF ici.",
+    "pdfEmptyReader": "Le projet n'a pas encore été compilé.",
+    "pdfOld": "Le PDF affiché est celui de la dernière compilation réussie.",
+    "issuesTitle": "Résultat de la compilation",
+    "issuesErrors": "{count, plural, one {# erreur} other {# erreurs}}",
+    "issuesWarnings": "{count, plural, one {# avertissement} other {# avertissements}}",
+    "issuesMore": "{count, plural, one {L'autre message est dans le journal brut.} other {Les # autres messages sont dans le journal brut.}}",
+    "issueLocation": "{file} · ligne {line}",
+    "issueLine": "ligne {line}",
+    "rawLog": "Journal brut",
+    "rawLogTitle": "Journal de compilation",
+    "rawLogLoading": "Chargement du journal…",
+    "close": "Fermer",
+    "hideIssues": "Masquer les messages",
+    "showIssues": "Afficher les messages",
+    "compileSucceeded": "Compilation réussie en {seconds} s.",
+    "outcome": {
+      "tex_errors": "La compilation a trouvé des erreurs. Le PDF peut être incomplet.",
+      "no_pdf": "Aucun PDF n'a été produit. Consultez le journal brut.",
+      "timeout": "La compilation a dépassé {seconds} s, la durée maximale de votre offre. Une boucle sans fin peut en être la cause ; sinon, une offre supérieure permet des compilations plus longues.",
+      "memory": "La compilation a utilisé trop de mémoire et a été arrêtée. Une macro ou du code Lua qui ne s'arrête pas en est souvent la cause.",
+      "output_too_large": "La compilation a produit trop de données (fichiers ou PDF trop volumineux) et a été arrêtée.",
+      "main_missing": "Le fichier principal du projet est introuvable. Choisissez un fichier .tex principal.",
+      "sources_unavailable": "Les fichiers du projet n'ont pas pu être lus à temps. Relancez la compilation.",
+      "internal": "La compilation n'a pas pu se faire à cause d'un problème de notre côté. Réessayez dans un instant."
+    },
+    "syncToPdf": "Voir dans le PDF",
+    "syncNotFound": "Cette ligne n'apparaît pas dans le PDF.",
+    "syncHint": "Double-cliquez dans le PDF pour aller au code correspondant.",
+    "pdfViewer": {
+      "toolbar": "Outils du PDF",
+      "previous": "Page précédente",
+      "next": "Page suivante",
+      "page": "Page {page} sur {pages}",
+      "pageLabel": "Page {page} du PDF",
+      "zoomIn": "Zoom avant",
+      "zoomOut": "Zoom arrière",
+      "fit": "Ajuster à la largeur",
+      "download": "Télécharger le PDF",
+      "loading": "Chargement du PDF…",
+      "failed": "Le PDF n'a pas pu être chargé."
+    }
+  },
+  "CompileIssues": {
+    "outside_project": {
+      "title": "Lecture hors du projet",
+      "text": "Le document essaie de lire <code>{file}</code>, qui n'appartient pas au projet. Seuls les fichiers du projet sont accessibles pendant la compilation."
+    },
+    "shell_escape_refused": {
+      "title": "Commande système refusée",
+      "text": "La commande <code>{command}</code> n'a pas été exécutée : la compilation n'autorise que les commandes sûres de TeX Live (BibTeX, makeindex…). Les paquets comme minted ne sont pas pris en charge."
+    },
+    "system_command_refused": {
+      "title": "Commande système refusée",
+      "text": "Le code Lua essaie de lancer une commande système, ce qui n'est pas autorisé pendant la compilation."
+    },
+    "lua_module_unavailable": {
+      "title": "Module Lua indisponible",
+      "text": "Le module Lua <code>{module}</code> n'est pas disponible pendant la compilation (pas d'accès au réseau ni au système)."
+    },
+    "write_refused": {
+      "title": "Écriture hors du projet",
+      "text": "Le document essaie d'écrire <code>{file}</code> hors du dossier du projet ou dans un fichier caché. Écrivez seulement des fichiers ordinaires du projet."
+    },
+    "cannot_write": {
+      "title": "Écriture impossible",
+      "text": "Le fichier <code>{file}</code> n'a pas pu être écrit : le document produit probablement trop de données."
+    },
+    "file_not_found": {
+      "title": "Fichier introuvable",
+      "text": "Le fichier <code>{file}</code> n'existe pas dans le projet. Vérifiez son nom et son dossier (les majuscules comptent)."
+    },
+    "missing_file": {
+      "title": "Fichier ou paquet introuvable",
+      "text": "<code>{file}</code> est introuvable. S'il s'agit d'un fichier du projet, vérifiez son nom ; s'il s'agit d'un paquet, vérifiez son orthographe."
+    },
+    "environment_undefined": {
+      "title": "Environnement inconnu",
+      "text": "L'environnement <code>{name}</code> n'existe pas. Vérifiez son orthographe ou chargez le paquet qui le définit."
+    },
+    "begin_end_mismatch": {
+      "title": "Environnement mal fermé",
+      "text": "<code>\\begin'{'{begin}'}'</code> (ligne {beginLine}) est fermé par <code>\\end'{'{end}'}'</code>. Chaque \\begin doit avoir le \\end du même nom."
+    },
+    "missing_begin_document": {
+      "title": "\\begin'{'document'}' manquant",
+      "text": "Du texte apparaît avant <code>\\begin'{'document'}'</code>, ou cette ligne manque dans le fichier principal."
+    },
+    "missing_item": {
+      "title": "\\item manquant",
+      "text": "Une liste (itemize, enumerate…) contient du texte avant son premier <code>\\item</code>."
+    },
+    "lonely_item": {
+      "title": "\\item hors d'une liste",
+      "text": "<code>\\item</code> n'est utilisable que dans une liste (itemize, enumerate, description)."
+    },
+    "option_clash": {
+      "title": "Options incompatibles",
+      "text": "Le paquet <code>{package}</code> est chargé deux fois avec des options différentes. Chargez-le une seule fois avec toutes ses options."
+    },
+    "unknown_option": {
+      "title": "Option inconnue",
+      "text": "L'option <code>{option}</code> n'existe pas pour le paquet <code>{package}</code>."
+    },
+    "command_already_defined": {
+      "title": "Commande déjà définie",
+      "text": "<code>{command}</code> existe déjà. Choisissez un autre nom ou utilisez <code>\\renewcommand</code>."
+    },
+    "no_line_to_end": {
+      "title": "Saut de ligne mal placé",
+      "text": "<code>\\\\</code> est utilisé là où il n'y a pas de ligne à terminer (début de paragraphe, ligne vide). Supprimez-le ou utilisez une ligne vide pour changer de paragraphe."
+    },
+    "not_in_outer_par": {
+      "title": "Flottant mal placé",
+      "text": "Une figure ou un tableau est placé dans un endroit où les flottants sont interdits (une boîte, une note, un autre flottant)."
+    },
+    "too_many_floats": {
+      "title": "Trop de figures en attente",
+      "text": "Trop de figures ou tableaux attendent d'être placés. Ajoutez <code>\\clearpage</code> ou utilisez l'option [htbp]."
+    },
+    "unknown_graphics_extension": {
+      "title": "Format d'image non pris en charge",
+      "text": "Le format <code>{extension}</code> n'est pas accepté par ce moteur. Utilisez PNG, JPG ou PDF (EPS avec pdfLaTeX est converti automatiquement)."
+    },
+    "graphic_size": {
+      "title": "Taille d'image inconnue",
+      "text": "La taille d'une image n'a pas pu être lue. Vérifiez que le fichier est une vraie image PNG, JPG ou PDF."
+    },
+    "preamble_only": {
+      "title": "Commande réservée au préambule",
+      "text": "Cette commande doit être placée avant <code>\\begin'{'document'}'</code>, par exemple <code>\\usepackage</code>."
+    },
+    "unicode_not_set_up": {
+      "title": "Caractère non pris en charge",
+      "text": "Le caractère <code>{character}</code> (U+{code}) n'est pas disponible avec pdfLaTeX. Utilisez XeLaTeX ou LuaLaTeX, ou une commande LaTeX équivalente."
+    },
+    "invalid_utf8": {
+      "title": "Encodage invalide",
+      "text": "Un fichier contient des caractères qui ne sont pas en UTF-8. Enregistrez-le en UTF-8."
+    },
+    "missing_dollar_math": {
+      "title": "Formule mal délimitée",
+      "text": "Une formule mathématique est mal ouverte ou mal fermée (\\( \\), \\[ \\] ou $ $)."
+    },
+    "counter_too_large": {
+      "title": "Compteur trop grand",
+      "text": "Un compteur dépasse la valeur que sa numérotation peut afficher (par exemple plus de 26 avec des lettres)."
+    },
+    "font_not_found": {
+      "title": "Police introuvable",
+      "text": "La police <code>{font}</code> n'est pas installée. Choisissez une police de TeX Live ou ajoutez son fichier au projet."
+    },
+    "font_not_loadable": {
+      "title": "Police introuvable",
+      "text": "La police <code>{font}</code> n'a pas pu être chargée avec ce moteur."
+    },
+    "babel_language": {
+      "title": "Langue inconnue",
+      "text": "babel ne connaît pas la langue <code>{language}</code>. Vérifiez son nom (french, english…)."
+    },
+    "package_error": {
+      "title": "Erreur du paquet {package}",
+      "text": "{message}"
+    },
+    "class_error": {
+      "title": "Erreur de la classe {class}",
+      "text": "{message}"
+    },
+    "latex_error": {
+      "title": "Erreur LaTeX",
+      "text": "{message}"
+    },
+    "undefined_control_sequence": {
+      "title": "Commande inconnue",
+      "text": "La commande <code>{command}</code> n'existe pas. Vérifiez son orthographe ou chargez le paquet qui la définit."
+    },
+    "missing_dollar": {
+      "title": "Mode mathématique manquant",
+      "text": "Un symbole mathématique (^, _, \\alpha…) est utilisé hors d'une formule, ou une formule n'est pas fermée. Entourez-le de $ … $."
+    },
+    "too_many_braces": {
+      "title": "Accolade fermante en trop",
+      "text": "Une accolade « '}' » ferme quelque chose qui n'a pas été ouvert."
+    },
+    "extra_brace": {
+      "title": "Accolade en trop ou oubliée",
+      "text": "Les accolades ne sont pas équilibrées : il en manque une ou il y en a une de trop."
+    },
+    "missing_brace": {
+      "title": "Accolade non fermée",
+      "text": "Une accolade « '{' » n'est pas refermée (ou l'inverse). Le reste du document peut s'afficher mal."
+    },
+    "runaway_argument": {
+      "title": "Argument non terminé",
+      "text": "L'argument d'une commande ne se termine pas : il manque probablement une accolade fermante."
+    },
+    "file_ended": {
+      "title": "Fin de fichier inattendue",
+      "text": "Le fichier se termine pendant la lecture de <code>{command}</code> : une accolade n'est pas refermée."
+    },
+    "paragraph_ended": {
+      "title": "Paragraphe interrompu",
+      "text": "Une ligne vide coupe l'argument de <code>{command}</code> : il manque probablement une accolade fermante."
+    },
+    "math_delimiter": {
+      "title": "Délimiteur mathématique",
+      "text": "<code>\\left</code> et <code>\\right</code> doivent aller par paires, chacun suivi d'un délimiteur (ou d'un point)."
+    },
+    "double_script": {
+      "title": "Exposant ou indice double",
+      "text": "Deux exposants (^) ou deux indices (_) se suivent. Regroupez-les avec des accolades, par exemple x^'{'ab'}'."
+    },
+    "display_math": {
+      "title": "Formule centrée mal fermée",
+      "text": "Une formule centrée n'est pas fermée correctement. Utilisez \\[ … \\] plutôt que $$ … $$."
+    },
+    "invalid_character": {
+      "title": "Caractère invalide",
+      "text": "Le texte lu contient un caractère invalide (caractère de contrôle). Vérifiez le fichier à cette ligne."
+    },
+    "misplaced_alignment": {
+      "title": "« & » mal placé",
+      "text": "Le caractère « & » sépare les colonnes d'un tableau. Ailleurs, écrivez <code>\\&</code>."
+    },
+    "extra_alignment_tab": {
+      "title": "Trop de colonnes",
+      "text": "Une ligne du tableau a plus de colonnes (« & ») que celles déclarées dans tabular."
+    },
+    "misplaced_noalign": {
+      "title": "Commande de tableau mal placée",
+      "text": "<code>\\{command}</code> n'est utilisable qu'au début d'une ligne de tableau (par exemple \\hline juste après \\\\)."
+    },
+    "illegal_parameter": {
+      "title": "Paramètre invalide",
+      "text": "Une définition de <code>{command}</code> utilise un paramètre # qui n'existe pas."
+    },
+    "illegal_unit": {
+      "title": "Unité manquante",
+      "text": "Une longueur n'a pas d'unité valide (cm, mm, pt, em…)."
+    },
+    "missing_number": {
+      "title": "Nombre attendu",
+      "text": "Une commande attendait un nombre ou une longueur et a trouvé autre chose."
+    },
+    "dimension_too_large": {
+      "title": "Dimension trop grande",
+      "text": "Une longueur dépasse la taille maximale gérée par TeX (environ 5,7 m)."
+    },
+    "extra_conditional": {
+      "title": "\\{command} en trop",
+      "text": "<code>\\{command}</code> n'a pas de condition correspondante."
+    },
+    "missing_endcsname": {
+      "title": "\\endcsname manquant",
+      "text": "Un nom de commande construit avec \\csname contient un caractère interdit."
+    },
+    "capacity_exceeded": {
+      "title": "Capacité de TeX dépassée",
+      "text": "TeX a manqué de mémoire ({what}). Le plus souvent, une macro s'appelle elle-même sans fin."
+    },
+    "lua_error": {
+      "title": "Erreur Lua",
+      "text": "{message}"
+    },
+    "no_end_document": {
+      "title": "\\end'{'document'}' manquant",
+      "text": "Le fichier principal se termine sans <code>\\end'{'document'}'</code>."
+    },
+    "emergency_stop": {
+      "title": "Arrêt de la compilation",
+      "text": "TeX s'est arrêté après une erreur grave. Corrigez d'abord l'erreur précédente."
+    },
+    "tex_error": {
+      "title": "Erreur TeX",
+      "text": "{message}"
+    },
+    "undefined_reference": {
+      "title": "Référence introuvable",
+      "text": "La référence « {label} » n'existe pas encore. Vérifiez le \\label correspondant."
+    },
+    "undefined_citation": {
+      "title": "Citation introuvable",
+      "text": "La référence bibliographique « {key} » n'est pas dans le fichier .bib du projet."
+    },
+    "multiply_defined_label": {
+      "title": "Étiquette en double",
+      "text": "L'étiquette « {label} » est définie plusieurs fois. Chaque \\label doit être unique."
+    },
+    "empty_bibliography": {
+      "title": "Bibliographie à reconstruire",
+      "text": "Biber n'a pas encore produit la bibliographie. Compilez à nouveau ; si le message reste, vérifiez le fichier .bib."
+    },
+    "no_pages": {
+      "title": "Aucune page produite",
+      "text": "Le document ne produit aucune page : il n'y a pas de texte entre \\begin'{'document'}' et \\end'{'document'}'."
+    }
+  },
+  "OutdatedBrowser": {
+    "title": "Navigateur trop ancien.",
+    "text": "{product} risque de ne pas fonctionner correctement : l'éditeur et l'aperçu PDF demandent un navigateur récent. Installez la dernière version de <chrome>Google Chrome</chrome> ou de <firefox>Mozilla Firefox</firefox>.",
+    "chromeUrl": "https://www.google.com/intl/fr/chrome/",
+    "firefoxUrl": "https://www.mozilla.org/fr/firefox/new/"
   }
 }

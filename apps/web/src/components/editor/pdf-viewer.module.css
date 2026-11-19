@@ -1,0 +1,123 @@
+.viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface-creuse);
+}
+
+.toolbar {
+  display: flex;
+  flex: none;
+  overflow-x: auto;
+  gap: var(--espace-1);
+  align-items: center;
+  padding: 0 var(--espace-2);
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface);
+}
+
+.pageNumber,
+.zoom {
+  font: var(--t-legende);
+  color: var(--texte-2);
+  white-space: nowrap;
+}
+
+.zoom {
+  display: none;
+  min-width: 3.5em;
+  text-align: center;
+}
+
+@media (min-width: 600px) {
+  .zoom {
+    display: inline;
+  }
+}
+
+.spacer {
+  flex: 1;
+}
+
+.download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cible-tactile);
+  height: var(--cible-tactile);
+  border-radius: var(--r-md);
+  color: var(--texte-2);
+}
+
+.download:hover {
+  background: var(--surface-creuse);
+  color: var(--action);
+}
+
+.download:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.pages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--espace-4);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+  width: var(--pdf-column, 100%);
+  margin: 0 auto;
+}
+
+.page {
+  position: relative;
+  box-shadow: var(--ombre-1);
+  background: var(--neutre-0);
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Area shown by "show in the PDF" (SyncTeX), placed by the viewer. */
+.mark {
+  position: absolute;
+  top: var(--mark-top, 0);
+  left: var(--mark-left, 0);
+  width: var(--mark-width, 0);
+  height: var(--mark-height, 0);
+  border: 2px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--or-200) 35%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duree-lente) var(--courbe);
+}
+
+.mark[data-active='true'] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark {
+    transition: none;
+  }
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  align-items: flex-start;
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--texte-3);
+}

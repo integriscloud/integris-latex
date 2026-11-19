@@ -2,16 +2,51 @@ import { describe, expect, it } from 'vitest';
 import { apiEnvSchema, parseEnv, seedEnvSchema, workerEnvSchema } from './env.js';
 
 describe('parseEnv', () => {
+  const worker = {
+    REDIS_URL: 'redis://localhost:6379',
+    MINIO_WORKER_ACCESS_KEY: 'integris-worker',
+    MINIO_WORKER_SECRET_KEY: 'worker-secret',
+  };
+
   it('returns typed values when the environment is valid', () => {
-    const env = parseEnv(workerEnvSchema, { REDIS_URL: 'redis://localhost:6379' });
-    expect(env).toEqual({ NODE_ENV: 'development', REDIS_URL: 'redis://localhost:6379' });
+    const env = parseEnv(workerEnvSchema, worker);
+    expect(env).toMatchObject({
+      NODE_ENV: 'development',
+      REDIS_URL: 'redis://localhost:6379',
+      SANDBOX_RUNTIME: 'runsc',
+      COMPILE_MEMORY_MB: 2048,
+      COMPILE_WORKDIR_MB: 1024,
+    });
   });
 
   it('names invalid variables without leaking their values', () => {
-    expect(() => parseEnv(workerEnvSchema, { REDIS_URL: 'not-a-url-secret' })).toThrow(/REDIS_URL/);
-    expect(() => parseEnv(workerEnvSchema, { REDIS_URL: 'not-a-url-secret' })).not.toThrow(
-      /secret/,
+    const invalid = { ...worker, REDIS_URL: 'not-a-url-secret' };
+    expect(() => parseEnv(workerEnvSchema, invalid)).toThrow(/REDIS_URL/);
+    expect(() => parseEnv(workerEnvSchema, invalid)).not.toThrow(/not-a-url/);
+  });
+
+  it('requires gVisor in production and memory above the in-memory directories', () => {
+    expect(() =>
+      parseEnv(workerEnvSchema, { ...worker, NODE_ENV: 'production', SANDBOX_RUNTIME: 'runc' }),
+    ).toThrow(/SANDBOX_RUNTIME/);
+    expect(() => parseEnv(workerEnvSchema, { ...worker, COMPILE_MEMORY_MB: '1024' })).toThrow(
+      /COMPILE_MEMORY_MB/,
     );
+  });
+
+  it('requires TLS to Redis and a real MinIO secret in production', () => {
+    let message = '';
+    try {
+      parseEnv(workerEnvSchema, {
+        ...worker,
+        NODE_ENV: 'production',
+        MINIO_WORKER_SECRET_KEY: 'change-me-dev-minio-worker-secret',
+      });
+    } catch (error) {
+      message = String(error);
+    }
+    expect(message).toContain('REDIS_URL');
+    expect(message).toContain('MINIO_WORKER_SECRET_KEY');
   });
 });
 
@@ -102,8 +137,25 @@ describe('apiEnvSchema', () => {
       'PUBLIC_WEB_URL',
       'AUTH_SECRET',
       'MINIO_API_SECRET_KEY',
+      'FILES_PUBLIC_URL',
     ]) {
       expect(message).toContain(name);
     }
+  });
+
+  it('serves files from a sibling domain, never from the app or one of its subdomains', () => {
+    const production = {
+      ...base,
+      NODE_ENV: 'production',
+      SMS_PROVIDER: undefined,
+      PUBLIC_WEB_URL: 'https://latex.integriscloud.com',
+      WEB_ORIGINS: 'https://latex.integriscloud.com',
+    };
+    const files = (url: string) => () =>
+      parseEnv(apiEnvSchema, { ...production, FILES_PUBLIC_URL: url });
+    // The production check also refuses the log SMS provider: only FILES_PUBLIC_URL matters here.
+    expect(files('https://latex.integriscloud.com')).toThrow(/FILES_PUBLIC_URL/);
+    expect(files('https://files.latex.integriscloud.com')).toThrow(/FILES_PUBLIC_URL/);
+    expect(files('https://latex-files.integriscloud.com')).not.toThrow(/FILES_PUBLIC_URL/);
   });
 });

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PORTS } from './ports.js';
 
 const nodeEnv = z.enum(['development', 'test', 'production']).default('development');
 
@@ -101,6 +102,10 @@ export const apiEnvSchema = z
     PROJECT_MAX_FILES: positiveInt(2000),
     // How often projects deleted more than 30 days ago are erased.
     TRASH_PURGE_INTERVAL_MINUTES: positiveInt(60),
+    // Public base URL of the files domain serving PDFs by signed links (docs/spec.md: a sibling
+    // of the app domain, never the app origin): latex-files.integriscloud.com in production,
+    // test-latex-files.integriscloud.com on latex-dev, proxied by Nginx to PORTS.files.
+    FILES_PUBLIC_URL: z.url().default(`http://127.0.0.1:${PORTS.files}`),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
@@ -116,6 +121,15 @@ export const apiEnvSchema = z
       if (!url.startsWith('https://')) {
         ctx.addIssue({ code: 'custom', path: [name], message: 'HTTPS required' });
       }
+    }
+    if (!env.FILES_PUBLIC_URL.startsWith('https://')) {
+      ctx.addIssue({ code: 'custom', path: ['FILES_PUBLIC_URL'], message: 'HTTPS required' });
+    }
+    // User content never shares the origin (or a subdomain) of the app.
+    const filesHost = new URL(env.FILES_PUBLIC_URL).hostname;
+    const appHosts = [env.PUBLIC_WEB_URL, ...env.WEB_ORIGINS].map((url) => new URL(url).hostname);
+    if (appHosts.some((host) => filesHost === host || filesHost.endsWith(`.${host}`))) {
+      ctx.addIssue({ code: 'custom', path: ['FILES_PUBLIC_URL'], message: 'Same site as the app' });
     }
     for (const name of ['AUTH_SECRET', 'ALTCHA_HMAC_KEY', 'MINIO_API_SECRET_KEY'] as const) {
       if (env[name].includes('change-me')) {
@@ -139,11 +153,55 @@ export const collabEnvSchema = z.object({
 });
 export type CollabEnv = z.infer<typeof collabEnvSchema>;
 
-/** Environment read by apps/worker. Workers only reach Redis and MinIO: no app secrets here. */
-export const workerEnvSchema = z.object({
-  NODE_ENV: nodeEnv,
-  REDIS_URL: z.url(),
-});
+/**
+ * Environment read by apps/worker. Workers only reach Redis and MinIO: no app secrets here. The
+ * MinIO key of the worker only reads and writes the compilation buckets; project files come as
+ * presigned URLs in the jobs. Container limits are the same for every plan (docs/spec.md,
+ * "Compilation"); only the duration comes from the plan, in the job.
+ */
+export const workerEnvSchema = z
+  .object({
+    NODE_ENV: nodeEnv,
+    REDIS_URL: z.url(),
+    MINIO_ENDPOINT: minioEndpoint,
+    MINIO_WORKER_ACCESS_KEY: z.string().min(3),
+    MINIO_WORKER_SECRET_KEY: z.string().min(8),
+    // Name reported on each compilation (defaults to the host name).
+    WORKER_NAME: z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{1,100}$/)
+      .optional(),
+    // Jobs compiled at the same time by this worker.
+    COMPILE_CONCURRENCY: positiveInt(2),
+    SANDBOX_IMAGE: z.string().min(1).default('integris/texlive:2026'),
+    // gVisor. `runc` is only accepted outside production (CI machines without gVisor).
+    SANDBOX_RUNTIME: z.enum(['runsc', 'runc']).default('runsc'),
+    COMPILE_CPUS: z.coerce.number().positive().max(64).default(2),
+    COMPILE_MEMORY_MB: positiveInt(2048),
+    COMPILE_PIDS: positiveInt(128),
+    // Working directory (sources, cache and results) and /tmp, both in memory.
+    COMPILE_WORKDIR_MB: positiveInt(1024),
+    COMPILE_TMP_MB: positiveInt(256),
+    COMPILE_MAX_PDF_MB: positiveInt(200),
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV === 'production') {
+      if (env.SANDBOX_RUNTIME !== 'runsc') {
+        ctx.addIssue({ code: 'custom', path: ['SANDBOX_RUNTIME'], message: 'gVisor required' });
+      }
+      // Workers reach Redis over a public IP: TLS only (CLAUDE.md, "Security rules").
+      if (!env.REDIS_URL.startsWith('rediss://')) {
+        ctx.addIssue({ code: 'custom', path: ['REDIS_URL'], message: 'TLS required' });
+      }
+      if (env.MINIO_WORKER_SECRET_KEY.includes('change-me')) {
+        ctx.addIssue({ code: 'custom', path: ['MINIO_WORKER_SECRET_KEY'], message: 'Placeholder' });
+      }
+    }
+    if (env.COMPILE_WORKDIR_MB + env.COMPILE_TMP_MB >= env.COMPILE_MEMORY_MB) {
+      // Both are tmpfs, counted in the memory of the container.
+      ctx.addIssue({ code: 'custom', path: ['COMPILE_MEMORY_MB'], message: 'Below tmpfs sizes' });
+    }
+  });
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
 
 /**

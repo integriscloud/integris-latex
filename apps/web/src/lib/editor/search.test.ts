@@ -29,6 +29,18 @@ describe('project search', () => {
     expect(findMatches('été Été', exact)).toHaveLength(1);
   });
 
+  it('finds whole words without a lookbehind, which Safari before 16.4 rejects', () => {
+    const word = searchPattern('aa', { ...options, wholeWord: true })!;
+    expect(word.source).not.toMatch(/\(\?<[=!]/);
+    // A match preceded by a letter is skipped and the search goes on from the next character.
+    expect(findMatches('baa aa aaa _aa 𝐀aa (aa)', word).map((match) => match.from)).toEqual([
+      4, 21,
+    ]);
+    expect(replaceAll('baa aa aa', word, 'X', options)).toEqual({ text: 'baa X X', count: 2 });
+    const regexp = searchPattern('a+', { ...options, regexp: true, wholeWord: true })!;
+    expect(findMatches('ba aa', regexp).map((match) => match.from)).toEqual([3]);
+  });
+
   it('refuses empty and invalid patterns', () => {
     expect(searchPattern('', options)).toBeNull();
     expect(searchPattern('(', { ...options, regexp: true })).toBeNull();

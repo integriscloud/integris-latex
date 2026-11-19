@@ -1,4 +1,6 @@
 export * from './auth.js';
+export * from './compile.js';
+export * from './compile-log.js';
 export * from './env.js';
 export * from './errors.js';
 export * from './i18n.js';

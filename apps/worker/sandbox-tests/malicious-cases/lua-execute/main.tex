@@ -1,0 +1,8 @@
+% Runs a command from Lua.
+\documentclass{article}
+\begin{document}
+\directlua{
+  local pipe = assert(io.popen('id'))
+  texio.write_nl('ATTACK: ' .. pipe:read('a'))
+}
+\end{document}

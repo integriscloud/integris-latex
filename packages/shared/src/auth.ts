@@ -189,6 +189,19 @@ export const spaceSchema = z.object({
 });
 export type Space = z.infer<typeof spaceSchema>;
 
+/** Settings of a user, kept on the account (every device). */
+export const userPreferencesSchema = z.object({
+  /** Browser spell checker in the editor's code; comments and form fields always keep it. */
+  editorSpellcheck: z.boolean(),
+});
+export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+
+/** Changed preferences only. */
+export const updatePreferencesSchema = userPreferencesSchema
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, { message: 'empty' });
+
 export const sessionUserSchema = z.object({
   id: z.string(),
   displayName: z.string(),
@@ -197,6 +210,7 @@ export const sessionUserSchema = z.object({
   pendingEmail: z.string().nullable(),
   hasPassword: z.boolean(),
   locale: z.enum(LOCALES),
+  preferences: userPreferencesSchema,
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 

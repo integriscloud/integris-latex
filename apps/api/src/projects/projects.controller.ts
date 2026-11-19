@@ -112,7 +112,7 @@ export class ProjectsController {
     return this.projects.detail(auth.user.id, id);
   }
 
-  /** Renames the project (owner) or changes its main file (owner, editor). */
+  /** Renames the project (owner) or changes its main file or engine (owner, editor). */
   @Patch(':id')
   @ApiZodBody(updateProjectSchema)
   update(

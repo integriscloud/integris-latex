@@ -124,7 +124,7 @@ L'éditeur occupe trois zones redimensionnables (arborescence, code, PDF), plus 
 - autocomplétion de `\ref` et `\cite` à partir des étiquettes et du `.bib` du projet ;
 - plan du document, repli des sections ;
 - recherche et remplacement dans un fichier et dans tout le projet ;
-- correcteur orthographique du navigateur ;
+- correcteur orthographique du navigateur : dans le code, option « Correcteur orthographique » du menu Réglages de l'éditeur, désactivée par défaut (il soulignerait les commandes LaTeX) et mémorisée sur le compte de l'utilisateur ; toujours actif dans les commentaires et les champs de texte ;
 - raccourcis : gras, italique, commentaire, compiler (Ctrl+S ou Ctrl+Entrée) ;
 - navigation SyncTeX dans les deux sens (double-clic dans le PDF, bouton depuis le code) ;
 - visionneuse PDF.js : zoom, pages, téléchargement ; PDF servi par lien signé de 15 minutes, renouvelé automatiquement ;
@@ -141,7 +141,9 @@ L'éditeur occupe trois zones redimensionnables (arborescence, code, PDF), plus 
 | Déclenchement | Manuel ; automatique après 2 s sans frappe pour les plans payants |
 | Cache | Fichiers intermédiaires (`.aux`, `.bbl`, `.toc`…) conservés dans MinIO et restaurés |
 | File d'attente | Priorité Team et Business, puis Standard, puis Gratuit ; position affichée |
-| Limites | Durée max et compilations par heure selon le plan |
+| Limites | Durée max et compilations par heure selon le plan ; CPU, mémoire, processus et taille de sortie identiques pour tous les plans, réglables dans la configuration du worker (2 CPU, 2 Gio de mémoire sans swap, 128 processus, dossier de travail de 1 Gio sources comprises, PDF de 200 Mo au plus) |
+| Droits | Seuls le propriétaire et l'éditeur lancent une compilation (décomptée sur le propriétaire) ; les autres rôles voient le dernier PDF. Un projet en lecture seule n'est plus compilé, son dernier PDF reste visible |
+| PDF servi | Depuis le domaine des fichiers (`latex-files.integriscloud.com`, `test-latex-files.integriscloud.com` sur latex-dev), jamais depuis l'origine de l'application |
 | Erreurs | 1 à 3 premières erreurs traduites (dictionnaire d'environ 50 erreurs courantes, en français et en anglais), cliquables vers la ligne ; journal brut accessible |
 
 ## Paiement et facturation
@@ -176,12 +178,13 @@ Monorepo TypeScript, quatre serveurs Debian, déploiement Docker. Le code et les
 | Authentification | Sessions côté serveur dans Redis ; cookie `__Host-` (`Secure`, `HttpOnly`, `SameSite=Lax`), jamais sur `.integriscloud.com` |
 | API | REST, OpenAPI (Swagger), validation de toutes les entrées |
 | Éditeur | CodeMirror 6, Yjs, PDF.js |
+| Navigateurs | Cible commune dans `.browserslistrc` : Chrome, Chrome Android et WebView Android, Samsung Internet, Firefox (ordinateur et Android) sortis depuis 3 ans (au 19 novembre 2026 : Chrome 120+, Samsung Internet 24+ et Firefox 120+), Safari iOS 15+. Le code exécuté par le navigateur (pages et workers, dépendances comprises, dont PDF.js) n'utilise que ce que ces versions connaissent, ou un polyfill chargé avant l'usage ; pas d'expression régulière avec lookbehind (refusée avant Safari 16.4). Contrôle du build en CI et test de bout en bout dans Chromium 120. Un navigateur plus ancien que la cible, ou trop limité (Opera Mini, UC Browser), voit sur chaque page un bandeau en français ou en anglais qui conseille une version à jour de Chrome ou de Firefox ; le bandeau ne bloque aucune page |
 | File de compilation | BullMQ sur Redis |
 | Stockage | MinIO (compatible S3) |
 | E-mails | SMTP d'Integris |
 | SMS | API SMS LigdiCash, expéditeur INTEGRIS |
 | Déploiement | Docker Compose par serveur ; Nginx et Let's Encrypt sur le serveur Application |
-| Code et CI | Dépôt GitHub privé ; GitHub Actions (lint, tests, build) à chaque push ; déploiement par script SSH, déclenché manuellement |
+| Code et CI | Dépôt GitHub privé ; GitHub Actions (lint, tests, build, compatibilité navigateurs du build) à chaque push ; déploiement par script SSH, déclenché manuellement |
 | Environnements | Développement sur latex-dev (Docker Compose), préversion sur test-latex.integriscloud.com, et production |
 | Surveillance | Journaux pino, Uptime Kuma avec alerte SMS ; Grafana et GlitchTip en V2 |
 | Sauvegardes | `pg_dump` quotidien et miroir MinIO hors site ; 7 quotidiennes, 4 hebdomadaires, 3 mensuelles ; test de restauration mensuel |
@@ -210,7 +213,7 @@ Les serveurs communiquent par leurs IP publiques (option B). Chaque serveur refu
 | Application | Données | 6379 | Redis (TLS, utilisateur `api`) |
 | Application | Données | 9000 | MinIO (TLS, clé `api`) |
 | Compilation 1 et 2 | Données | 6379 | Redis (TLS, utilisateur `worker` limité aux files de compilation) |
-| Compilation 1 et 2 | Données | 9000 | MinIO (TLS, clé `worker` limitée aux buckets de compilation) |
+| Compilation 1 et 2 | Données | 9000 | MinIO (TLS, clé `worker` limitée aux buckets de compilation ; sources du projet lues par URL présignées fournies par l'API) |
 | Application | Internet | 443, 587 | API LigdiCash, API SMS, SMTP Integris |
 | Données | Espace de sauvegarde hors site | 22 ou 443 | Sauvegardes quotidiennes |
 | Les 4 serveurs | Dépôts Debian, registre Docker | 443 | Mises à jour |
@@ -218,7 +221,8 @@ Les serveurs communiquent par leurs IP publiques (option B). Chaque serveur refu
 - **Pare-feu** : nftables, politique par défaut « refuser » en entrée sur les 4 serveurs, et en sortie sur Données et Compilation.
 - **PostgreSQL** : `pg_hba.conf` n'accepte que `hostssl` depuis l'IP de l'Application.
 - **Redis** : port TLS uniquement, port en clair désactivé ; ACL avec un utilisateur `api` et un utilisateur `worker` restreint aux clés des files.
-- **MinIO** : TLS ; une clé par service, avec une politique limitée à ses buckets.
+- **MinIO** : TLS ; une clé par service, avec une politique limitée à ses buckets. La clé `worker` n'a **aucun** droit sur le bucket `projects` : elle a seulement lecture et écriture sur `compile-output` et `compile-cache`, où chaque objet est rangé sous le préfixe de son projet.
+- **Sources d'une compilation** : pour chaque job, l'API génère une URL présignée MinIO en lecture (GET), une par fichier du projet, valable 5 minutes, et la place dans les données du job. Le worker télécharge les fichiers par ces URL, vérifie la taille et le chemin de chaque fichier, et n'écrit que dans son dossier de travail.
 - **Certificats internes** : une autorité de certification interne signe les certificats de PostgreSQL, Redis et MinIO ; chaque client vérifie le certificat.
 - **SSH** : clés uniquement, root interdit, fail2ban, accès depuis les IP d'administration seulement.
 - **Cookies du portail** : vérifier que le portail Integris ne pose pas de cookies sur `.integriscloud.com` ; sinon ils seraient envoyés aux sous-domaines LaTeX.
@@ -226,7 +230,7 @@ Les serveurs communiquent par leurs IP publiques (option B). Chaque serveur refu
 **Règles de sécurité non négociables :**
 
 - **Compilation isolée** : Docker avec gVisor ; un conteneur jetable par job, sans réseau, système de fichiers en lecture seule sauf le dossier de travail, utilisateur non root, aucune capacité, limites de CPU, mémoire, processus, durée et taille de sortie ; lecture et écriture TeX limitées au projet.
-- **Serveurs de compilation** : ne joignent que Redis et MinIO ; aucun secret applicatif sur ces machines.
+- **Serveurs de compilation** : ne joignent que Redis et MinIO ; aucun secret applicatif sur ces machines. Ils ne lisent les sources d'un projet que par les URL présignées (GET, 5 minutes, une par fichier) placées par l'API dans le job ; leur clé MinIO n'a aucun droit sur le bucket `projects`.
 - **Contenu des utilisateurs** (PDF, images) servi depuis le sous-domaine frère `latex-files.integriscloud.com` (jamais un sous-domaine de `latex.`), par liens signés, sans cookie, avec CSP `sandbox`, `nosniff` et téléchargement forcé pour tout ce qui n'est ni PDF ni image matricielle.
 - **Contrôle d'accès** vérifié côté serveur à chaque requête et à chaque connexion WebSocket de collaboration.
 - **Paiement** : webhook LigdiCash vérifié, statut revérifié auprès de l'API, traitement idempotent.

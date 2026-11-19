@@ -33,5 +33,11 @@ export default async function EditorPage({ params, searchParams }: PageProps) {
   if (!project) notFound();
   const { file } = await searchParams;
 
-  return <EditorLoader initial={project} initialFileId={typeof file === 'string' ? file : null} />;
+  return (
+    <EditorLoader
+      initial={project}
+      initialFileId={typeof file === 'string' ? file : null}
+      initialSpellcheck={me.user.preferences.editorSpellcheck}
+    />
+  );
 }

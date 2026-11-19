@@ -25,17 +25,6 @@
   white-space: nowrap;
 }
 
-/* Compile: place kept for step 6; icon only on phones. */
-.compileLabel {
-  display: none;
-}
-
-@media (min-width: 600px) {
-  .compileLabel {
-    display: inline;
-  }
-}
-
 .wideOnly {
   display: none;
 }
@@ -321,4 +310,93 @@
   border-radius: 2px;
   background: var(--or-100);
   color: inherit;
+}
+
+/* ───────────── Compilation ───────────── */
+
+.pdfPane {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pdfBody {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.result {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--espace-2);
+  max-height: 45%;
+  padding: var(--espace-3);
+  overflow: auto;
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface);
+}
+
+.resultBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  align-items: center;
+}
+
+.success {
+  display: flex;
+  gap: var(--espace-1);
+  align-items: center;
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--succes);
+}
+
+.resultMore,
+.menuHelp {
+  margin: 0;
+  font: var(--t-legende);
+  color: var(--texte-3);
+}
+
+.menuHelp a {
+  color: var(--action);
+}
+
+.log {
+  max-height: 60vh;
+  margin: 0;
+  overflow: auto;
+  font: var(--t-code);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.engines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.engines legend {
+  margin-bottom: var(--espace-1);
+  font-weight: 600;
+}
+
+.choice {
+  display: flex;
+  gap: var(--espace-2);
+  align-items: center;
+  min-height: var(--cible-tactile);
+}
+
+.choice input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--action);
 }

@@ -629,7 +629,12 @@
     "erase_blocked": "This project cannot be erased for now: the trace of some of its validations or print requests must be kept first. Contact Integris support.",
     "too_many_files": "This project has reached the maximum number of files.",
     "edit_conflict": "This file was changed elsewhere since you opened it.",
-    "not_text": "This file does not open in the editor: only text files (.tex, .bib, .sty, .cls, .txt, .md) do."
+    "not_text": "This file does not open in the editor: only text files (.tex, .bib, .sty, .cls, .txt, .md) do.",
+    "compile_limit": "You have used the compilations per hour of your plan. Try again later or move to a higher plan.",
+    "auto_compile_unavailable": "Automatic compilation is for paid plans.",
+    "main_missing": "The main file of the project cannot be found. Choose a main .tex file.",
+    "compile_unavailable": "The compilation service does not answer. Try again in a moment.",
+    "no_output": "This compilation result is no longer available."
   },
   "Editor": {
     "metaTitle": "Editor",
@@ -654,7 +659,6 @@
     "mobileNotice": "On a phone, editing code is possible but not optimized. To write comfortably, use a computer.",
     "closeNotice": "Close this message",
     "compile": "Compile",
-    "compileSoon": "Compiling is coming soon.",
     "showSide": "Show comments and submissions",
     "hideSide": "Hide comments and submissions",
     "panes": "Editor areas",
@@ -703,7 +707,6 @@
     "replaceDone": "{count, plural, =0 {No replacement.} one {# replacement} other {# replacements}}{count, plural, =0 {} other { in {files, plural, one {# file} other {# files}}.}}",
     "replaceFailed": "Not changed (changed elsewhere or read-only): {paths}.",
     "pdfTitle": "PDF preview",
-    "pdfSoon": "Compiling and the PDF preview are coming soon.",
     "comments": "Comments",
     "submissions": "Submissions",
     "commentsSoon": "Comments on the text are coming soon.",
@@ -743,6 +746,328 @@
       "completions": "Completions",
       "controlCharacter": "Control character"
     },
-    "upgrade": "See plans"
+    "upgrade": "See plans",
+    "compileAction": "Compile",
+    "compileShortcut": "Compile (Ctrl + Enter or Ctrl + S)",
+    "compileQueued": "{position, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} in queue",
+    "compileRunning": "Compiling… {seconds} s",
+    "compileErrors": "{count, plural, one {# error} other {# errors}}",
+    "compileFailed": "Failed",
+    "compileMenu": "Compilation settings",
+    "engine": "Engine",
+    "engineHelp": "The engine applies to the whole project, for all its members.",
+    "autoCompile": "Compile automatically 2 s after typing",
+    "settings": "Editor settings",
+    "spellcheck": "Spell checker",
+    "spellcheckHelp": "Underlines mistakes in the code with the browser's spell checker. Off by default because it also underlines LaTeX commands; comments and text fields always keep it. Saved to your account.",
+    "settingsFailed": "The setting could not be saved. Try again.",
+    "autoCompileFree": "Automatic compilation is for paid plans.",
+    "compileLimits": "Your plan: {seconds} s per compilation, {perHour} compilations per hour.",
+    "compileReadOnly": "You can read the last PDF; only the owner and editors compile.",
+    "compileSaveFirst": "Some changes are not saved: the compilation uses the last saved version.",
+    "compileLimit": "You have used the {perHour} compilations per hour of your plan. Try again in {minutes, plural, one {# minute} other {# minutes}} or move to a higher plan.",
+    "pdfEmpty": "No PDF yet",
+    "pdfEmptyHint": "Compile the project to see its PDF here.",
+    "pdfEmptyReader": "The project has not been compiled yet.",
+    "pdfOld": "The PDF shown is the one of the last successful compilation.",
+    "issuesTitle": "Compilation result",
+    "issuesErrors": "{count, plural, one {# error} other {# errors}}",
+    "issuesWarnings": "{count, plural, one {# warning} other {# warnings}}",
+    "issuesMore": "{count, plural, one {The other message is in the raw log.} other {The # other messages are in the raw log.}}",
+    "issueLocation": "{file} · line {line}",
+    "issueLine": "line {line}",
+    "rawLog": "Raw log",
+    "rawLogTitle": "Compilation log",
+    "rawLogLoading": "Loading the log…",
+    "close": "Close",
+    "hideIssues": "Hide messages",
+    "showIssues": "Show messages",
+    "compileSucceeded": "Compiled in {seconds} s.",
+    "outcome": {
+      "tex_errors": "The compilation found errors. The PDF may be incomplete.",
+      "no_pdf": "No PDF was produced. See the raw log.",
+      "timeout": "The compilation went over {seconds} s, the longest your plan allows. An endless loop may be the cause; otherwise a higher plan allows longer compilations.",
+      "memory": "The compilation used too much memory and was stopped. A macro or Lua code that never stops is often the cause.",
+      "output_too_large": "The compilation produced too much data (files or PDF too large) and was stopped.",
+      "main_missing": "The main file of the project cannot be found. Choose a main .tex file.",
+      "sources_unavailable": "The project files could not be read in time. Start the compilation again.",
+      "internal": "The compilation could not run because of a problem on our side. Try again in a moment."
+    },
+    "syncToPdf": "Show in the PDF",
+    "syncNotFound": "This line does not appear in the PDF.",
+    "syncHint": "Double-click in the PDF to go to the matching code.",
+    "pdfViewer": {
+      "toolbar": "PDF tools",
+      "previous": "Previous page",
+      "next": "Next page",
+      "page": "Page {page} of {pages}",
+      "pageLabel": "PDF page {page}",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fit": "Fit to width",
+      "download": "Download the PDF",
+      "loading": "Loading the PDF…",
+      "failed": "The PDF could not be loaded."
+    }
+  },
+  "CompileIssues": {
+    "outside_project": {
+      "title": "Reading outside the project",
+      "text": "The document tries to read <code>{file}</code>, which is not part of the project. Only project files can be read during compilation."
+    },
+    "shell_escape_refused": {
+      "title": "System command refused",
+      "text": "The command <code>{command}</code> was not run: compilation only allows TeX Live's safe commands (BibTeX, makeindex…). Packages such as minted are not supported."
+    },
+    "system_command_refused": {
+      "title": "System command refused",
+      "text": "The Lua code tries to run a system command, which is not allowed during compilation."
+    },
+    "lua_module_unavailable": {
+      "title": "Lua module unavailable",
+      "text": "The Lua module <code>{module}</code> is not available during compilation (no network or system access)."
+    },
+    "write_refused": {
+      "title": "Writing outside the project",
+      "text": "The document tries to write <code>{file}</code> outside the project folder or to a hidden file. Only write ordinary files of the project."
+    },
+    "cannot_write": {
+      "title": "Cannot write",
+      "text": "The file <code>{file}</code> could not be written: the document probably produces too much data."
+    },
+    "file_not_found": {
+      "title": "File not found",
+      "text": "The file <code>{file}</code> is not in the project. Check its name and folder (case matters)."
+    },
+    "missing_file": {
+      "title": "File or package not found",
+      "text": "<code>{file}</code> cannot be found. If it is a project file, check its name; if it is a package, check its spelling."
+    },
+    "environment_undefined": {
+      "title": "Unknown environment",
+      "text": "The environment <code>{name}</code> does not exist. Check its spelling or load the package that defines it."
+    },
+    "begin_end_mismatch": {
+      "title": "Environment closed wrongly",
+      "text": "<code>\\begin'{'{begin}'}'</code> (line {beginLine}) is closed by <code>\\end'{'{end}'}'</code>. Each \\begin needs the \\end of the same name."
+    },
+    "missing_begin_document": {
+      "title": "Missing \\begin'{'document'}'",
+      "text": "Text appears before <code>\\begin'{'document'}'</code>, or this line is missing from the main file."
+    },
+    "missing_item": {
+      "title": "Missing \\item",
+      "text": "A list (itemize, enumerate…) contains text before its first <code>\\item</code>."
+    },
+    "lonely_item": {
+      "title": "\\item outside a list",
+      "text": "<code>\\item</code> can only be used inside a list (itemize, enumerate, description)."
+    },
+    "option_clash": {
+      "title": "Option clash",
+      "text": "The package <code>{package}</code> is loaded twice with different options. Load it once with all its options."
+    },
+    "unknown_option": {
+      "title": "Unknown option",
+      "text": "The option <code>{option}</code> does not exist for the package <code>{package}</code>."
+    },
+    "command_already_defined": {
+      "title": "Command already defined",
+      "text": "<code>{command}</code> already exists. Choose another name or use <code>\\renewcommand</code>."
+    },
+    "no_line_to_end": {
+      "title": "Misplaced line break",
+      "text": "<code>\\\\</code> is used where there is no line to end (start of a paragraph, empty line). Remove it or leave an empty line to start a new paragraph."
+    },
+    "not_in_outer_par": {
+      "title": "Misplaced float",
+      "text": "A figure or table is placed where floats are not allowed (a box, a footnote, another float)."
+    },
+    "too_many_floats": {
+      "title": "Too many floats waiting",
+      "text": "Too many figures or tables are waiting to be placed. Add <code>\\clearpage</code> or use the [htbp] option."
+    },
+    "unknown_graphics_extension": {
+      "title": "Image format not supported",
+      "text": "The format <code>{extension}</code> is not accepted by this engine. Use PNG, JPG or PDF (EPS is converted automatically with pdfLaTeX)."
+    },
+    "graphic_size": {
+      "title": "Unknown image size",
+      "text": "The size of an image could not be read. Check that the file is a real PNG, JPG or PDF image."
+    },
+    "preamble_only": {
+      "title": "Preamble-only command",
+      "text": "This command must come before <code>\\begin'{'document'}'</code>, like <code>\\usepackage</code>."
+    },
+    "unicode_not_set_up": {
+      "title": "Character not supported",
+      "text": "The character <code>{character}</code> (U+{code}) is not available with pdfLaTeX. Use XeLaTeX or LuaLaTeX, or an equivalent LaTeX command."
+    },
+    "invalid_utf8": {
+      "title": "Invalid encoding",
+      "text": "A file contains characters that are not UTF-8. Save it as UTF-8."
+    },
+    "missing_dollar_math": {
+      "title": "Badly delimited formula",
+      "text": "A mathematical formula is not opened or closed properly (\\( \\), \\[ \\] or $ $)."
+    },
+    "counter_too_large": {
+      "title": "Counter too large",
+      "text": "A counter goes beyond what its numbering can show (for example more than 26 with letters)."
+    },
+    "font_not_found": {
+      "title": "Font not found",
+      "text": "The font <code>{font}</code> is not installed. Choose a TeX Live font or add its file to the project."
+    },
+    "font_not_loadable": {
+      "title": "Font not found",
+      "text": "The font <code>{font}</code> could not be loaded with this engine."
+    },
+    "babel_language": {
+      "title": "Unknown language",
+      "text": "babel does not know the language <code>{language}</code>. Check its name (french, english…)."
+    },
+    "package_error": {
+      "title": "Error in package {package}",
+      "text": "{message}"
+    },
+    "class_error": {
+      "title": "Error in class {class}",
+      "text": "{message}"
+    },
+    "latex_error": {
+      "title": "LaTeX error",
+      "text": "{message}"
+    },
+    "undefined_control_sequence": {
+      "title": "Unknown command",
+      "text": "The command <code>{command}</code> does not exist. Check its spelling or load the package that defines it."
+    },
+    "missing_dollar": {
+      "title": "Math mode missing",
+      "text": "A math symbol (^, _, \\alpha…) is used outside a formula, or a formula is not closed. Surround it with $ … $."
+    },
+    "too_many_braces": {
+      "title": "Extra closing brace",
+      "text": "A closing brace « '}' » closes something that was never opened."
+    },
+    "extra_brace": {
+      "title": "Extra or forgotten brace",
+      "text": "Braces are not balanced: one is missing or one is extra."
+    },
+    "missing_brace": {
+      "title": "Unclosed brace",
+      "text": "A brace « '{' » is never closed (or the other way round). The rest of the document may look wrong."
+    },
+    "runaway_argument": {
+      "title": "Runaway argument",
+      "text": "The argument of a command never ends: a closing brace is probably missing."
+    },
+    "file_ended": {
+      "title": "Unexpected end of file",
+      "text": "The file ends while reading <code>{command}</code>: a brace is not closed."
+    },
+    "paragraph_ended": {
+      "title": "Paragraph ended",
+      "text": "An empty line cuts the argument of <code>{command}</code>: a closing brace is probably missing."
+    },
+    "math_delimiter": {
+      "title": "Math delimiter",
+      "text": "<code>\\left</code> and <code>\\right</code> must come in pairs, each followed by a delimiter (or a dot)."
+    },
+    "double_script": {
+      "title": "Double superscript or subscript",
+      "text": "Two superscripts (^) or two subscripts (_) follow each other. Group them with braces, for example x^'{'ab'}'."
+    },
+    "display_math": {
+      "title": "Display formula closed wrongly",
+      "text": "A display formula is not closed properly. Use \\[ … \\] rather than $$ … $$."
+    },
+    "invalid_character": {
+      "title": "Invalid character",
+      "text": "The text read contains an invalid character (a control character). Check the file at this line."
+    },
+    "misplaced_alignment": {
+      "title": "Misplaced «&»",
+      "text": "The «&» character separates table columns. Elsewhere, write <code>\\&</code>."
+    },
+    "extra_alignment_tab": {
+      "title": "Too many columns",
+      "text": "A row of the table has more columns («&») than declared in tabular."
+    },
+    "misplaced_noalign": {
+      "title": "Misplaced table command",
+      "text": "<code>\\{command}</code> can only be used at the start of a table row (for example \\hline right after \\\\)."
+    },
+    "illegal_parameter": {
+      "title": "Invalid parameter",
+      "text": "A definition of <code>{command}</code> uses a # parameter that does not exist."
+    },
+    "illegal_unit": {
+      "title": "Missing unit",
+      "text": "A length has no valid unit (cm, mm, pt, em…)."
+    },
+    "missing_number": {
+      "title": "Number expected",
+      "text": "A command expected a number or a length and found something else."
+    },
+    "dimension_too_large": {
+      "title": "Dimension too large",
+      "text": "A length goes beyond the largest size TeX handles (about 5.7 m)."
+    },
+    "extra_conditional": {
+      "title": "Extra \\{command}",
+      "text": "<code>\\{command}</code> has no matching condition."
+    },
+    "missing_endcsname": {
+      "title": "Missing \\endcsname",
+      "text": "A command name built with \\csname contains a forbidden character."
+    },
+    "capacity_exceeded": {
+      "title": "TeX capacity exceeded",
+      "text": "TeX ran out of memory ({what}). Most often a macro calls itself endlessly."
+    },
+    "lua_error": {
+      "title": "Lua error",
+      "text": "{message}"
+    },
+    "no_end_document": {
+      "title": "Missing \\end'{'document'}'",
+      "text": "The main file ends without <code>\\end'{'document'}'</code>."
+    },
+    "emergency_stop": {
+      "title": "Compilation stopped",
+      "text": "TeX stopped after a serious error. Fix the previous error first."
+    },
+    "tex_error": {
+      "title": "TeX error",
+      "text": "{message}"
+    },
+    "undefined_reference": {
+      "title": "Reference not found",
+      "text": "The reference «{label}» does not exist yet. Check the matching \\label."
+    },
+    "undefined_citation": {
+      "title": "Citation not found",
+      "text": "The bibliography entry «{key}» is not in the project's .bib file."
+    },
+    "multiply_defined_label": {
+      "title": "Duplicate label",
+      "text": "The label «{label}» is defined more than once. Each \\label must be unique."
+    },
+    "empty_bibliography": {
+      "title": "Bibliography to rebuild",
+      "text": "Biber has not produced the bibliography yet. Compile again; if the message stays, check the .bib file."
+    },
+    "no_pages": {
+      "title": "No page produced",
+      "text": "The document produces no page: there is no text between \\begin'{'document'}' and \\end'{'document'}'."
+    }
+  },
+  "OutdatedBrowser": {
+    "title": "Outdated browser.",
+    "text": "{product} may not work properly: the editor and the PDF preview need a recent browser. Install the latest version of <chrome>Google Chrome</chrome> or <firefox>Mozilla Firefox</firefox>.",
+    "chromeUrl": "https://www.google.com/intl/en/chrome/",
+    "firefoxUrl": "https://www.mozilla.org/en-US/firefox/new/"
   }
 }

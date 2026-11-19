@@ -1,0 +1,14 @@
+% Reads a system file line by line with \openin and prints it in the log and the PDF.
+\documentclass{article}
+\newread\attack
+\begin{document}
+\immediate\openin\attack=/etc/passwd
+\ifeof\attack
+  \typeout{ATTACK: nothing read}
+\else
+  \read\attack to\line
+  \typeout{ATTACK: \meaning\line}
+  \meaning\line
+\fi
+Done.
+\end{document}

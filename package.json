@@ -16,7 +16,9 @@
     "db:seed": "pnpm --filter @integris/db db:seed",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "minio:users": "bash docker/minio-dev-users.sh"
+    "minio:users": "bash docker/minio-dev-users.sh",
+    "texlive:build": "docker build -t integris/texlive:2026 docker/texlive",
+    "test:malicious": "pnpm --filter @integris/worker test:malicious"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

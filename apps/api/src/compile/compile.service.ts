@@ -1,0 +1,444 @@
+import type { Compilation as CompilationRow, CompilationStatus } from '@integris/db';
+import {
+  COMPILE_OUTPUT_BUCKET,
+  COMPILE_PRIORITY_RANK,
+  COMPILE_SOURCE_URL_SECONDS,
+  type Compilation,
+  type CompileIssue,
+  compileOutputKey,
+  compileOutputPrefix,
+  type CompileOutcome,
+  type CompileResult,
+  type CompileState,
+  PDF_LINK_SECONDS,
+  PROJECTS_BUCKET,
+} from '@integris/shared';
+import {
+  HttpStatus,
+  Injectable,
+  Logger,
+  type OnModuleDestroy,
+  type OnModuleInit,
+} from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { ApiError } from '../common/api-error.js';
+import { ApiConfig } from '../config/api-config.js';
+import { downloadName, fileLinkKey, signFileLink } from '../files/file-links.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { fail, ProjectsService } from '../projects/projects.service.js';
+import { QuotaService } from '../projects/quota.service.js';
+import { RedisService } from '../redis/redis.service.js';
+import { StorageService } from '../storage/storage.service.js';
+import {
+  CompileQueueService,
+  type QueuedJob,
+  RENEW_URLS_AFTER_MS,
+} from './compile-queue.service.js';
+
+const HOUR_MS = 3600_000;
+
+/**
+ * Sliding one-hour window of the compilations charged to an owner (Redis sorted set scored by
+ * time). Atomic: two requests at the same time cannot both take the last place. Returns
+ * [1, 0] when added, [0, time of the oldest entry] when the hour is full.
+ */
+const TAKE_SLOT = `
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', tonumber(ARGV[1]) - tonumber(ARGV[2]))
+if redis.call('ZCARD', KEYS[1]) >= tonumber(ARGV[3]) then
+  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  return {0, tonumber(oldest[2])}
+end
+redis.call('ZADD', KEYS[1], ARGV[1], ARGV[4])
+redis.call('PEXPIRE', KEYS[1], ARGV[2])
+return {1, 0}
+`;
+
+const hourKey = (ownerId: string) => `compile:hour:${ownerId}`;
+
+/** Result details stored in `Compilation.errors`. */
+interface StoredResult {
+  outcome: CompileOutcome;
+  issues: CompileIssue[];
+  errorCount: number;
+  warningCount: number;
+  pdfBytes: number | null;
+  log: boolean;
+  synctex: boolean;
+}
+
+const STATUS_OF: Record<CompileOutcome, CompilationStatus> = {
+  success: 'SUCCEEDED',
+  tex_errors: 'FAILED',
+  no_pdf: 'FAILED',
+  timeout: 'TIMED_OUT',
+  memory: 'FAILED',
+  output_too_large: 'FAILED',
+  main_missing: 'FAILED',
+  sources_unavailable: 'FAILED',
+  internal: 'FAILED',
+};
+
+const OPEN: CompilationStatus[] = ['QUEUED', 'RUNNING'];
+
+/** A job not seen in the queue this long after its creation is lost (Redis flushed, crash). */
+const LOST_AFTER_MS = 60_000;
+
+/**
+ * Compilations (docs/spec.md, "Compilation"): the owner and editors start them, usage is
+ * charged to the project owner (duration and compilations per hour of their best plan,
+ * priority in the queue), workers compile, and every role reads the result. PDFs are served by
+ * signed links on the files domain; the log and the SyncTeX index by the API.
+ */
+@Injectable()
+export class CompileService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(CompileService.name);
+  private readonly linkKey: Buffer;
+  private renewTimer: ReturnType<typeof setInterval> | null = null;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projects: ProjectsService,
+    private readonly quota: QuotaService,
+    private readonly storage: StorageService,
+    private readonly redis: RedisService,
+    private readonly queue: CompileQueueService,
+    private readonly config: ApiConfig,
+  ) {
+    this.linkKey = fileLinkKey(config.env.AUTH_SECRET);
+  }
+
+  onModuleInit(): void {
+    this.queue.listen({
+      active: (id) => this.markRunning(id),
+      completed: (id, result) => this.finish(id, result),
+      failed: (id) => this.finish(id, null),
+    });
+    this.renewTimer = setInterval(() => {
+      this.renewUrls().catch((error: unknown) =>
+        this.logger.error({ err: (error as Error).message }, 'URL renewal failed'),
+      );
+    }, 60_000);
+    this.renewTimer.unref();
+  }
+
+  onModuleDestroy(): void {
+    if (this.renewTimer) clearInterval(this.renewTimer);
+  }
+
+  // ───────────── Starting ─────────────
+
+  /** Queues a compilation of the project as it is stored now. */
+  async start(userId: string, projectId: string, auto: boolean): Promise<Compilation> {
+    const { project, rights } = await this.projects.require(userId, projectId, 'edit');
+    const quotas = await this.quota.quotas(project.ownerId);
+    if (auto && !quotas.autoCompile) fail(HttpStatus.FORBIDDEN, 'auto_compile_unavailable');
+
+    const db = this.prisma.client;
+    const files = await db.projectFile.findMany({ where: { projectId } });
+    const main = files.find((file) => file.path === project.mainFilePath);
+    if (!main || !main.path.toLowerCase().endsWith('.tex')) {
+      fail(HttpStatus.UNPROCESSABLE_ENTITY, 'main_missing');
+    }
+
+    // A compilation still waiting for this project is replaced by the new one (and not charged).
+    const waiting = await db.compilation.findMany({ where: { projectId, status: 'QUEUED' } });
+    for (const previous of waiting) {
+      if (await this.queue.cancel(previous.id)) {
+        await db.compilation.updateMany({
+          where: { id: previous.id, status: 'QUEUED' },
+          data: { status: 'CANCELED', finishedAt: new Date() },
+        });
+        await this.redis.client.zrem(hourKey(project.ownerId), previous.id);
+      }
+    }
+
+    const id = randomUUID();
+    const now = Date.now();
+    const [taken, oldest] = (await this.redis.client.eval(
+      TAKE_SLOT,
+      1,
+      hourKey(project.ownerId),
+      now,
+      HOUR_MS,
+      quotas.maxCompilesPerHour,
+      id,
+    )) as [number, number];
+    if (!taken) {
+      throw new ApiError(
+        HttpStatus.TOO_MANY_REQUESTS,
+        'compile_limit',
+        Math.max(1, Math.ceil((oldest + HOUR_MS - now) / 1000)),
+      );
+    }
+
+    try {
+      const row = await db.compilation.create({
+        data: {
+          id,
+          projectId,
+          triggeredById: userId,
+          chargedUserId: project.ownerId,
+          engine: project.engine,
+          priority: quotas.compilePriority,
+          status: 'QUEUED',
+        },
+      });
+      await this.queue.add(
+        {
+          compilationId: id,
+          projectId,
+          engine: project.engine,
+          mainFile: project.mainFilePath,
+          timeoutSeconds: quotas.maxCompileSeconds,
+          files: await this.signFiles(files),
+          signedAt: now,
+        },
+        COMPILE_PRIORITY_RANK[quotas.compilePriority],
+      );
+      return this.view(row, quotas.maxCompileSeconds, project.name, rights.read);
+    } catch (error) {
+      await this.redis.client.zrem(hourKey(project.ownerId), id);
+      await db.compilation
+        .updateMany({ where: { id, status: 'QUEUED' }, data: { status: 'FAILED' } })
+        .catch(() => undefined);
+      this.logger.error({ err: (error as Error).message, projectId }, 'Compilation not queued');
+      throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE, 'compile_unavailable');
+    }
+  }
+
+  /** Presigned GET URLs of the project files, one per file, valid 5 minutes. */
+  private signFiles(
+    files: { path: string; storageKey: string | null; sizeBytes: number }[],
+  ): Promise<QueuedJob['files']> {
+    return Promise.all(
+      files
+        .filter((file) => file.storageKey)
+        .map(async (file) => ({
+          path: file.path,
+          size: file.sizeBytes,
+          url: await this.storage.presignGet(
+            PROJECTS_BUCKET,
+            file.storageKey!,
+            COMPILE_SOURCE_URL_SECONDS,
+          ),
+        })),
+    );
+  }
+
+  /**
+   * Jobs still waiting get new URLs before theirs expire. Job data lives in Redis, where a
+   * compilation worker can write: nothing is taken from it. Each job is rebuilt from its
+   * `Compilation` row (still queued), the project and the owner's plan, so a forged or edited job
+   * never gets URLs of another project.
+   */
+  async renewUrls(now = Date.now()): Promise<number> {
+    const db = this.prisma.client;
+    const stale = await this.queue.stale(now - RENEW_URLS_AFTER_MS);
+    let renewed = 0;
+    for (const { id } of stale) {
+      const row = await db.compilation.findUnique({ where: { id } });
+      if (!row || row.status !== 'QUEUED') continue;
+      const project = await db.project.findUnique({ where: { id: row.projectId } });
+      if (!project || project.deletedAt) continue;
+      const [files, quotas] = await Promise.all([
+        db.projectFile.findMany({ where: { projectId: row.projectId } }),
+        this.quota.quotas(row.chargedUserId),
+      ]);
+      await this.queue.updateData(id, {
+        compilationId: id,
+        projectId: row.projectId,
+        engine: row.engine,
+        mainFile: project.mainFilePath,
+        timeoutSeconds: quotas.maxCompileSeconds,
+        files: await this.signFiles(files),
+        signedAt: now,
+      });
+      renewed++;
+    }
+    return renewed;
+  }
+
+  // ───────────── Worker events ─────────────
+
+  async markRunning(id: string): Promise<void> {
+    await this.prisma.client.compilation.updateMany({
+      where: { id, status: 'QUEUED' },
+      data: { status: 'RUNNING', startedAt: new Date() },
+    });
+  }
+
+  /** Stores the result of a job (null: the worker crashed). Idempotent. */
+  async finish(id: string, result: CompileResult | null): Promise<void> {
+    const db = this.prisma.client;
+    const row = await db.compilation.findUnique({ where: { id } });
+    if (!row || !OPEN.includes(row.status)) return;
+    const outcome = result?.outcome ?? 'internal';
+    const stored: StoredResult = {
+      outcome,
+      issues: result?.issues ?? [],
+      errorCount: result?.errorCount ?? 0,
+      warningCount: result?.warningCount ?? 0,
+      pdfBytes: result?.pdfBytes ?? null,
+      log: result?.log ?? false,
+      synctex: result?.synctex ?? false,
+    };
+    const finishedAt = new Date();
+    const updated = await db.compilation.updateMany({
+      where: { id, status: { in: OPEN } },
+      data: {
+        status: STATUS_OF[outcome],
+        finishedAt,
+        startedAt: row.startedAt ?? finishedAt,
+        durationMs: result?.durationMs ?? null,
+        errors: stored as object,
+        pdfKey: stored.pdfBytes ? compileOutputKey(row.projectId, id, 'pdf') : null,
+        logKey: stored.log ? compileOutputKey(row.projectId, id, 'log') : null,
+        workerHost: result?.worker ?? null,
+      },
+    });
+    if (!updated.count) return;
+    await this.queue.forget(id);
+    await this.dropOldOutputs(row.projectId);
+  }
+
+  /** Keeps the outputs of the last compilation and of the last PDF only. */
+  private async dropOldOutputs(projectId: string): Promise<void> {
+    const db = this.prisma.client;
+    const finished = await db.compilation.findMany({
+      where: { projectId, OR: [{ pdfKey: { not: null } }, { logKey: { not: null } }] },
+      orderBy: { queuedAt: 'desc' },
+    });
+    const lastPdf = finished.find((row) => row.pdfKey);
+    const keep = new Set([finished[0]?.id, lastPdf?.id]);
+    for (const row of finished) {
+      if (keep.has(row.id)) continue;
+      await this.storage.deletePrefix(
+        COMPILE_OUTPUT_BUCKET,
+        compileOutputPrefix(projectId, row.id),
+      );
+      await db.compilation.update({ where: { id: row.id }, data: { pdfKey: null, logKey: null } });
+    }
+  }
+
+  // ───────────── Reading ─────────────
+
+  /** The last compilation and the last PDF of a project, and what the user may do. */
+  async state(userId: string, projectId: string): Promise<CompileState> {
+    const { project, rights } = await this.projects.access(userId, projectId);
+    const quotas = await this.quota.quotas(project.ownerId);
+    const db = this.prisma.client;
+    const [current, lastPdf] = await Promise.all([
+      db.compilation.findFirst({
+        where: { projectId, status: { not: 'CANCELED' } },
+        orderBy: { queuedAt: 'desc' },
+      }),
+      db.compilation.findFirst({
+        where: { projectId, pdfKey: { not: null } },
+        orderBy: { queuedAt: 'desc' },
+      }),
+    ]);
+    const refreshed = current ? await this.refresh(current, quotas.maxCompileSeconds) : null;
+    return {
+      current: refreshed
+        ? await this.view(refreshed, quotas.maxCompileSeconds, project.name, rights.read)
+        : null,
+      lastPdf: lastPdf
+        ? await this.view(lastPdf, quotas.maxCompileSeconds, project.name, rights.read)
+        : null,
+      canCompile: rights.edit && !project.readOnlyReason,
+      autoCompile: quotas.autoCompile,
+      maxSeconds: quotas.maxCompileSeconds,
+      maxPerHour: quotas.maxCompilesPerHour,
+    };
+  }
+
+  /** One compilation, polled by the editor while it is queued or running. */
+  async one(userId: string, projectId: string, id: string): Promise<Compilation> {
+    const { project, rights } = await this.projects.access(userId, projectId);
+    const row = await this.row(projectId, id);
+    const quotas = await this.quota.quotas(project.ownerId);
+    const refreshed = await this.refresh(row, quotas.maxCompileSeconds);
+    return this.view(refreshed, quotas.maxCompileSeconds, project.name, rights.read);
+  }
+
+  private async row(projectId: string, id: string): Promise<CompilationRow> {
+    const row = await this.prisma.client.compilation.findFirst({ where: { id, projectId } });
+    return row ?? fail(HttpStatus.NOT_FOUND, 'not_found');
+  }
+
+  /** Finishes a compilation whose worker event was missed, or whose job was lost. */
+  private async refresh(row: CompilationRow, maxSeconds: number): Promise<CompilationRow> {
+    if (!OPEN.includes(row.status)) return row;
+    const status = await this.queue.status(row.id);
+    const age = Date.now() - row.queuedAt.getTime();
+    if (status.state === 'completed') {
+      await this.finish(row.id, status.result);
+    } else if (status.state === 'failed') {
+      await this.finish(row.id, null);
+    } else if (status.state === 'missing' && age > LOST_AFTER_MS) {
+      await this.finish(row.id, null);
+    } else if (status.state === 'active' && row.status === 'QUEUED') {
+      await this.markRunning(row.id);
+    } else if (age > (maxSeconds + 3600) * 1000) {
+      // Waiting or running for an hour beyond the plan's duration: given up.
+      await this.queue.cancel(row.id);
+      await this.finish(row.id, null);
+    } else {
+      return row;
+    }
+    return this.row(row.projectId, row.id);
+  }
+
+  private async view(
+    row: CompilationRow,
+    maxSeconds: number,
+    projectName: string,
+    canRead: boolean,
+  ): Promise<Compilation> {
+    const stored = (row.errors ?? null) as StoredResult | null;
+    let pdf: Compilation['pdf'] = null;
+    if (row.pdfKey && canRead) {
+      const expires = Math.floor(Date.now() / 1000) + PDF_LINK_SECONDS;
+      const name = downloadName(projectName);
+      const base = this.config.env.FILES_PUBLIC_URL.replace(/\/+$/, '');
+      const link = (download: boolean) =>
+        `${base}/pdf/${signFileLink(this.linkKey, { key: row.pdfKey!, expires, download })}/${name}`;
+      pdf = {
+        url: link(false),
+        downloadUrl: link(true),
+        expiresAt: new Date(expires * 1000).toISOString(),
+        bytes: stored?.pdfBytes ?? 0,
+      };
+    }
+    return {
+      id: row.id,
+      status: row.status,
+      engine: row.engine,
+      outcome: stored?.outcome ?? null,
+      queuedAt: row.queuedAt.toISOString(),
+      startedAt: row.startedAt?.toISOString() ?? null,
+      finishedAt: row.finishedAt?.toISOString() ?? null,
+      durationMs: row.durationMs,
+      position: row.status === 'QUEUED' ? ((await this.queue.position(row.id)) ?? 1) : null,
+      maxSeconds,
+      issues: stored?.issues ?? [],
+      errorCount: stored?.errorCount ?? 0,
+      warningCount: stored?.warningCount ?? 0,
+      pdf,
+      log: Boolean(row.logKey),
+      synctex: Boolean(row.pdfKey && stored?.synctex),
+    };
+  }
+
+  /** Raw log or SyncTeX index of a compilation, for any role of the project. */
+  async output(userId: string, projectId: string, id: string, file: 'log' | 'synctex') {
+    await this.projects.access(userId, projectId);
+    const row = await this.row(projectId, id);
+    const stored = (row.errors ?? null) as StoredResult | null;
+    const present = file === 'log' ? row.logKey : row.pdfKey && stored?.synctex;
+    const object = present
+      ? await this.storage.open(COMPILE_OUTPUT_BUCKET, compileOutputKey(projectId, id, file))
+      : null;
+    return object ?? fail(HttpStatus.NOT_FOUND, 'no_output');
+  }
+}

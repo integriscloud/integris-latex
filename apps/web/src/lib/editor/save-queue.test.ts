@@ -100,6 +100,25 @@ describe('SaveQueue', () => {
     expect(send).toHaveBeenCalledTimes(8);
   });
 
+  it('flushes before a compilation: true once stored, false when it cannot be', async () => {
+    let online = true;
+    const { queue, send } = setup(async () =>
+      online ? { ok: true, etag: 'e1' } : { ok: false, reason: 'network' },
+    );
+    expect(await queue.flush()).toBe(true);
+    expect(send).not.toHaveBeenCalled();
+    queue.edit('v1');
+    const saved = queue.flush();
+    await flush();
+    expect(await saved).toBe(true);
+    expect(send).toHaveBeenCalledExactlyOnceWith('v1', 'e0');
+    online = false;
+    queue.edit('v2');
+    const offline = queue.flush();
+    await flush();
+    expect(await offline).toBe(false);
+  });
+
   it('stops on a conflict until the user reloads or overwrites', async () => {
     const results: SendResult[] = [
       { ok: false, reason: 'conflict' },

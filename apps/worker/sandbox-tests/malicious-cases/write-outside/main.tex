@@ -1,0 +1,8 @@
+% Writes outside the working directory.
+\documentclass{article}
+\newwrite\attack
+\begin{document}
+\immediate\openout\attack=/tmp/integris-pwned.tex
+\immediate\write\attack{pwned}
+\immediate\closeout\attack
+\end{document}

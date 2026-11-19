@@ -48,6 +48,8 @@ export interface CodeEditorHandle {
   /** Moves the cursor to a line of the open file and scrolls it into view. */
   goTo: (line: number, column?: number) => void;
   openSearch: () => void;
+  /** Line of the cursor in the open file (SyncTeX, "show in the PDF"). */
+  cursorLine: () => number | null;
   /** Forgets the state of a file (closed, deleted). */
   forget: (fileId: string) => void;
 }
@@ -59,6 +61,8 @@ export interface CodeEditorProps {
   /** Text of the file when it is first shown (later, its own state is kept). */
   initialText: string;
   readOnly: boolean;
+  /** Browser spell checker in the code (editor settings, kept on the account). */
+  spellcheck: boolean;
   /** Language of the interface: spell checking of the browser. */
   lang: string;
   label: string;
@@ -68,21 +72,26 @@ export interface CodeEditorProps {
   /** Files of the project read for \ref and \cite. */
   index: { ready: () => boolean; load: () => Promise<void> };
   onChange: (fileId: string, text: string) => void;
-  onSave: () => void;
+  /** Ctrl+S, Ctrl+Enter: save and compile. */
+  onCompile: () => void;
 }
+
+const spellcheckAttribute = (on: boolean) =>
+  EditorView.contentAttributes.of({ spellcheck: on ? 'true' : 'false' });
 
 /**
  * CodeMirror 6 editor. One editor view; each open file keeps its own state (text, undo history,
  * selection, folds) while the user switches between files.
  */
 export function CodeEditor(props: CodeEditorProps) {
-  const { ref, fileId, path, initialText, readOnly } = props;
+  const { ref, fileId, path, initialText, readOnly, spellcheck } = props;
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const states = useRef(new Map<string, EditorState>());
   const current = useRef<string | null>(null);
   const readOnlyCompartment = useRef(new Compartment());
   const languageCompartment = useRef(new Compartment());
+  const spellcheckCompartment = useRef(new Compartment());
   // Callbacks change on every render; the extensions read the latest ones.
   const latest = useRef(props);
   useLayoutEffect(() => {
@@ -109,14 +118,15 @@ export function CodeEditor(props: CodeEditorProps) {
       EditorView.lineWrapping,
       editorTheme,
       EditorState.phrases.of(latest.current.phrases),
+      // The browser's spell checker underlines every LaTeX command: off unless the user wants it.
+      spellcheckCompartment.current.of(spellcheckAttribute(latest.current.spellcheck)),
       EditorView.contentAttributes.of({
-        spellcheck: 'true',
         lang: latest.current.lang,
         autocapitalize: 'off',
         autocorrect: 'off',
         'aria-label': latest.current.label,
       }),
-      editorShortcuts({ latex, save: () => latest.current.onSave() }),
+      editorShortcuts({ latex, compile: () => latest.current.onCompile() }),
       keymap.of([
         ...closeBracketsKeymap,
         ...defaultKeymap,
@@ -196,6 +206,13 @@ export function CodeEditor(props: CodeEditorProps) {
     });
   }, [readOnly, fileId]);
 
+  // The setting is changed from the editor menu; each file keeps its own state.
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: spellcheckCompartment.current.reconfigure(spellcheckAttribute(spellcheck)),
+    });
+  }, [spellcheck, fileId]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -229,6 +246,10 @@ export function CodeEditor(props: CodeEditorProps) {
       },
       openSearch() {
         if (view.current) openSearchPanel(view.current);
+      },
+      cursorLine() {
+        const editor = view.current;
+        return editor ? editor.state.doc.lineAt(editor.state.selection.main.head).number : null;
       },
       forget(id) {
         states.current.delete(id);

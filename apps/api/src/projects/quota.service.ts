@@ -1,4 +1,4 @@
-import type { Plan, PlanCode, SubscriptionStatus } from '@integris/db';
+import type { CompilePriority, Plan, PlanCode, SubscriptionStatus } from '@integris/db';
 import { PLAN_CODES, type ProjectUsage } from '@integris/shared';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -13,7 +13,14 @@ export interface EffectiveQuotas {
   planName: { fr: string; en: string };
   maxProjects: number | null;
   storageBytes: bigint;
+  maxCompileSeconds: number;
+  maxCompilesPerHour: number;
+  autoCompile: boolean;
+  compilePriority: CompilePriority;
 }
+
+/** Compilation priorities, best first. */
+const PRIORITY_ORDER: CompilePriority[] = ['HIGH', 'NORMAL', 'LOW'];
 
 /** Best quotas of several plans (null = unlimited beats any number). */
 export function combineQuotas(plans: readonly Plan[]): EffectiveQuotas {
@@ -28,6 +35,12 @@ export function combineQuotas(plans: readonly Plan[]): EffectiveQuotas {
     planName: { fr: highest.nameFr, en: highest.nameEn },
     maxProjects: best(plans.map((plan) => plan.maxProjects)),
     storageBytes: plans.map((plan) => plan.storageBytes).reduce((a, b) => (b > a ? b : a)),
+    maxCompileSeconds: Math.max(...plans.map((plan) => plan.maxCompileSeconds)),
+    maxCompilesPerHour: Math.max(...plans.map((plan) => plan.maxCompilesPerHour)),
+    autoCompile: plans.some((plan) => plan.autoCompile),
+    compilePriority: PRIORITY_ORDER.find((priority) =>
+      plans.some((plan) => plan.compilePriority === priority),
+    )!,
   };
 }
 

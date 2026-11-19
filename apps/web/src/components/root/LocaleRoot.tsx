@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { routing } from '../../i18n/routing';
+import { OutdatedBrowser } from './OutdatedBrowser';
 
 /**
  * The app has two root layouts (route groups): the site, with the three faces, and the editor,
@@ -39,6 +40,7 @@ export async function LocaleRoot({
   return (
     <html lang={locale} className={fontClasses}>
       <body className={bodyClassName}>
+        <OutdatedBrowser locale={locale} />
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>

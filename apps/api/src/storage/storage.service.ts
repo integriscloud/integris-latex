@@ -3,9 +3,12 @@ import {
   DeleteObjectsCommand,
   GetObjectCommand,
   ListObjectsV2Command,
+  NoSuchKey,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { Readable } from 'node:stream';
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ApiConfig } from '../config/api-config.js';
 
@@ -52,6 +55,35 @@ export class StorageService implements OnModuleDestroy {
     const result = await this.s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
     if (!result.Body) throw new Error(`Empty object ${bucket}/${key}`);
     return result.Body.transformToByteArray();
+  }
+
+  /**
+   * Presigned GET URL of one object, valid `seconds`: how a compilation worker reads a project
+   * file without any right on the bucket (docs/spec.md, "Réseau et pare-feu").
+   */
+  presignGet(bucket: string, key: string, seconds: number): Promise<string> {
+    return getSignedUrl(this.s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
+      expiresIn: seconds,
+    });
+  }
+
+  /** An object as a stream with its size and encoding, or null when it does not exist. */
+  async open(
+    bucket: string,
+    key: string,
+  ): Promise<{ body: Readable; size: number; encoding: string | undefined } | null> {
+    try {
+      const result = await this.s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      if (!result.Body) return null;
+      return {
+        body: result.Body as Readable,
+        size: result.ContentLength ?? 0,
+        encoding: result.ContentEncoding,
+      };
+    } catch (error) {
+      if (error instanceof NoSuchKey) return null;
+      throw error;
+    }
   }
 
   async deleteKeys(bucket: string, keys: string[]): Promise<void> {

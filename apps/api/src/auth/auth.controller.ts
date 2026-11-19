@@ -15,8 +15,20 @@ import {
   SESSION_COOKIE,
   signupSchema,
   tokenSchema,
+  updatePreferencesSchema,
+  type UserPreferences,
 } from '@integris/shared';
-import { Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import type { Challenge } from 'altcha-lib';
 import type { Request, Response } from 'express';
@@ -111,6 +123,17 @@ export class AuthController {
   @UseGuards(AuthGuard)
   me(@Auth() auth: AuthContext): Promise<MeResponse> {
     return this.auth.me(auth);
+  }
+
+  /** Settings kept on the account, such as the spell checker of the editor. */
+  @Patch('preferences')
+  @UseGuards(AuthGuard)
+  @ApiZodBody(updatePreferencesSchema)
+  updatePreferences(
+    @Auth() auth: AuthContext,
+    @ZodBody(updatePreferencesSchema) body: z.infer<typeof updatePreferencesSchema>,
+  ): Promise<UserPreferences> {
+    return this.auth.updatePreferences(auth, body);
   }
 
   @Post('space')

@@ -23,6 +23,10 @@ const ProjectEditor = dynamic(
   },
 );
 
-export function EditorLoader(props: { initial: ProjectDetail; initialFileId: string | null }) {
+export function EditorLoader(props: {
+  initial: ProjectDetail;
+  initialFileId: string | null;
+  initialSpellcheck: boolean;
+}) {
   return <ProjectEditor {...props} />;
 }

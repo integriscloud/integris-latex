@@ -38,6 +38,13 @@ export {
   type EditorPane,
   type EditorPaneTab,
 } from './editor/EditorLayout';
+export {
+  CompileButton,
+  type CompileButtonProps,
+  type CompileButtonState,
+} from './editor/CompileButton';
+export { IssueCard, type IssueCardProps } from './editor/IssueCard';
+export { MenuButton, type MenuButtonProps } from './editor/MenuButton';
 export { ResizeHandle, type ResizeHandleProps } from './editor/ResizeHandle';
 export { SaveStatus, type SaveStatusProps, type SaveStatusValue } from './editor/SaveStatus';
 export { EmptyState, type EmptyStateProps } from './empty-state/EmptyState';

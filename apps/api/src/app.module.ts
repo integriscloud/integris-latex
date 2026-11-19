@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { AuthModule } from './auth/auth.module.js';
+import { CompileModule } from './compile/compile.module.js';
 import { OriginGuard } from './common/origin.guard.js';
 import { ConfigModule } from './config/api-config.js';
 import { HealthModule } from './health/health.module.js';
@@ -37,6 +38,7 @@ import { StorageModule } from './storage/storage.module.js';
     PlansModule,
     AuthModule,
     ProjectsModule,
+    CompileModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
 })

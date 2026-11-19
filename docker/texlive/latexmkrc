@@ -1,0 +1,14 @@
+# latexmk settings of the compilation sandbox. latexmk runs with -norc: no rc file of the
+# project or the system is read (an rc file is Perl, so arbitrary code), only this one.
+$pdf_previewer = '';
+$preview_mode = 0;
+$preview_continuous_mode = 0;
+# BibTeX or Biber when the project has a bibliography (docs/spec.md: automatic).
+$bibtex_use = 1.5;
+$max_repeat = 5;
+$recorder = 1;
+# The engines' default commands, never with -shell-escape: TeX Live's restricted mode applies.
+$pdflatex = 'pdflatex %O %S';
+$xelatex = 'xelatex %O %S';
+# LuaLaTeX gets the Lua guard before the document through %P (compile.sh passes -pretex).
+$lualatex = 'lualatex %O %P';

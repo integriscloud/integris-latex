@@ -1,0 +1,11 @@
+% Fills the disk: 4 GB written in the working directory.
+\documentclass{article}
+\begin{document}
+\directlua{
+  local file = io.open('huge.txt', 'w')
+  local block = string.rep('x', 1048576)
+  for i = 1, 4096 do if not file:write(block) then break end end
+  file:close()
+}
+Done.
+\end{document}

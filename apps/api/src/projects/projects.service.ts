@@ -1,5 +1,7 @@
-import type { Prisma, Project, ProjectRole } from '@integris/db';
+import type { Engine, Prisma, Project, ProjectRole } from '@integris/db';
 import {
+  COMPILE_CACHE_BUCKET,
+  COMPILE_OUTPUT_BUCKET,
   type ImportResult,
   MAX_PROJECT_FILE_BYTES,
   normalizeFilePath,
@@ -440,15 +442,20 @@ export class ProjectsService {
   async update(
     userId: string,
     projectId: string,
-    changes: { name?: string; mainFilePath?: string },
+    changes: { name?: string; mainFilePath?: string; engine?: Engine },
   ): Promise<ProjectDetail> {
     const access = await this.require(
       userId,
       projectId,
       changes.name !== undefined ? 'manage' : 'edit',
     );
+    if (
+      (changes.mainFilePath !== undefined || changes.engine !== undefined) &&
+      access.project.readOnlyReason
+    ) {
+      fail(HttpStatus.FORBIDDEN, 'read_only');
+    }
     if (changes.mainFilePath !== undefined) {
-      if (access.project.readOnlyReason) fail(HttpStatus.FORBIDDEN, 'read_only');
       const path = normalizeFilePath(changes.mainFilePath);
       const file = path
         ? await this.prisma.client.projectFile.findUnique({
@@ -463,6 +470,7 @@ export class ProjectsService {
       data: {
         name: changes.name,
         mainFilePath: changes.mainFilePath ? normalizeFilePath(changes.mainFilePath)! : undefined,
+        engine: changes.engine,
         lastActivityAt: new Date(),
       },
     });
@@ -522,6 +530,9 @@ export class ProjectsService {
       }
     }
     await this.storage.deletePrefix(PROJECTS_BUCKET, projectStoragePrefix(projectId));
+    // Compilation results and cache share the project prefix.
+    await this.storage.deletePrefix(COMPILE_OUTPUT_BUCKET, projectStoragePrefix(projectId));
+    await this.storage.deletePrefix(COMPILE_CACHE_BUCKET, projectStoragePrefix(projectId));
     await db.$transaction([
       db.commentReply.deleteMany({ where: { comment: { projectId } } }),
       db.comment.deleteMany({ where: { projectId } }),

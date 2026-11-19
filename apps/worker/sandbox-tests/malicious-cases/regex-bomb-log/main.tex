@@ -1,0 +1,10 @@
+% Log lines crafted to make the log reader backtrack for hours.
+\documentclass{article}
+\begin{document}
+\newcount\n
+\def\eq{==========}\edef\eqs{\eq\eq\eq\eq\eq\eq\eq\eq\eq\eq}
+\edef\eqs{\eqs\eqs\eqs\eqs\eqs\eqs\eqs\eqs\eqs\eqs}
+\edef\eqs{\eqs\eqs\eqs\eqs\eqs\eqs\eqs\eqs\eqs}
+\loop\typeout{! Font \string\a\eqs}\advance\n by 1 \ifnum\n<200 \repeat
+Done.
+\end{document}

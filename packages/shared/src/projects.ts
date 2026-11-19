@@ -33,6 +33,12 @@ export const PROJECT_ERROR_CODES = [
   'archive_empty',
   'edit_conflict',
   'not_text',
+  // Compilation (step 6).
+  'compile_limit',
+  'auto_compile_unavailable',
+  'main_missing',
+  'compile_unavailable',
+  'no_output',
 ] as const;
 export type ProjectErrorCode = (typeof PROJECT_ERROR_CODES)[number];
 
@@ -114,8 +120,16 @@ export type CreateProjectRequest = z.infer<typeof createProjectSchema>;
 export const duplicateProjectSchema = z.object({ name });
 
 export const updateProjectSchema = z
-  .object({ name: name.optional(), mainFilePath: z.string().max(PATH_LIMITS.maxLength).optional() })
-  .refine((body) => body.name !== undefined || body.mainFilePath !== undefined);
+  .object({
+    name: name.optional(),
+    mainFilePath: z.string().max(PATH_LIMITS.maxLength).optional(),
+    /** Compilation engine, chosen per project (docs/spec.md, "Compilation"). */
+    engine: z.enum(['PDFLATEX', 'XELATEX', 'LUALATEX']).optional(),
+  })
+  .refine(
+    (body) =>
+      body.name !== undefined || body.mainFilePath !== undefined || body.engine !== undefined,
+  );
 export type UpdateProjectRequest = z.infer<typeof updateProjectSchema>;
 
 const path = z.string().max(PATH_LIMITS.maxLength * 2);

@@ -1,0 +1,12 @@
+.banner {
+  padding: var(--espace-2) var(--espace-4);
+  background: var(--fond);
+}
+
+.banner[hidden] {
+  display: none;
+}
+
+.text {
+  margin: 0;
+}

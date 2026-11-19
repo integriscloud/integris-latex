@@ -12,6 +12,7 @@ import {
   type OtpRequest,
   type PasswordLoginRequest,
   type SignupRequest,
+  type UserPreferences,
 } from '@integris/shared';
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import type { Response } from 'express';
@@ -248,11 +249,24 @@ export class AuthService {
         pendingEmail,
         hasPassword: user.passwordHash !== null,
         locale: user.locale,
+        preferences: { editorSpellcheck: user.editorSpellcheck },
       },
       spaces,
       currentSpaceId: current,
       reauthUntil: session.reauthUntil && session.reauthUntil > now() ? session.reauthUntil : null,
     };
+  }
+
+  /** Changes settings of the signed-in user; answers all of them. */
+  async updatePreferences(
+    { user }: AuthContext,
+    changes: Partial<UserPreferences>,
+  ): Promise<UserPreferences> {
+    const updated = await this.prisma.client.user.update({
+      where: { id: user.id },
+      data: changes,
+    });
+    return { editorSpellcheck: updated.editorSpellcheck };
   }
 
   /** Switches space without signing in again; refuses a space the user does not belong to. */
