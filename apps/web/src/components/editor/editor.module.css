@@ -104,6 +104,14 @@
 .code {
   position: absolute;
   inset: 0;
+  /* Selections of the others, in the color of their cursor (y-codemirror reads these names).
+     Without color-mix (Safari before 16.2) the selection is not tinted; the cursor still is. */
+  --presence-1-selection: color-mix(in srgb, var(--presence-1) 22%, transparent);
+  --presence-2-selection: color-mix(in srgb, var(--presence-2) 22%, transparent);
+  --presence-3-selection: color-mix(in srgb, var(--presence-3) 22%, transparent);
+  --presence-4-selection: color-mix(in srgb, var(--presence-4) 22%, transparent);
+  --presence-5-selection: color-mix(in srgb, var(--presence-5) 22%, transparent);
+  --presence-6-selection: color-mix(in srgb, var(--presence-6) 22%, transparent);
 }
 
 .padded {
@@ -399,4 +407,82 @@
   width: 18px;
   height: 18px;
   accent-color: var(--action);
+}
+
+/* ───────────── History ───────────── */
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  align-items: stretch;
+  padding: var(--espace-4);
+}
+
+.history > button {
+  align-self: flex-start;
+}
+
+.historyActions {
+  display: flex;
+  gap: var(--espace-2);
+  justify-content: space-between;
+}
+
+.historyTitle {
+  margin: 0;
+  font: var(--t-titre-4);
+  overflow-wrap: anywhere;
+}
+
+.historyHeading {
+  margin: var(--espace-2) 0 0;
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  color: var(--texte-2);
+}
+
+.versionFiles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.versionFiles li {
+  display: flex;
+  gap: var(--espace-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.versionFile {
+  min-height: var(--cible-tactile);
+  padding: 0;
+  border: 0;
+  font: var(--t-code);
+  text-align: left;
+  overflow-wrap: anywhere;
+  color: var(--texte);
+  background: none;
+}
+
+button.versionFile {
+  color: var(--action);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.previewText {
+  max-height: 60vh;
+  margin: 0;
+  padding: var(--espace-3);
+  overflow: auto;
+  border-radius: var(--r-md);
+  font: var(--t-code);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface-creuse);
 }

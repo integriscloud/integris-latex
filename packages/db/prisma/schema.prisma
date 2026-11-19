@@ -514,8 +514,21 @@ model ProjectFile {
   updatedAt            DateTime @updatedAt
 
   comments Comment[]
+  document FileDocument?
 
   @@unique([projectId, path])
+}
+
+// Collaborative state (Yjs) of a text file, written by the collaboration server through the API.
+// The text itself is also written to storage (ProjectFile.storageKey) for compilation and search.
+model FileDocument {
+  fileId    String      @id
+  file      ProjectFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  state     Bytes // Y.encodeStateAsUpdate
+  // storageKey of the file when its text was last written from this state. Another value means
+  // the content was replaced outside the editor (upload, restoration): applied as a diff on load.
+  syncedKey String?
+  updatedAt DateTime    @updatedAt
 }
 
 model ProjectMember {
@@ -562,7 +575,12 @@ model ProjectVersion {
   project     Project     @relation(fields: [projectId], references: [id])
   kind        VersionKind
   label       String?
-  storageKey  String // snapshot of all files
+  storageKey  String // JSON manifest of all files (history blobs under the project prefix)
+  fileCount   Int         @default(0)
+  // Set on the version saved just before a restoration: the version restored, and the file when
+  // only one file was restored.
+  restoreOfId String?
+  restorePath String?
   createdById String?
   createdAt   DateTime    @default(now())
 

@@ -35,6 +35,7 @@ export function testEnv(overrides: Record<string, string> = {}): ApiEnv {
     ALTCHA_KEY_PREFIX: '0',
     MINIO_API_ACCESS_KEY: 'unused',
     MINIO_API_SECRET_KEY: 'unused-in-tests',
+    COLLAB_INTERNAL_SECRET: 'test-collab-internal-secret-0123456789abcdef',
     ...overrides,
   });
 }

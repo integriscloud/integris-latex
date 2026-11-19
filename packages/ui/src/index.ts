@@ -45,8 +45,14 @@ export {
 } from './editor/CompileButton';
 export { IssueCard, type IssueCardProps } from './editor/IssueCard';
 export { MenuButton, type MenuButtonProps } from './editor/MenuButton';
+export { PresenceList, type PresenceListProps, type PresencePerson } from './editor/PresenceList';
 export { ResizeHandle, type ResizeHandleProps } from './editor/ResizeHandle';
 export { SaveStatus, type SaveStatusProps, type SaveStatusValue } from './editor/SaveStatus';
+export {
+  type TimelineItem,
+  VersionTimeline,
+  type VersionTimelineProps,
+} from './editor/VersionTimeline';
 export { EmptyState, type EmptyStateProps } from './empty-state/EmptyState';
 export { CtaBand, type CtaBandProps } from './cta-band/CtaBand';
 export { Faq, type FaqItem } from './faq/Faq';

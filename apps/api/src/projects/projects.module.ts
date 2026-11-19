@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { FilesService } from './files.service.js';
 import { OwnerLockService } from './owner-lock.service.js';
+import { ProjectEventsService } from './project-events.service.js';
 import { ProjectsController, TemplatesController } from './projects.controller.js';
 import { ProjectsService } from './projects.service.js';
 import { QuotaService } from './quota.service.js';
@@ -14,11 +15,12 @@ import { TrashPurgeService } from './trash-purge.service.js';
   providers: [
     FilesService,
     OwnerLockService,
+    ProjectEventsService,
     ProjectsService,
     QuotaService,
     TemplatesService,
     TrashPurgeService,
   ],
-  exports: [ProjectsService, QuotaService],
+  exports: [ProjectsService, QuotaService, ProjectEventsService],
 })
 export class ProjectsModule {}

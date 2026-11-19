@@ -6,6 +6,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
+import { InternalServer } from './collab/internal-server.js';
 import { configureApp } from './configure-app.js';
 import { FilesServer } from './files/files-server.js';
 
@@ -26,6 +27,8 @@ async function bootstrap() {
   await app.listen(PORTS.api, '127.0.0.1');
   // The files domain has its own port: Nginx sends it there, and only there.
   await app.get(FilesServer).listen(PORTS.files);
+  // Internal API of the collaboration server: loopback, never proxied.
+  await app.get(InternalServer).listen(PORTS.internal);
 }
 
 void bootstrap();

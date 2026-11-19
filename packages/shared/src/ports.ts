@@ -6,6 +6,8 @@ export const PORTS = {
   // Files domain (signed PDF links), served by the API process on its own port so that no app
   // route is reachable from that domain and no file route from the app domain.
   files: 4100,
+  // Internal API for the collaboration server: loopback only, never proxied by Nginx.
+  internal: 4200,
 } as const;
 
 /** Path prefix kept by Nginx when proxying to the API. */

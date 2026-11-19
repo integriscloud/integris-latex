@@ -17,7 +17,6 @@
   color: var(--alerte);
 }
 
-.conflict,
 .error {
   color: var(--erreur);
 }

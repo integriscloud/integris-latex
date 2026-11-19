@@ -17,6 +17,8 @@ export interface EffectiveQuotas {
   maxCompilesPerHour: number;
   autoCompile: boolean;
   compilePriority: CompilePriority;
+  /** Days of version history shown and restorable; null = unlimited. */
+  historyDays: number | null;
 }
 
 /** Compilation priorities, best first. */
@@ -41,6 +43,7 @@ export function combineQuotas(plans: readonly Plan[]): EffectiveQuotas {
     compilePriority: PRIORITY_ORDER.find((priority) =>
       plans.some((plan) => plan.compilePriority === priority),
     )!,
+    historyDays: best(plans.map((plan) => plan.historyDays)),
   };
 }
 

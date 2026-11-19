@@ -61,6 +61,11 @@ Un projet est un dossier LaTeX complet. On le partage en entier (droits au nivea
 - **Import ZIP** : archive de 50 Mo au plus ; chaque fichier extrait est limité à 10 Mo ; les fichiers refusés (type, taille, contenu) sont ignorés et listés dans un rapport ; le total compte dans le quota de stockage. Protections anti-ZIP piégé : taille totale décompressée de 200 Mo au plus et dans la limite du quota restant, 2 000 fichiers au plus, taux de compression de 100:1 au plus par fichier (vérifié à partir de 1 Mo produit), tailles mesurées pendant l'extraction (jamais celles annoncées dans l'archive), refus des chemins absolus, des « .. », des liens symboliques et des ZIP chiffrés ou imbriqués. Toutes ces limites sont réglables en configuration.
 - **Modèles** : modèles publics publiés par Integris ; modèles officiels ajoutés par un Business, visibles de ses seuls membres.
 - **Historique** : version automatique après chaque période d'activité de 10 minutes, versions nommées à la demande, restauration de n'importe quelle version (dans la limite de l'historique du plan).
+  - *Version automatique* : prise 10 minutes après la première modification qui suit la version précédente (en activité continue, une version toutes les 10 minutes ; aucune sans modification).
+  - *Limite du plan* : selon le plan du propriétaire du projet ; les versions plus anciennes sont masquées et non restaurables, mais conservées (elles réapparaissent après un passage à un plan supérieur). L'historique ne compte pas dans le quota de stockage. Les versions figées des soumissions ne sont pas concernées.
+  - *Restauration* : du projet entier (fichiers créés depuis supprimés, fichiers supprimés recréés) ou d'un seul fichier ; l'état actuel est d'abord enregistré comme version ; les fichiers verrouillés par une soumission validée ne changent pas.
+  - *Droits* : tous les rôles consultent l'historique ; seuls le propriétaire et l'éditeur nomment une version et restaurent.
+  - *Hors connexion* (décision étape 7) : les modifications restent dans l'onglet ouvert et sont synchronisées au retour du réseau ; rien n'est stocké dans le navigateur (le mode hors ligne complet reste hors V1).
 - **Suppression** : corbeille de 30 jours, puis effacement définitif. Le propriétaire peut restaurer un projet ou l'effacer définitivement depuis la corbeille. Les projets en corbeille comptent dans le stockage, pas dans la limite de projets (la restauration revérifie cette limite). L'effacement conserve la trace des validations (voir « Encadrement ») et le journal des demandes d'impression.
 
 | Rôle sur un projet | Lire | Commenter | Modifier | Partager, supprimer |
@@ -210,7 +215,7 @@ Les serveurs communiquent par leurs IP publiques (option B). Chaque serveur refu
 | Internet | Application | 80, 443 | Site, API, WebSocket (80 redirige vers 443) |
 | IP d'administration Integris | Les 4 serveurs | 22 | SSH par clé uniquement |
 | Application | Données | 5432 | PostgreSQL (TLS, scram-sha-256) |
-| Application | Données | 6379 | Redis (TLS, utilisateur `api`) |
+| Application | Données | 6379 | Redis (TLS, utilisateur `api` ; utilisateur `collab` du serveur de collaboration, limité à l'abonnement au canal `collab:events`) |
 | Application | Données | 9000 | MinIO (TLS, clé `api`) |
 | Compilation 1 et 2 | Données | 6379 | Redis (TLS, utilisateur `worker` limité aux files de compilation) |
 | Compilation 1 et 2 | Données | 9000 | MinIO (TLS, clé `worker` limitée aux buckets de compilation ; sources du projet lues par URL présignées fournies par l'API) |
@@ -220,7 +225,7 @@ Les serveurs communiquent par leurs IP publiques (option B). Chaque serveur refu
 
 - **Pare-feu** : nftables, politique par défaut « refuser » en entrée sur les 4 serveurs, et en sortie sur Données et Compilation.
 - **PostgreSQL** : `pg_hba.conf` n'accepte que `hostssl` depuis l'IP de l'Application.
-- **Redis** : port TLS uniquement, port en clair désactivé ; ACL avec un utilisateur `api` et un utilisateur `worker` restreint aux clés des files.
+- **Redis** : port TLS uniquement, port en clair désactivé ; ACL avec un utilisateur `api`, un utilisateur `worker` restreint aux clés des files et un utilisateur `collab` (serveur de collaboration) sans accès aux clés, limité à `SUBSCRIBE`, `UNSUBSCRIBE`, `PING` et `QUIT` sur le seul canal `collab:events`, où l'API publie les événements de collaboration (fichier remplacé ou supprimé, droits modifiés). Règle ACL : `user collab on >… resetkeys resetchannels &collab:events -@all +subscribe +unsubscribe +ping +quit`.
 - **MinIO** : TLS ; une clé par service, avec une politique limitée à ses buckets. La clé `worker` n'a **aucun** droit sur le bucket `projects` : elle a seulement lecture et écriture sur `compile-output` et `compile-cache`, où chaque objet est rangé sous le préfixe de son projet.
 - **Sources d'une compilation** : pour chaque job, l'API génère une URL présignée MinIO en lecture (GET), une par fichier du projet, valable 5 minutes, et la place dans les données du job. Le worker télécharge les fichiers par ces URL, vérifie la taille et le chemin de chaque fichier, et n'écrit que dans son dossier de travail.
 - **Certificats internes** : une autorité de certification interne signe les certificats de PostgreSQL, Redis et MinIO ; chaque client vérifie le certificat.

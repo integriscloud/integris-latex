@@ -9,24 +9,28 @@ const COMPILE: Record<Plan['code'], Partial<Plan>> = {
     maxCompilesPerHour: 30,
     autoCompile: false,
     compilePriority: 'LOW',
+    historyDays: 1,
   },
   STANDARD: {
     maxCompileSeconds: 120,
     maxCompilesPerHour: 120,
     autoCompile: true,
     compilePriority: 'NORMAL',
+    historyDays: 90,
   },
   TEAM: {
     maxCompileSeconds: 240,
     maxCompilesPerHour: 200,
     autoCompile: true,
     compilePriority: 'HIGH',
+    historyDays: null,
   },
   BUSINESS: {
     maxCompileSeconds: 240,
     maxCompilesPerHour: 200,
     autoCompile: true,
     compilePriority: 'HIGH',
+    historyDays: null,
   },
 };
 
@@ -64,7 +68,17 @@ describe('combineQuotas', () => {
       maxCompilesPerHour: 30,
       autoCompile: false,
       compilePriority: 'LOW',
+      historyDays: 1,
     });
+  });
+
+  it('keeps the longest version history, unlimited winning (24 h, 90 days, unlimited)', () => {
+    expect(combineQuotas([plan('FREE', 3, 100n)]).historyDays).toBe(1);
+    expect(combineQuotas([plan('FREE', 3, 1n), plan('STANDARD', null, 1n)]).historyDays).toBe(90);
+    expect(
+      combineQuotas([plan('FREE', 3, 1n), plan('STANDARD', null, 1n), plan('TEAM', null, 1n)])
+        .historyDays,
+    ).toBeNull();
   });
 
   it('gives the best compilation quotas and priority of the plans held', () => {

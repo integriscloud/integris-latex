@@ -1,21 +1,13 @@
-import {
-  CircleAlert,
-  CircleCheck,
-  CloudUpload,
-  LoaderCircle,
-  TriangleAlert,
-  WifiOff,
-} from 'lucide-react';
+import { CircleAlert, CircleCheck, CloudUpload, LoaderCircle, WifiOff } from 'lucide-react';
 import styles from './save-status.module.css';
 
-export type SaveStatusValue = 'saved' | 'pending' | 'saving' | 'offline' | 'conflict' | 'error';
+export type SaveStatusValue = 'saved' | 'pending' | 'saving' | 'offline' | 'error';
 
 const icons = {
   saved: CircleCheck,
   pending: CloudUpload,
   saving: LoaderCircle,
   offline: WifiOff,
-  conflict: TriangleAlert,
   error: CircleAlert,
 };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ProjectDetail, ProjectFileInfo, UserPreferences } from '@integris/shared';
+import type { ProjectDetail, UserPreferences } from '@integris/shared';
 import {
   Alert,
   Badge,
@@ -15,6 +15,8 @@ import {
   FileTree,
   IconButton,
   MenuButton,
+  PresenceList,
+  type PresencePerson,
   SaveStatus,
   type SaveStatusValue,
   Tabs,
@@ -34,34 +36,35 @@ import {
   X,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { getPathname } from '../../i18n/navigation';
-import { apiRequest, type ClientErrorCode } from '../../lib/api-client';
-import { loadFile, saveFile } from '../../lib/editor/file-api';
+import { apiRead, apiRequest, type ClientErrorCode } from '../../lib/api-client';
+import { collabUrl, ProjectCollab } from '../../lib/collab/project-collab';
+import { replaceText } from '../../lib/collab/text';
 import { textKindOf } from '../../lib/editor/language';
 import { type OutlineEntry, parseOutline } from '../../lib/editor/outline';
-import { SaveQueue, type SaveSnapshot, worstStatus } from '../../lib/editor/save-queue';
 import { formatBytes } from '../../lib/format';
 import { forwardSearch, inverseSearch, type PdfArea } from '../../lib/pdf/synctex';
 import { TextDialog } from '../app/dialogs';
 import { useApiErrorMessage } from '../app/use-api-error';
 import { CodeEditor, type CodeEditorHandle } from './CodeEditor';
 import { CompileResult } from './CompileResult';
-import { ConflictDialog } from './ConflictDialog';
 import styles from './editor.module.css';
+import { HistoryPanel } from './HistoryPanel';
 import { OutlinePanel } from './OutlinePanel';
 import { PdfViewer } from './PdfViewer';
 import { ProjectSearch, type ReplaceReport } from './ProjectSearch';
 import { useEditorPhrases } from './phrases';
 import { useCompiler } from './use-compiler';
 import { useProjectIndex } from './use-project-index';
-
-/** An open file: its first text and, when the user may write it, its save queue. */
-interface Session {
-  id: string;
-  text: string;
-  queue: SaveQueue | null;
-}
 
 /** First file shown: the one asked in the URL, else the main file, else the first text file. */
 function firstFile(project: ProjectDetail, asked: string | null): string | null {
@@ -75,8 +78,6 @@ function firstFile(project: ProjectDetail, asked: string | null): string | null 
   );
 }
 
-/** Errors after which saving this file cannot succeed: the editor turns read-only. */
-const BLOCKING = new Set(['forbidden', 'read_only', 'file_locked', 'not_found', 'not_text']);
 const MOBILE_NOTICE_KEY = 'integris.editor.mobileNoticeClosed';
 const SIDE_KEY = 'integris.editor.sideOpen';
 
@@ -97,9 +98,11 @@ const writeFlag = (key: string, value: boolean) => {
 
 /**
  * Editor of a project: files, CodeMirror, outline, search in the file and in the project (step 5),
- * compilation, PDF and SyncTeX (step 6). Every change is saved to storage 2 s after the last
- * keystroke, against the version loaded; Ctrl+S and Ctrl+Enter save and compile. Collaborators
- * (step 7), comments and submissions (steps 8–9) only have their place here.
+ * compilation, PDF and SyncTeX (step 6), real-time collaboration and version history (step 7).
+ * Open files are shared documents of the collaboration server, which writes them to storage a
+ * few seconds after a change; changes typed offline stay in the page and are sent when the
+ * network comes back. Ctrl+S and Ctrl+Enter store and compile. Comments and submissions
+ * (steps 8–9) only have their place here.
  */
 export function ProjectEditor({
   initial,
@@ -119,14 +122,10 @@ export function ProjectEditor({
   const canEdit = project.rights.edit && !project.readOnly;
 
   const editor = useRef<CodeEditorHandle>(null);
-  /** Open files, for event handlers and save queues; `sessions` is the same for rendering. */
-  const sessionsRef = useRef(new Map<string, Session>());
-  const [sessions, setSessions] = useState<ReadonlyMap<string, Session>>(() => new Map());
-  const [snapshots, setSnapshots] = useState<Record<string, SaveSnapshot>>({});
-  const [blocked, setBlocked] = useState<ReadonlySet<string>>(new Set());
+  // The editor renders in the browser only: the socket address is known at once.
+  const [collab] = useState(() => new ProjectCollab(initial.id, collabUrl(window.location)));
+  const live = useSyncExternalStore(collab.subscribe, collab.getSnapshot, collab.getSnapshot);
   const [activeId, setActiveId] = useState<string | null>(() => firstFile(initial, initialFileId));
-  const [loadError, setLoadError] = useState<{ id: string; code: ClientErrorCode } | null>(null);
-  const [attempt, setAttempt] = useState(0);
   const [view, setView] = useState<EditorPane>('code');
   const [leftTab, setLeftTab] = useState('files');
   const [sideTab, setSideTab] = useState('comments');
@@ -139,8 +138,6 @@ export function ProjectEditor({
   const [settingsFailed, setSettingsFailed] = useState(false);
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
   const [newFile, setNewFile] = useState(false);
-  /** Conflict whose dialog was closed with "later". */
-  const [conflictLater, setConflictLater] = useState<string | null>(null);
   const pendingGoTo = useRef<{ line: number; column: number } | null>(null);
   const [highlight, setHighlight] = useState<(PdfArea & { at: number }) | null>(null);
   const [syncMissed, setSyncMissed] = useState(false);
@@ -153,9 +150,10 @@ export function ProjectEditor({
     [project.files],
   );
   const active = activeId ? filesById.get(activeId) : undefined;
-  const activeSession = activeId ? sessions.get(activeId) : undefined;
+  const activeState = activeId ? live.files.get(activeId) : undefined;
+  const activeSession = activeState?.synced ? collab.session(activeId!) : undefined;
   const activeKind = active ? textKindOf(active.path) : 'plain';
-  const loading = activeId !== null && !activeSession && loadError?.id !== activeId;
+  const loading = activeId !== null && !activeSession && !activeState?.closed;
 
   const projectHref = getPathname({ href: `/app/projects/${project.id}`, locale });
   const editorHref = getPathname({ href: `/app/projects/${project.id}/edit`, locale });
@@ -173,53 +171,24 @@ export function ProjectEditor({
     }, delay);
   }, []);
 
-  // ───────────── Opening files ─────────────
+  // ───────────── Collaboration ─────────────
 
-  const addSession = useCallback(
-    (file: ProjectFileInfo, loaded: { text: string; etag: string; writable: boolean }) => {
-      const { id } = file;
-      const queue =
-        loaded.writable && canEdit
-          ? new SaveQueue({
-              text: loaded.text,
-              etag: loaded.etag,
-              send: (text, etag) => saveFile(project.id, id, text, etag),
-              onChange: (snapshot) => {
-                setSnapshots((current) => ({ ...current, [id]: snapshot }));
-                if (
-                  snapshot.status === 'error' &&
-                  snapshot.errorCode &&
-                  BLOCKING.has(snapshot.errorCode)
-                ) {
-                  setBlocked((current) => new Set(current).add(id));
-                }
-              },
-            })
-          : null;
-      sessionsRef.current.set(id, { id, text: loaded.text, queue });
-      setSessions(new Map(sessionsRef.current));
-      if (queue) setSnapshots((current) => ({ ...current, [id]: queue.snapshot }));
-      index.update({ id, path: file.path, text: loaded.text }, null);
-      refreshOutline(file.path, loaded.text, 0);
-    },
-    [canEdit, project.id, index, refreshOutline],
-  );
-
-  // The open file is read from storage the first time it is shown.
+  // Connected while the editor is shown; the open files keep their changes across reconnections.
   useEffect(() => {
-    if (!activeId || sessionsRef.current.has(activeId)) return;
-    const file = filesById.get(activeId);
-    if (!file) return;
-    let cancelled = false;
-    void loadFile(project.id, file.id).then((result) => {
-      if (cancelled) return;
-      if (result.ok) addSession(file, result);
-      else setLoadError({ id: file.id, code: result.code });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeId, attempt, filesById, project.id, addSession]);
+    collab.connect();
+    return () => collab.disconnect();
+  }, [collab]);
+
+  // The shown file is opened on the collaboration server; the others see where we are.
+  useEffect(() => {
+    if (activeId && filesById.get(activeId)?.kind === 'TEXT') collab.open(activeId);
+    collab.setActiveFile(activeId);
+  }, [activeId, filesById, collab]);
+
+  const latestText = useRef({ filesById, activeId });
+  useLayoutEffect(() => {
+    latestText.current = { filesById, activeId };
+  });
 
   const openFile = useCallback(
     (id: string, at?: { line: number; column?: number }) => {
@@ -227,19 +196,13 @@ export function ProjectEditor({
       if (!file || file.kind !== 'TEXT') return;
       setActiveId(id);
       setView('code');
-      setLoadError(null);
       pendingGoTo.current = at ? { line: at.line, column: at.column ?? 1 } : null;
       window.history.replaceState(window.history.state, '', fileHref(id));
-      const session = sessionsRef.current.get(id);
-      if (session) refreshOutline(file.path, index.textOf(id) ?? session.text, 0);
+      const text = index.textOf(id);
+      if (text !== undefined) refreshOutline(file.path, text, 0);
     },
     [filesById, fileHref, index, refreshOutline],
   );
-
-  const retryOpen = () => {
-    setLoadError(null);
-    setAttempt((value) => value + 1);
-  };
 
   // Go to a line asked by the outline or the search, once the file is shown.
   useEffect(() => {
@@ -252,13 +215,8 @@ export function ProjectEditor({
 
   // ───────────── Compiling ─────────────
 
-  /** Saves every open file at once; true when all of them are stored. */
-  const flushAll = useCallback(async () => {
-    const results = await Promise.all(
-      [...sessionsRef.current.values()].map((session) => session.queue?.flush() ?? true),
-    );
-    return results.every(Boolean);
-  }, []);
+  /** Writes every open file to storage now; true when all of them are stored. */
+  const flushAll = useCallback(async () => (await collab.flush()).ok, [collab]);
 
   const compiler = useCompiler(project.id, flushAll);
   const { compile, edited } = compiler;
@@ -277,31 +235,27 @@ export function ProjectEditor({
 
   // ───────────── Editing and saving ─────────────
 
-  const onChange = useCallback(
-    (id: string, text: string) => {
-      const file = filesById.get(id);
-      if (!file) return;
-      sessionsRef.current.get(id)?.queue?.edit(text);
-      index.update({ id, path: file.path, text }, null);
-      if (id === activeId) refreshOutline(file.path, text, 300);
-      edited();
-    },
-    [filesById, index, activeId, refreshOutline, edited],
+  // Texts of the open files, changed here or by the others: index, outline, and automatic
+  // compilation after one's own typing only (the others compile on their side).
+  useEffect(
+    () =>
+      collab.onText((id, text, local) => {
+        const { filesById: files, activeId: shown } = latestText.current;
+        const file = files.get(id);
+        if (!file) return;
+        index.update({ id, path: file.path, text });
+        if (id === shown) refreshOutline(file.path, text, local ? 300 : 0);
+        if (local) edited();
+      }),
+    [collab, index, refreshOutline, edited],
   );
 
-  // Back online: send at once what is waiting.
-  useEffect(() => {
-    const online = () => {
-      for (const session of sessionsRef.current.values()) session.queue?.online();
-    };
-    window.addEventListener('online', online);
-    return () => window.removeEventListener('online', online);
-  }, []);
-
-  // Leaving with unsaved changes: the browser asks for confirmation.
+  // Leaving with changes the server has not received, or reloading while the network is gone
+  // (the page would not come back: the browser would show its offline page instead of the
+  // editor): the browser asks for confirmation.
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if ([...sessionsRef.current.values()].some((session) => session.queue?.dirty)) {
+      if (collab.hasUnsyncedChanges() || collab.isCutOff()) {
         event.preventDefault();
         // Older browsers need returnValue set.
         event.returnValue = '';
@@ -309,72 +263,79 @@ export function ProjectEditor({
     };
     window.addEventListener('beforeunload', beforeUnload);
     return () => window.removeEventListener('beforeunload', beforeUnload);
-  }, []);
+  }, [collab]);
 
   useEffect(
     () => () => {
-      for (const session of sessionsRef.current.values()) session.queue?.dispose();
       if (outlineTimer.current) clearTimeout(outlineTimer.current);
     },
     [],
   );
 
-  const tracked = Object.entries(snapshots).filter(([id]) => sessions.get(id)?.queue);
-  const status: SaveStatusValue = worstStatus(tracked.map(([, snapshot]) => snapshot.status));
-  const conflictId = tracked.find(([, snapshot]) => snapshot.status === 'conflict')?.[0] ?? null;
-  const failed = tracked.find(([, snapshot]) => snapshot.status === 'error');
-  const offline = tracked.some(([, snapshot]) => snapshot.status === 'offline');
+  /** Files of the project read again (restoration, file deleted by someone else). */
+  const reloadProject = useCallback(async () => {
+    const result = await apiRead<ProjectDetail>(`projects/${project.id}`);
+    if (!result.ok) return;
+    setProject(result.data);
+    setActiveId((current) =>
+      current && result.data.files.some((file) => file.id === current)
+        ? current
+        : firstFile(result.data, null),
+    );
+  }, [project.id]);
 
-  // ───────────── Conflict ─────────────
+  // A file deleted elsewhere: the list of files is read again.
+  useEffect(() => collab.onDeleted(() => void reloadProject()), [collab, reloadProject]);
 
-  const resolveConflict = async (keepMine: boolean): Promise<string | null> => {
-    if (!conflictId) return null;
-    const session = sessionsRef.current.get(conflictId);
-    const file = filesById.get(conflictId);
-    if (!session?.queue || !file) return null;
-    const stored = await loadFile(project.id, conflictId);
-    if (!stored.ok) return errorMessage({ code: stored.code });
-    if (keepMine) {
-      session.queue.overwrite(stored.etag);
-    } else {
-      session.queue.reload(stored.text, stored.etag);
-      editor.current?.setText(conflictId, stored.text);
-      index.update({ id: conflictId, path: file.path, text: stored.text }, null);
-      if (conflictId === activeId) refreshOutline(file.path, stored.text, 0);
+  const tracked = [...live.files].filter(([, file]) => file.writable || file.unsynced > 0);
+  const failed = tracked.find(([, file]) => file.storeCode && file.storeCode !== 'unavailable');
+  const lost = tracked.some(([, file]) => !file.writable && file.unsynced > 0);
+  const offline = !live.connected && tracked.length > 0;
+  const status: SaveStatusValue =
+    failed || lost
+      ? 'error'
+      : offline
+        ? 'offline'
+        : tracked.some(([, file]) => file.unsynced > 0)
+          ? 'saving'
+          : tracked.some(([, file]) => file.storeCode === 'unavailable')
+            ? 'pending'
+            : 'saved';
+
+  // People online in the project (once each), in the color of their cursor.
+  const people = useMemo(() => {
+    const seen = new Set<string>(live.me ? [live.me.id] : []);
+    const list: PresencePerson[] = [];
+    for (const peer of live.peers) {
+      if (seen.has(peer.user.id)) continue;
+      seen.add(peer.user.id);
+      const path = peer.fileId ? filesById.get(peer.fileId)?.path : undefined;
+      list.push({
+        key: String(peer.clientId),
+        name: peer.user.name,
+        color: peer.user.colorIndex,
+        detail: path,
+      });
     }
-    return null;
-  };
+    return list;
+  }, [live.peers, live.me, filesById]);
 
   // ───────────── Replace in the project ─────────────
 
   const replaceInProject = async (
-    changes: {
-      file: { id: string; path: string; etag: string | null };
-      text: string;
-      count: number;
-    }[],
+    changes: { file: { id: string; path: string; text: string }; text: string; count: number }[],
   ): Promise<ReplaceReport> => {
     const report: ReplaceReport = { replaced: 0, files: 0, failed: [] };
     for (const { file, text, count } of changes) {
-      const session = sessionsRef.current.get(file.id);
-      if (session) {
-        // Open file: changed in its editor, saved like any edit (undo works).
-        if (!session.queue || blocked.has(file.id)) {
-          report.failed.push(file.path);
-          continue;
-        }
-        editor.current?.setText(file.id, text);
-        onChange(file.id, text);
-      } else {
-        const result = file.etag
-          ? await saveFile(project.id, file.id, text, file.etag)
-          : ({ ok: false, reason: 'conflict' } as const);
-        if (!result.ok) {
-          report.failed.push(file.path);
-          continue;
-        }
-        index.update({ id: file.id, path: file.path, text }, result.etag);
+      // Every file changes through its shared text, like any edit (undo works, the others see
+      // it). A text changed since the search (by someone else) is left as it is.
+      const session = await collab.whenSynced(file.id).catch(() => null);
+      const shared = session?.shared.text;
+      if (!session?.snapshot.writable || !shared || shared.toString() !== file.text) {
+        report.failed.push(file.path);
+        continue;
       }
+      replaceText(shared, text);
       report.replaced += count;
       report.files++;
     }
@@ -582,10 +543,12 @@ export function ProjectEditor({
       ? t('readOnlyProject')
       : active?.locked
         ? t('readOnlyLocked')
-        : activeId && blocked.has(activeId)
-          ? t('readOnlyRefused')
-          : activeSession && !activeSession.queue
-            ? t('readOnlyProject')
+        : activeState?.closed === 'revoked'
+          ? t('accessLost')
+          : activeState?.synced && !activeState.writable
+            ? activeState.unsynced > 0
+              ? t('readOnlyRefused')
+              : t('readOnlyProject')
             : null;
 
   const statusLabels: Record<SaveStatusValue, string> = {
@@ -593,7 +556,6 @@ export function ProjectEditor({
     pending: t('status.pending'),
     saving: t('status.saving'),
     offline: t('status.offline'),
-    conflict: t('status.conflict'),
     error: t('status.error'),
   };
 
@@ -618,32 +580,16 @@ export function ProjectEditor({
         </div>
       )}
       {offline && <Alert tone="warning">{t('offline')}</Alert>}
-      {conflictId && conflictLater === conflictId && (
-        <Alert tone="error">
-          {t('conflictNotice', { path: filesById.get(conflictId)?.path ?? '' })}{' '}
-          <Button variant="secondary" onClick={() => setConflictLater(null)}>
-            {t('conflictResolve')}
-          </Button>
-        </Alert>
-      )}
       {failed && (
         <Alert tone="error">
           {t('saveFailed', {
             path: filesById.get(failed[0])?.path ?? '',
-            message: errorMessage({ code: (failed[1].errorCode ?? 'unknown') as ClientErrorCode }),
+            message: errorMessage({ code: failed[1].storeCode as ClientErrorCode }),
           })}{' '}
-          {failed[1].errorCode === 'storage_limit' && (
+          {failed[1].storeCode === 'storage_limit' && (
             <ButtonLink href={`${getPathname({ href: '/', locale })}#pricing`} variant="accent">
               {t('upgrade')}
             </ButtonLink>
-          )}{' '}
-          {!blocked.has(failed[0]) && (
-            <Button
-              variant="secondary"
-              onClick={() => sessionsRef.current.get(failed[0])?.queue?.saveNow()}
-            >
-              {t('retry')}
-            </Button>
           )}
         </Alert>
       )}
@@ -741,24 +687,26 @@ export function ProjectEditor({
         )}
       </div>
       <div className={styles.codeBody}>
-        {loadError && loadError.id === activeId ? (
+        {activeState?.closed && !activeSession ? (
           <div className={styles.padded}>
-            <Alert tone="error">{errorMessage({ code: loadError.code })}</Alert>
-            <Button variant="secondary" onClick={retryOpen}>
-              {t('retry')}
+            <Alert tone="error">
+              {activeState.closed === 'deleted' ? t('fileDeleted') : t('accessLost')}
+            </Alert>
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              {t('reload')}
             </Button>
           </div>
         ) : loading ? (
           <p className={styles.loading} role="status">
-            {t('loading')}
+            {live.connected ? t('loading') : t('connecting')}
           </p>
         ) : activeSession && active ? (
           <CodeEditor
             ref={editor}
-            fileId={activeSession.id}
+            fileId={activeSession.fileId}
             path={active.path}
-            initialText={activeSession.text}
-            readOnly={Boolean(readOnlyReason)}
+            shared={activeSession.shared}
+            readOnly={Boolean(readOnlyReason) || !activeState?.writable}
             spellcheck={spellcheck}
             lang={locale}
             label={t('codeLabel', { path: active.path })}
@@ -770,7 +718,6 @@ export function ProjectEditor({
             }}
             symbols={index.symbols}
             index={index}
-            onChange={onChange}
             onCompile={() => void compile()}
           />
         ) : (
@@ -838,6 +785,7 @@ export function ProjectEditor({
             items={[
               { id: 'comments', label: t('comments') },
               { id: 'submissions', label: t('submissions') },
+              { id: 'history', label: t('history') },
             ]}
           />
         </div>
@@ -848,11 +796,19 @@ export function ProjectEditor({
         id={`editor-side-panel-${sideTab}`}
         aria-labelledby={`editor-side-tab-${sideTab}`}
       >
-        <EmptyState
-          icon={MessagesSquare}
-          title={sideTab === 'comments' ? t('comments') : t('submissions')}
-          text={sideTab === 'comments' ? t('commentsSoon') : t('submissionsSoon')}
-        />
+        {sideTab === 'history' ? (
+          <HistoryPanel
+            projectId={project.id}
+            flush={flushAll}
+            onRestored={() => void reloadProject()}
+          />
+        ) : (
+          <EmptyState
+            icon={MessagesSquare}
+            title={sideTab === 'comments' ? t('comments') : t('submissions')}
+            text={sideTab === 'comments' ? t('commentsSoon') : t('submissionsSoon')}
+          />
+        )}
       </div>
     </>
   );
@@ -879,6 +835,11 @@ export function ProjectEditor({
         status={tracked.length > 0 && <SaveStatus status={status} labels={statusLabels} />}
         actions={
           <>
+            <PresenceList
+              people={people}
+              label={t('online')}
+              moreLabel={(count) => t('onlineMore', { count })}
+            />
             <CompileButton
               state={buttonState}
               label={buttonLabel}
@@ -914,7 +875,7 @@ export function ProjectEditor({
           </>
         }
         notice={
-          (mobileNotice || offline || failed || conflictId || readOnlyReason || compileNotice) && (
+          (mobileNotice || offline || failed || readOnlyReason || compileNotice) && (
             <div className={styles.notices}>
               {notices}
               {compileNotice}
@@ -941,12 +902,6 @@ export function ProjectEditor({
           resizePdf: t('resizePdf'),
           resizeSide: t('resizeSide'),
         }}
-      />
-      <ConflictDialog
-        open={conflictId !== null && conflictLater !== conflictId}
-        path={conflictId ? (filesById.get(conflictId)?.path ?? '') : ''}
-        onResolve={resolveConflict}
-        onClose={() => setConflictLater(conflictId)}
       />
       <TextDialog
         open={newFile}

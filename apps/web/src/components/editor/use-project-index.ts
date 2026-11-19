@@ -20,8 +20,6 @@ export interface IndexedFile {
   id: string;
   path: string;
   text: string;
-  /** Version of the stored text; null once the text comes from an open (maybe unsaved) editor. */
-  etag: string | null;
 }
 
 interface SymbolCache {
@@ -75,12 +73,7 @@ export function useProjectIndex(projectId: string, files: readonly ProjectFileIn
       for (let file = queue.shift(); file; file = queue.shift()) {
         const result = await loadFile(projectId, file.id);
         if (result.ok && !entries.current.has(file.id)) {
-          entries.current.set(file.id, {
-            id: file.id,
-            path: file.path,
-            text: result.text,
-            etag: result.etag,
-          });
+          entries.current.set(file.id, { id: file.id, path: file.path, text: result.text });
         }
       }
     };
@@ -93,13 +86,10 @@ export function useProjectIndex(projectId: string, files: readonly ProjectFileIn
   /** Every file of the project is read. */
   const ready = useCallback((): boolean => !missing().length, [missing]);
 
-  /** Text of a file changed in an editor, or saved (with its new version). */
-  const update = useCallback(
-    (file: Pick<IndexedFile, 'id' | 'path' | 'text'>, etag: string | null) => {
-      entries.current.set(file.id, { ...file, etag });
-    },
-    [],
-  );
+  /** Text of an open file, as the collaboration server shares it. */
+  const update = useCallback((file: IndexedFile) => {
+    entries.current.set(file.id, file);
+  }, []);
 
   const remove = useCallback((fileId: string) => {
     entries.current.delete(fileId);

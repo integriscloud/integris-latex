@@ -94,4 +94,17 @@ export const editorTheme = EditorView.theme({
     fontSize: '12px',
     opacity: '0.8',
   },
+  // Cursors of the others: the name always shows above the cursor, in the person's color
+  // (y-codemirror only shows it on hover). It never takes the clicks meant for the text.
+  '.cm-ySelectionInfo': {
+    opacity: '1',
+    transition: 'none',
+    top: '-1.35em',
+    font: 'var(--t-legende)',
+    color: 'var(--neutre-0)',
+    padding: '0 var(--espace-1)',
+    borderRadius: 'var(--r-sm) var(--r-sm) var(--r-sm) 0',
+    pointerEvents: 'none',
+  },
+  '.cm-ySelectionCaret:hover > .cm-ySelectionCaretDot': { transform: 'none' },
 });

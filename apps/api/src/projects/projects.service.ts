@@ -23,6 +23,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { OwnerLockService, Slots } from './owner-lock.service.js';
+import { ProjectEventsService } from './project-events.service.js';
 import { QuotaService } from './quota.service.js';
 import { TemplatesService } from './templates.service.js';
 import { type ExtractedFile, guessMainFile, readProjectZip, ZipError } from './zip-import.js';
@@ -92,6 +93,7 @@ export class ProjectsService {
     private readonly templates: TemplatesService,
     private readonly config: ApiConfig,
     private readonly redis: RedisService,
+    private readonly events: ProjectEventsService,
   ) {
     this.importSlots = new Slots(config.env.ZIP_MAX_CONCURRENT_IMPORTS);
   }
@@ -483,6 +485,8 @@ export class ProjectsService {
       where: { id: projectId },
       data: { deletedAt: new Date() },
     });
+    // Open editors are disconnected.
+    await this.events.publish({ type: 'project-access', projectId });
   }
 
   /** Restores a project from the trash; the project limit of the plan applies again. */

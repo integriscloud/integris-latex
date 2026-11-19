@@ -6,7 +6,7 @@ import {
   closeBracketsKeymap,
   completionKeymap,
 } from '@codemirror/autocomplete';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import {
   bracketMatching,
   foldGutter,
@@ -31,6 +31,9 @@ import {
   lineNumbers,
 } from '@codemirror/view';
 import { type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef } from 'react';
+import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
+import type { Awareness } from 'y-protocols/awareness';
+import type * as Y from 'yjs';
 import { editorShortcuts } from '../../lib/editor/commands';
 import {
   type CompletionLabels,
@@ -43,23 +46,27 @@ import { editorTheme } from '../../lib/editor/theme';
 import styles from './editor.module.css';
 
 export interface CodeEditorHandle {
-  /** Replaces the whole text of a file (conflict resolved, replace in the project). */
-  setText: (fileId: string, text: string) => void;
   /** Moves the cursor to a line of the open file and scrolls it into view. */
   goTo: (line: number, column?: number) => void;
   openSearch: () => void;
   /** Line of the cursor in the open file (SyncTeX, "show in the PDF"). */
   cursorLine: () => number | null;
-  /** Forgets the state of a file (closed, deleted). */
-  forget: (fileId: string) => void;
+}
+
+/** The shared text of a file and what goes with it (collaboration server). */
+export interface SharedText {
+  text: Y.Text;
+  /** Cursors and selections of the others in this file. */
+  awareness: Awareness;
+  /** Undo and redo of one's own changes only. */
+  undoManager: Y.UndoManager;
 }
 
 export interface CodeEditorProps {
   ref?: Ref<CodeEditorHandle>;
   fileId: string;
   path: string;
-  /** Text of the file when it is first shown (later, its own state is kept). */
-  initialText: string;
+  shared: SharedText;
   readOnly: boolean;
   /** Browser spell checker in the code (editor settings, kept on the account). */
   spellcheck: boolean;
@@ -71,7 +78,6 @@ export interface CodeEditorProps {
   symbols: () => ProjectSymbols;
   /** Files of the project read for \ref and \cite. */
   index: { ready: () => boolean; load: () => Promise<void> };
-  onChange: (fileId: string, text: string) => void;
   /** Ctrl+S, Ctrl+Enter: save and compile. */
   onCompile: () => void;
 }
@@ -80,14 +86,15 @@ const spellcheckAttribute = (on: boolean) =>
   EditorView.contentAttributes.of({ spellcheck: on ? 'true' : 'false' });
 
 /**
- * CodeMirror 6 editor. One editor view; each open file keeps its own state (text, undo history,
- * selection, folds) while the user switches between files.
+ * CodeMirror 6 editor bound to the shared text of a file (y-codemirror): changes of the others
+ * and their cursors appear live; undo only undoes one's own changes. One editor view; switching
+ * files rebuilds the state from the shared text and puts the cursor back where it was.
  */
 export function CodeEditor(props: CodeEditorProps) {
-  const { ref, fileId, path, initialText, readOnly, spellcheck } = props;
+  const { ref, fileId, path, shared, readOnly, spellcheck } = props;
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const states = useRef(new Map<string, EditorState>());
+  const selections = useRef(new Map<string, EditorSelection>());
   const current = useRef<string | null>(null);
   const readOnlyCompartment = useRef(new Compartment());
   const languageCompartment = useRef(new Compartment());
@@ -98,14 +105,14 @@ export function CodeEditor(props: CodeEditorProps) {
     latest.current = props;
   });
 
-  const createState = (id: string, filePath: string, text: string): EditorState => {
+  const createState = (filePath: string, text: SharedText): EditorState => {
     const kind = textKindOf(filePath);
     const latex = kind === 'latex';
     const extensions: Extension[] = [
       lineNumbers(),
       highlightActiveLineGutter(),
       foldGutter(),
-      history(),
+      yCollab(text.text, text.awareness, { undoManager: text.undoManager }),
       drawSelection(),
       dropCursor(),
       indentOnInput(),
@@ -131,7 +138,7 @@ export function CodeEditor(props: CodeEditorProps) {
         ...closeBracketsKeymap,
         ...defaultKeymap,
         ...searchKeymap,
-        ...historyKeymap,
+        ...yUndoManagerKeymap,
         ...foldKeymap,
         ...completionKeymap,
         indentWithTab,
@@ -141,11 +148,6 @@ export function CodeEditor(props: CodeEditorProps) {
         EditorView.editable.of(!latest.current.readOnly),
       ]),
       languageCompartment.current.of([]),
-      EditorView.updateListener.of((update) => {
-        if (update.docChanged && current.current === id) {
-          latest.current.onChange(id, update.state.doc.toString());
-        }
-      }),
     ];
     if (latex) {
       extensions.push(
@@ -161,40 +163,43 @@ export function CodeEditor(props: CodeEditorProps) {
         }),
       );
     }
-    return EditorState.create({ doc: text, extensions });
+    const doc = text.text.toString();
+    // The cursor goes back where it was, if the text still has that place.
+    const kept = selections.current.get(fileId);
+    const selection =
+      kept && kept.ranges.every((range) => range.to <= doc.length) ? kept : undefined;
+    return EditorState.create({ doc, selection, extensions });
   };
 
   // One view for the life of the component.
   useEffect(() => {
     const editor = new EditorView({ parent: host.current! });
     view.current = editor;
-    const cache = states.current;
     return () => {
       editor.destroy();
       view.current = null;
-      cache.clear();
       current.current = null;
     };
   }, []);
 
-  // Switch to the open file: keep the state of the previous one, restore or create this one.
+  // Switch to the open file. A hidden file is not bound to its shared text (the others may have
+  // changed it meanwhile): its state is rebuilt from it each time it is shown.
   useEffect(() => {
     const editor = view.current;
     if (!editor) return;
     if (current.current && current.current !== fileId) {
-      states.current.set(current.current, editor.state);
+      selections.current.set(current.current, editor.state.selection);
     }
     if (current.current === fileId) return;
     current.current = fileId;
-    const state = states.current.get(fileId) ?? createState(fileId, path, initialText);
-    editor.setState(state);
+    editor.setState(createState(path, shared));
     const kind = textKindOf(path);
     void languageFor(kind).then((language) => {
       if (current.current === fileId && view.current) {
         view.current.dispatch({ effects: languageCompartment.current.reconfigure(language) });
       }
     });
-  }, [fileId, path, initialText]);
+  }, [fileId, path, shared]);
 
   // Rights can change (save refused, read-only project).
   useEffect(() => {
@@ -216,23 +221,6 @@ export function CodeEditor(props: CodeEditorProps) {
   useImperativeHandle(
     ref,
     () => ({
-      setText(id, text) {
-        const editor = view.current;
-        if (editor && current.current === id) {
-          editor.dispatch({
-            changes: { from: 0, to: editor.state.doc.length, insert: text },
-            userEvent: 'input.replace',
-          });
-          return;
-        }
-        const state = states.current.get(id);
-        if (state) {
-          states.current.set(
-            id,
-            state.update({ changes: { from: 0, to: state.doc.length, insert: text } }).state,
-          );
-        }
-      },
       goTo(line, column = 1) {
         const editor = view.current;
         if (!editor) return;
@@ -250,9 +238,6 @@ export function CodeEditor(props: CodeEditorProps) {
       cursorLine() {
         const editor = view.current;
         return editor ? editor.state.doc.lineAt(editor.state.selection.main.head).number : null;
-      },
-      forget(id) {
-        states.current.delete(id);
       },
     }),
     [],

@@ -87,7 +87,10 @@ export async function forgetMessages(e164: string, email?: string): Promise<void
  */
 export async function deleteTestUsers(phones: string[]): Promise<void> {
   const owner = { owner: { phone: { in: phones } } };
-  await prisma().projectMember.deleteMany({ where: { project: owner } });
+  await prisma().projectMember.deleteMany({
+    where: { OR: [{ project: owner }, { user: { phone: { in: phones } } }] },
+  });
+  await prisma().projectVersion.deleteMany({ where: { project: owner } });
   await prisma().projectFile.deleteMany({ where: { project: owner } });
   await prisma().compilation.deleteMany({ where: { project: owner } });
   await prisma().project.deleteMany({ where: owner });
@@ -137,6 +140,25 @@ export async function eraseAllProjects(page: Page): Promise<void> {
       await page.request.delete(`/api/projects/${project.id}`, { headers, data: {} });
     }
   }
+}
+
+/**
+ * Gives an account a role on a project, as sharing will at step 8, and asks the collaboration
+ * server to check the open connections again. No audit entry: the dev database keeps none for
+ * tests.
+ */
+export async function shareProject(
+  projectId: string,
+  phone: string,
+  role: 'EDITOR' | 'SUPERVISOR' | 'REVIEWER' | 'VIEWER',
+): Promise<void> {
+  const user = await prisma().user.findUniqueOrThrow({ where: { phone } });
+  await prisma().projectMember.upsert({
+    where: { projectId_userId: { projectId, userId: user.id } },
+    create: { projectId, userId: user.id, role },
+    update: { role },
+  });
+  await redis().publish('collab:events', JSON.stringify({ type: 'project-access', projectId }));
 }
 
 export async function closeHelpers(): Promise<void> {

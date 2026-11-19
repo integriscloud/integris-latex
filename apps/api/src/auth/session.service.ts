@@ -86,6 +86,17 @@ export class SessionService {
     return { key, ...data };
   }
 
+  /** Reads a session without extending it (periodic checks of open collaboration sockets). */
+  async peek(cookieValue: string | undefined): Promise<Session | null> {
+    if (!cookieValue || cookieValue.length > 128) return null;
+    const key = sha256(cookieValue);
+    const raw = await this.redis.client.get(sessionKey(key));
+    if (!raw) return null;
+    const data = JSON.parse(raw) as SessionData;
+    if (data.absoluteExpiresAt <= Math.floor(Date.now() / 1000)) return null;
+    return { key, ...data };
+  }
+
   /** Changes the open space or the reauthentication time, keeping the remaining lifetime. */
   async update(
     session: Session,

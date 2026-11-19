@@ -106,6 +106,12 @@ export const apiEnvSchema = z
     // of the app domain, never the app origin): latex-files.integriscloud.com in production,
     // test-latex-files.integriscloud.com on latex-dev, proxied by Nginx to PORTS.files.
     FILES_PUBLIC_URL: z.url().default(`http://127.0.0.1:${PORTS.files}`),
+    // Shared with apps/collab: authenticates its calls to the internal API (port PORTS.internal).
+    COLLAB_INTERNAL_SECRET: z.string().min(32),
+    // How often projects with changes are checked for their automatic version (10 min after).
+    HISTORY_SCAN_SECONDS: positiveInt(30),
+    // Named versions and restorations per user per hour (each one copies files to the history).
+    HISTORY_ACTIONS_PER_HOUR: positiveInt(30),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
@@ -122,6 +128,10 @@ export const apiEnvSchema = z
         ctx.addIssue({ code: 'custom', path: [name], message: 'HTTPS required' });
       }
     }
+    // Redis is on the data server: TLS only (CLAUDE.md, "Security rules").
+    if (!env.REDIS_URL.startsWith('rediss://')) {
+      ctx.addIssue({ code: 'custom', path: ['REDIS_URL'], message: 'TLS required' });
+    }
     if (!env.FILES_PUBLIC_URL.startsWith('https://')) {
       ctx.addIssue({ code: 'custom', path: ['FILES_PUBLIC_URL'], message: 'HTTPS required' });
     }
@@ -131,7 +141,12 @@ export const apiEnvSchema = z
     if (appHosts.some((host) => filesHost === host || filesHost.endsWith(`.${host}`))) {
       ctx.addIssue({ code: 'custom', path: ['FILES_PUBLIC_URL'], message: 'Same site as the app' });
     }
-    for (const name of ['AUTH_SECRET', 'ALTCHA_HMAC_KEY', 'MINIO_API_SECRET_KEY'] as const) {
+    for (const name of [
+      'AUTH_SECRET',
+      'ALTCHA_HMAC_KEY',
+      'MINIO_API_SECRET_KEY',
+      'COLLAB_INTERNAL_SECRET',
+    ] as const) {
       if (env[name].includes('change-me')) {
         ctx.addIssue({ code: 'custom', path: [name], message: 'Placeholder secret' });
       }
@@ -147,10 +162,42 @@ export const webEnvSchema = z.object({
 });
 export type WebEnv = z.infer<typeof webEnvSchema>;
 
-/** Environment read by apps/collab. */
-export const collabEnvSchema = z.object({
-  NODE_ENV: nodeEnv,
-});
+/**
+ * Environment read by apps/collab. The collaboration server holds no business rule and no
+ * storage key: it checks every connection and stores documents through the internal API.
+ */
+export const collabEnvSchema = z
+  .object({
+    NODE_ENV: nodeEnv,
+    // Events from the API (files replaced or deleted, rights changed), read as the Redis ACL
+    // user `collab`: subscription to the channel `collab:events` only (docs/spec.md, "Réseau
+    // et pare-feu"). Not REDIS_URL, which is the API's full access.
+    COLLAB_REDIS_URL: z.url(),
+    // Browser origins allowed to open a WebSocket (cross-site WebSocket hijacking defence).
+    WEB_ORIGINS: csv('http://127.0.0.1:3000,http://localhost:3000').pipe(z.array(z.url()).min(1)),
+    COLLAB_INTERNAL_SECRET: z.string().min(32),
+    // Internal API of apps/api (loopback).
+    API_INTERNAL_COLLAB_URL: z.url().default(`http://127.0.0.1:${PORTS.internal}`),
+    // Every connection is checked again this often (session ended, right lost).
+    COLLAB_RECHECK_SECONDS: positiveInt(60),
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV !== 'production') return;
+    if (env.COLLAB_INTERNAL_SECRET.includes('change-me')) {
+      ctx.addIssue({ code: 'custom', path: ['COLLAB_INTERNAL_SECRET'], message: 'Placeholder' });
+    }
+    if (!env.COLLAB_REDIS_URL.startsWith('rediss://')) {
+      ctx.addIssue({ code: 'custom', path: ['COLLAB_REDIS_URL'], message: 'TLS required' });
+    }
+    if (new URL(env.COLLAB_REDIS_URL).username !== 'collab') {
+      ctx.addIssue({ code: 'custom', path: ['COLLAB_REDIS_URL'], message: 'ACL user collab' });
+    }
+    for (const origin of env.WEB_ORIGINS) {
+      if (!origin.startsWith('https://')) {
+        ctx.addIssue({ code: 'custom', path: ['WEB_ORIGINS'], message: 'HTTPS required' });
+      }
+    }
+  });
 export type CollabEnv = z.infer<typeof collabEnvSchema>;
 
 /**

@@ -6,7 +6,7 @@
     "node": ">=22.12 <23"
   },
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "node scripts/check-env.mjs && turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
@@ -18,7 +18,10 @@
     "format:check": "prettier --check .",
     "minio:users": "bash docker/minio-dev-users.sh",
     "texlive:build": "docker build -t integris/texlive:2026 docker/texlive",
-    "test:malicious": "pnpm --filter @integris/worker test:malicious"
+    "test:malicious": "pnpm --filter @integris/worker test:malicious",
+    "dev:share": "node apps/api/scripts/dev-tools.mjs share",
+    "dev:otp": "node apps/api/scripts/dev-tools.mjs otp",
+    "dev:check-env": "node scripts/check-env.mjs"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

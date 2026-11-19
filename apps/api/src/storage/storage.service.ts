@@ -2,8 +2,10 @@ import {
   CopyObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   NoSuchKey,
+  NotFound,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -49,6 +51,16 @@ export class StorageService implements OnModuleDestroy {
     await this.s3.send(
       new CopyObjectCommand({ Bucket: bucket, Key: to, CopySource: `${bucket}/${from}` }),
     );
+  }
+
+  async exists(bucket: string, key: string): Promise<boolean> {
+    try {
+      await this.s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      return true;
+    } catch (error) {
+      if (error instanceof NotFound || error instanceof NoSuchKey) return false;
+      throw error;
+    }
   }
 
   async get(bucket: string, key: string): Promise<Uint8Array> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiEnvSchema, parseEnv, seedEnvSchema, workerEnvSchema } from './env.js';
+import { apiEnvSchema, collabEnvSchema, parseEnv, seedEnvSchema, workerEnvSchema } from './env.js';
 
 describe('parseEnv', () => {
   const worker = {
@@ -81,6 +81,7 @@ describe('apiEnvSchema', () => {
     ALTCHA_HMAC_KEY: 'b'.repeat(32),
     MINIO_API_ACCESS_KEY: 'api',
     MINIO_API_SECRET_KEY: 'c'.repeat(32),
+    COLLAB_INTERNAL_SECRET: 'd'.repeat(32),
   };
 
   it('applies the V1 anti-abuse defaults', () => {
@@ -127,6 +128,7 @@ describe('apiEnvSchema', () => {
         NODE_ENV: 'production',
         AUTH_SECRET: 'change-me-dev-auth-secret-at-least-32-characters',
         MINIO_API_SECRET_KEY: 'change-me-dev-minio-api',
+        COLLAB_INTERNAL_SECRET: 'change-me-dev-collab-internal-secret-0123456789',
       });
     } catch (error) {
       message = String(error);
@@ -137,6 +139,8 @@ describe('apiEnvSchema', () => {
       'PUBLIC_WEB_URL',
       'AUTH_SECRET',
       'MINIO_API_SECRET_KEY',
+      'COLLAB_INTERNAL_SECRET',
+      'REDIS_URL',
       'FILES_PUBLIC_URL',
     ]) {
       expect(message).toContain(name);
@@ -157,5 +161,43 @@ describe('apiEnvSchema', () => {
     expect(files('https://latex.integriscloud.com')).toThrow(/FILES_PUBLIC_URL/);
     expect(files('https://files.latex.integriscloud.com')).toThrow(/FILES_PUBLIC_URL/);
     expect(files('https://latex-files.integriscloud.com')).not.toThrow(/FILES_PUBLIC_URL/);
+  });
+});
+
+describe('collabEnvSchema', () => {
+  const base = {
+    NODE_ENV: 'development',
+    COLLAB_REDIS_URL: 'redis://collab:secret@127.0.0.1:6379',
+    COLLAB_INTERNAL_SECRET: 'd'.repeat(32),
+  };
+
+  it('reads the events with its own Redis user', () => {
+    const env = parseEnv(collabEnvSchema, base);
+    expect(env.COLLAB_REDIS_URL).toBe(base.COLLAB_REDIS_URL);
+    expect(() => parseEnv(collabEnvSchema, { ...base, COLLAB_REDIS_URL: undefined })).toThrow(
+      /COLLAB_REDIS_URL/,
+    );
+  });
+
+  it('requires TLS and the ACL user collab in production', () => {
+    const production = {
+      ...base,
+      NODE_ENV: 'production',
+      WEB_ORIGINS: 'https://latex.integriscloud.com',
+      COLLAB_INTERNAL_SECRET: 'e'.repeat(48),
+    };
+    expect(() =>
+      parseEnv(collabEnvSchema, {
+        ...production,
+        COLLAB_REDIS_URL: 'rediss://collab:secret@redis.internal:6379',
+      }),
+    ).not.toThrow();
+    expect(() => parseEnv(collabEnvSchema, production)).toThrow(/COLLAB_REDIS_URL/);
+    expect(() =>
+      parseEnv(collabEnvSchema, {
+        ...production,
+        COLLAB_REDIS_URL: 'rediss://api:secret@redis.internal:6379',
+      }),
+    ).toThrow(/COLLAB_REDIS_URL/);
   });
 });

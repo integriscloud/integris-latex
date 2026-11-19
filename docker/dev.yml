@@ -22,7 +22,15 @@ services:
     image: redis:8@sha256:1f88291b4c57bdf249f02eb085a8669889b2d2954e91d4de5118a5da6b78dd53
     restart: unless-stopped
     env_file: ../.env
-    command: ['sh', '-c', 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    # ACL user `collab` (collaboration server): subscription to collab:events only
+    # (docs/spec.md, "Réseau et pare-feu"). Redis refuses to start without its password.
+    command:
+      - sh
+      - -c
+      - >-
+        exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+        --user collab on ">$${REDIS_COLLAB_PASSWORD:?REDIS_COLLAB_PASSWORD missing in .env}"
+        resetkeys resetchannels "&collab:events" -@all +subscribe +unsubscribe +ping +quit
     ports:
       - '127.0.0.1:6379:6379'
     volumes:

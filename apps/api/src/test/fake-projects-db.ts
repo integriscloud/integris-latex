@@ -1,10 +1,13 @@
 import type {
+  AuditLog,
   Compilation,
+  FileDocument,
   Plan,
   Project,
   ProjectFile,
   ProjectMember,
   ProjectRole,
+  ProjectVersion,
   User,
 } from '@integris/db';
 import { Readable } from 'node:stream';
@@ -68,6 +71,9 @@ export class FakeProjectsDb {
   validated: { projectId: string; id: string }[] = [];
   traced = new Set<string>();
   compilations: Compilation[] = [];
+  versions: ProjectVersion[] = [];
+  documents = new Map<string, FileDocument>();
+  audits: Partial<AuditLog>[] = [];
 
   reset(): void {
     this.plans = defaultPlans();
@@ -79,6 +85,9 @@ export class FakeProjectsDb {
     this.validated = [];
     this.traced.clear();
     this.compilations = [];
+    this.versions = [];
+    this.documents.clear();
+    this.audits = [];
   }
 
   addUser(displayName: string): User {
@@ -178,6 +187,31 @@ export class FakeProjectsDb {
     return true;
   }
 
+  /** The `where` clauses used by the history service. */
+  private matchesVersion(row: ProjectVersion, where: Where): boolean {
+    if (where.id !== undefined) {
+      const id = where.id as string | { in: string[] };
+      if (typeof id === 'string' ? row.id !== id : !id.in.includes(row.id)) return false;
+    }
+    if (where.projectId !== undefined && row.projectId !== where.projectId) return false;
+    const kind = where.kind as string | { not: string } | undefined;
+    if (typeof kind === 'string' && row.kind !== kind) return false;
+    if (kind && typeof kind === 'object' && row.kind === kind.not) return false;
+    const created = where.createdAt as { gte?: Date; lt?: Date } | undefined;
+    if (created?.gte && row.createdAt < created.gte) return false;
+    if (created?.lt && !(row.createdAt < created.lt)) return false;
+    if (Array.isArray(where.OR)) {
+      return (where.OR as Where[]).some((clause) => this.matchesVersion(row, clause));
+    }
+    return true;
+  }
+
+  private versionsWhere(where: Where): ProjectVersion[] {
+    return this.versions
+      .filter((row) => this.matchesVersion(row, where))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
   private compilationsWhere(where: Where): Compilation[] {
     return this.compilations
       .filter((row) => this.matchesCompilation(row, where))
@@ -191,6 +225,10 @@ export class FakeProjectsDb {
   readonly client = {
     $transaction: async (operations: Promise<unknown>[]) => Promise.all(operations),
     user: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        this.users.find((item) => item.id === where.id) ?? null,
+      findMany: async ({ where }: { where: { id: { in: string[] } } }) =>
+        this.users.filter((item) => where.id.in.includes(item.id)),
       findUniqueOrThrow: async ({ where }: { where: { id: string } }) => {
         const user = this.users.find((item) => item.id === where.id);
         if (!user) throw new Error('Not found');
@@ -225,7 +263,64 @@ export class FakeProjectsDb {
       count: async ({ where }: { where: { submissionId: { in: string[] } } }) =>
         where.submissionId.in.filter((id) => this.traced.has(id)).length,
     },
-    projectVersion: { deleteMany: async () => ({ count: 0 }) },
+    projectVersion: {
+      create: async ({ data }: { data: Partial<ProjectVersion> }) => {
+        const row: ProjectVersion = {
+          id: randomUUID(),
+          projectId: data.projectId!,
+          kind: data.kind!,
+          label: data.label ?? null,
+          storageKey: data.storageKey!,
+          fileCount: data.fileCount ?? 0,
+          restoreOfId: data.restoreOfId ?? null,
+          restorePath: data.restorePath ?? null,
+          createdById: data.createdById ?? null,
+          // Strictly increasing, so "latest first" is well defined in tests.
+          createdAt: new Date(Date.now() + this.versions.length),
+        };
+        this.versions.push(row);
+        return { ...row };
+      },
+      findFirst: async ({ where }: { where: Where }) => {
+        const row = this.versionsWhere(where)[0];
+        return row ? { ...row } : null;
+      },
+      findMany: async ({ where, take }: { where: Where; take?: number }) =>
+        this.versionsWhere(where)
+          .slice(0, take)
+          .map((row) => ({ ...row })),
+      count: async ({ where }: { where: Where }) => this.versionsWhere(where).length,
+      deleteMany: async ({ where }: { where: { projectId: string } }) => {
+        this.versions = this.versions.filter((row) => row.projectId !== where.projectId);
+        return { count: 0 };
+      },
+    },
+    fileDocument: {
+      findUnique: async ({ where }: { where: { fileId: string } }) => {
+        const row = this.documents.get(where.fileId);
+        return row ? { ...row } : null;
+      },
+      upsert: async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { fileId: string };
+        create: Omit<FileDocument, 'updatedAt'>;
+        update: Partial<FileDocument>;
+      }) => {
+        const row = this.documents.get(where.fileId);
+        const next = { ...(row ?? create), ...(row ? update : {}), updatedAt: new Date() };
+        this.documents.set(where.fileId, next as FileDocument);
+        return next;
+      },
+    },
+    auditLog: {
+      create: async ({ data }: { data: Partial<AuditLog> }) => {
+        this.audits.push(data);
+        return data;
+      },
+    },
     compilation: {
       create: async ({ data }: { data: Partial<Compilation> }) => {
         const row: Compilation = {
@@ -363,10 +458,14 @@ export class FakeProjectsDb {
       },
       delete: async ({ where }: { where: { id: string } }) => {
         this.files = this.files.filter((file) => file.id !== where.id);
+        // ON DELETE CASCADE
+        this.documents.delete(where.id);
       },
       deleteMany: async ({ where }: { where: Where }) => {
         const before = this.files.length;
+        const gone = this.files.filter((file) => this.matchesFile(file, where));
         this.files = this.files.filter((file) => !this.matchesFile(file, where));
+        for (const file of gone) this.documents.delete(file.id);
         return { count: before - this.files.length };
       },
       aggregate: async ({ where }: { where: Where }) => ({
@@ -420,6 +519,9 @@ export class FakeStorage {
   }
   async copy(bucket: string, from: string, to: string): Promise<void> {
     this.objects.set(`${bucket}/${to}`, await this.get(bucket, from));
+  }
+  async exists(bucket: string, key: string): Promise<boolean> {
+    return this.objects.has(`${bucket}/${key}`);
   }
   async get(bucket: string, key: string): Promise<Uint8Array> {
     const body = this.objects.get(`${bucket}/${key}`);

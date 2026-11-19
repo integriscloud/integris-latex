@@ -45,6 +45,29 @@ export async function apiRequest<T = void>(
 export const apiPost = <T = void>(path: string, body: object = {}) =>
   apiRequest<T>('POST', path, body);
 
+/** GET with the error code of the API (when the caller explains failures). */
+export async function apiRead<T>(
+  path: string,
+  as: 'json' | 'text' = 'json',
+): Promise<ApiResult<T>> {
+  let response: Response;
+  try {
+    response = await fetch(`/${API_PREFIX}/${path}`, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+  } catch {
+    return { ok: false, error: { code: 'network' } };
+  }
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: response.status >= 502 ? { code: 'network' } : await parseError(response),
+    };
+  }
+  return { ok: true, data: (as === 'json' ? await response.json() : await response.text()) as T };
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`/${API_PREFIX}/${path}`, { credentials: 'same-origin' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);

@@ -1,4 +1,10 @@
-import { expect, type Page, test } from '@playwright/test';
+import {
+  type BrowserContext,
+  expect,
+  type Page,
+  test,
+  type WebSocketRoute,
+} from '@playwright/test';
 import { closeHelpers, deleteTestUsers, eraseAllProjects, signUp, testPhone } from './auth-helpers';
 
 const created: string[] = [];
@@ -90,9 +96,8 @@ test('opens a file from the project page, edits it and saves it to storage', asy
   expect(families.some((family) => /jakarta/i.test(family))).toBe(true);
   expect(families.some((family) => /serif/i.test(family))).toBe(false);
 
-  // Typing is saved 2 s later; the outline follows.
+  // Typing goes to the collaboration server at once; the outline follows.
   await typeAtEnd(page, 'main.tex', '\n\\section{Résultats}\nTexte ajouté.');
-  await expect(page.getByText('Non enregistré', { exact: true })).toBeVisible();
   await saved(page);
   await page.reload();
   await expect(code(page, 'main.tex')).toContainText('Texte ajouté.');
@@ -137,7 +142,7 @@ test('opens a file from the project page, edits it and saves it to storage', asy
   await eraseAllProjects(page);
 });
 
-test('keeps changes while offline and asks before overwriting a newer version', async ({
+test('keeps changes while offline and takes a file replaced elsewhere', async ({
   page,
   context,
 }) => {
@@ -146,40 +151,132 @@ test('keeps changes while offline and asks before overwriting a newer version', 
   const id = await createProject(page);
   await page.goto(`/fr/app/projects/${id}/edit`);
   await expect(code(page, 'main.tex')).toContainText('\\begin{document}');
+  await saved(page);
 
-  // Network lost: the text stays in memory and is sent when the network is back.
+  // Network lost: the text stays in the page and is sent when the network is back.
   await context.setOffline(true);
   await typeAtEnd(page, 'main.tex', '\nHors ligne.');
-  await expect(
-    page.getByText(/Hors connexion — vos modifications seront enregistrées/),
-  ).toBeVisible({
-    timeout: 10_000,
+  await expect(page.getByText(/Hors connexion — vos modifications restent/)).toBeVisible({
+    timeout: 40_000,
   });
   await context.setOffline(false);
   await saved(page);
   await expect(page.getByText(/Hors connexion — vos modifications/)).toHaveCount(0);
 
-  // Another tab saves first: nothing is overwritten without a choice.
+  // The text reached storage: what the compilation and the search read.
   const files = (await (await page.request.get(`/api/projects/${id}`)).json()) as {
     files: { id: string; path: string }[];
   };
   const main = files.files.find((file) => file.path === 'main.tex')!;
-  const stored = await page.request.get(`/api/projects/${id}/files/${main.id}/content`);
-  const other = await page.request.put(`/api/projects/${id}/files/${main.id}/content`, {
-    headers: {
-      ...writeHeaders(page, 'application/octet-stream'),
-      'if-match': stored.headers().etag!,
+  await expect
+    .poll(async () =>
+      (await page.request.get(`/api/projects/${id}/files/${main.id}/content`)).text(),
+    )
+    .toContain('Hors ligne.');
+
+  // The file is replaced by an upload: the open editor takes the new text.
+  const upload = await page.request.put(
+    `/api/projects/${id}/files/upload?path=main.tex&replace=true`,
+    {
+      headers: writeHeaders(page, 'application/octet-stream'),
+      data: Buffer.from('Version téléversée\n'),
     },
-    data: Buffer.from('Version de l’autre onglet\n'),
-  });
-  expect(other.ok()).toBe(true);
-  await typeAtEnd(page, 'main.tex', '\nMa version.');
-  const dialog = page.getByRole('dialog', { name: 'Ce fichier a été modifié ailleurs' });
-  await expect(dialog).toBeVisible({ timeout: 10_000 });
-  await dialog.getByRole('button', { name: 'Charger la version enregistrée' }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(code(page, 'main.tex')).toHaveText('Version de l’autre onglet');
+  );
+  expect(upload.ok()).toBe(true);
+  await expect(code(page, 'main.tex')).toHaveText('Version téléversée');
   await saved(page);
+
+  await eraseAllProjects(page);
+});
+
+/**
+ * Every WebSocket of the context goes through Playwright, so that the network can really be cut:
+ * once cut, open sockets drop and new ones fail (the editor's and the development server's).
+ */
+async function cuttableSockets(context: BrowserContext) {
+  let cut = false;
+  const open = new Set<WebSocketRoute>();
+  await context.routeWebSocket(/.*/, (ws) => {
+    if (cut) {
+      void ws.close({ code: 1011, reason: 'network cut' });
+      return;
+    }
+    const server = ws.connectToServer();
+    open.add(ws);
+    ws.onMessage((message) => {
+      if (!cut) server.send(message);
+    });
+    server.onMessage((message) => {
+      if (!cut) ws.send(message);
+    });
+    ws.onClose((code, reason) => {
+      open.delete(ws);
+      void server.close({ code, reason });
+    });
+    server.onClose((code, reason) => {
+      open.delete(ws);
+      void ws.close({ code, reason });
+    });
+  });
+  return {
+    async cut() {
+      cut = true;
+      await context.setOffline(true);
+      for (const ws of open) await ws.close({ code: 1011, reason: 'network cut' });
+    },
+    async restore() {
+      cut = false;
+      await context.setOffline(false);
+    },
+  };
+}
+
+test('stays usable through a real network cut and syncs when it comes back', async ({
+  page,
+  context,
+}) => {
+  test.skip(test.info().project.name !== 'desktop', 'Network cut: desktop only');
+  test.setTimeout(240_000);
+  const network = await cuttableSockets(context);
+  await newAccount(page, 3);
+  const id = await createProject(page);
+  await page.goto(`/fr/app/projects/${id}/edit`);
+  await expect(code(page, 'main.tex')).toContainText('\\begin{document}');
+  await saved(page);
+
+  // The network goes for good: sockets get nothing more, requests fail.
+  await network.cut();
+  await typeAtEnd(page, 'main.tex', '\nCoupure longue.');
+  await expect(page.getByText('Hors connexion', { exact: true })).toBeVisible({ timeout: 40_000 });
+
+  // A reload asked meanwhile (F5, or the development server losing its own socket) would
+  // leave the browser's offline page: it is held back and the editor stays.
+  const dialogs: string[] = [];
+  page.on('dialog', (dialog) => {
+    dialogs.push(dialog.type());
+    void dialog.dismiss();
+  });
+  await page.evaluate(() => window.location.reload());
+  // Longer than the reconnection attempts of the development server's socket.
+  await page.waitForTimeout(60_000);
+  expect(dialogs).toContain('beforeunload');
+  await expect(code(page, 'main.tex')).toContainText('Coupure longue.');
+  await typeAtEnd(page, 'main.tex', '\nToujours hors ligne.');
+  await expect(code(page, 'main.tex')).toContainText('Toujours hors ligne.');
+  await expect(page.getByText('Hors connexion', { exact: true })).toBeVisible();
+
+  // Back: everything typed meanwhile reaches the server and storage.
+  await network.restore();
+  await saved(page);
+  const files = (await (await page.request.get(`/api/projects/${id}`)).json()) as {
+    files: { id: string; path: string }[];
+  };
+  const main = files.files.find((file) => file.path === 'main.tex')!;
+  await expect
+    .poll(async () =>
+      (await page.request.get(`/api/projects/${id}/files/${main.id}/content`)).text(),
+    )
+    .toMatch(/Coupure longue\.\nToujours hors ligne\./);
 
   await eraseAllProjects(page);
 });

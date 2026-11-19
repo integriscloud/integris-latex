@@ -1,6 +1,6 @@
 import '../load-env.js';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { type CanActivate, type ExecutionContext } from '@nestjs/common';
+import { type CanActivate, type ExecutionContext, type Type } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { AuthGuard } from '../auth/auth.guard.js';
@@ -31,6 +31,7 @@ export interface ProjectsTestApp {
 /** The projects API wired as in production, with a fake database and a fake object storage. */
 export async function createProjectsTestApp(
   overrides: Record<string, string> = {},
+  modules: Type[] = [],
 ): Promise<ProjectsTestApp> {
   const env = testEnv(overrides);
   const db = new FakeProjectsDb();
@@ -53,6 +54,7 @@ export async function createProjectsTestApp(
       SmsModule,
       MailModule,
       ProjectsModule,
+      ...modules,
     ],
     providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
   })
