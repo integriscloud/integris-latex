@@ -193,7 +193,7 @@ export function ShareDialog({ projectId, projectName, open, onClose }: ShareDial
     }
   };
 
-  const pricing = `${getPathname({ href: '/', locale })}#pricing`;
+  const pricing = getPathname({ href: '/app/billing/checkout', locale });
   const limitReached = inviteError?.code === 'collaborator_limit';
   const canShare = sharing?.canShare ?? false;
   const collaborators = sharing?.collaborators;

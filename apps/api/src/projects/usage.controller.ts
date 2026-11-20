@@ -24,7 +24,7 @@ export class UsageController {
   @ApiOkResponse({ description: 'Quotas, usage and alert level of each quota.' })
   async usage(@Auth() auth: AuthContext): Promise<AccountUsage> {
     const userId = auth.user.id;
-    const [sources, storage, hour, month, projects] = await Promise.all([
+    const [sources, storage, hour, month, projects, credit] = await Promise.all([
       this.quota.sources(userId),
       this.quota.storageUsed(userId),
       this.quota.compilesThisHour(userId),
@@ -33,6 +33,10 @@ export class UsageController {
         where: { ownerId: userId, deletedAt: null },
         select: { id: true, name: true, lastActivityAt: true, readOnlyReason: true },
         orderBy: [{ lastActivityAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+      this.prisma.client.creditEntry.aggregate({
+        where: { userId },
+        _sum: { amountXof: true },
       }),
     ]);
     const quotas = combineQuotas(sources.map((source) => source.plan));
@@ -78,6 +82,7 @@ export class UsageController {
         supervisionDashboard: quotas.supervisionDashboard,
         maxSupervisedStudents: quotas.maxSupervisedStudents,
       },
+      creditBalance: Math.max(0, credit._sum.amountXof ?? 0),
       writable: owned(false),
       readOnly: owned(true),
     });

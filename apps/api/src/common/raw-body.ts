@@ -1,4 +1,4 @@
-import type { ProjectErrorCode } from '@integris/shared';
+import type { ApiErrorCode } from '@integris/shared';
 import { HttpStatus } from '@nestjs/common';
 import type { Request } from 'express';
 import { ApiError } from './api-error.js';
@@ -10,9 +10,9 @@ import { ApiError } from './api-error.js';
  */
 export async function readRawBody(
   request: Request,
-  type: 'application/octet-stream' | 'application/zip',
+  type: 'application/octet-stream' | 'application/zip' | 'application/x-www-form-urlencoded',
   limit: number,
-  tooLarge: ProjectErrorCode,
+  tooLarge: ApiErrorCode,
 ): Promise<Uint8Array> {
   if (!request.is(type)) throw new ApiError(HttpStatus.UNSUPPORTED_MEDIA_TYPE, 'invalid_request');
   if (Number(request.get('content-length') ?? 0) > limit) {

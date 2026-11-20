@@ -10,6 +10,7 @@ import {
   parseEnv,
   PROJECTS_BUCKET,
   publicTemplateKey,
+  RECEIPTS_BUCKET,
   seedEnvSchema,
   TEMPLATES_BUCKET,
 } from '@integris/shared';
@@ -73,10 +74,34 @@ async function seedTemplates(): Promise<void> {
   console.log(`Templates: ${PUBLIC_TEMPLATES.length} uploaded to "${TEMPLATES_BUCKET}".`);
 }
 
+/** Receipt numbering (step 11): the counter row, created by the migration too. */
+async function seedBilling(): Promise<void> {
+  await prisma.billingCounter.upsert({
+    where: { id: 'receipt' },
+    create: { id: 'receipt', value: 0 },
+    update: {},
+  });
+  // A test promo code on development servers only; real codes come from the back-office.
+  if (process.env.NODE_ENV !== 'production') {
+    await prisma.promoCode.upsert({
+      where: { code: 'DEV10' },
+      create: { code: 'DEV10', percentOff: 10 },
+      update: {},
+    });
+    console.log('Promo code DEV10 (10 %, development only) ensured.');
+  }
+}
+
 try {
   await seedPlans();
   await seedTemplates();
-  for (const bucket of [PROJECTS_BUCKET, COMPILE_OUTPUT_BUCKET, COMPILE_CACHE_BUCKET]) {
+  await seedBilling();
+  for (const bucket of [
+    PROJECTS_BUCKET,
+    COMPILE_OUTPUT_BUCKET,
+    COMPILE_CACHE_BUCKET,
+    RECEIPTS_BUCKET,
+  ]) {
     await ensureBucket(bucket);
     console.log(`Bucket "${bucket}" ensured.`);
   }

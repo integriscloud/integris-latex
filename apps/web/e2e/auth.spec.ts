@@ -112,6 +112,10 @@ test('confirm an e-mail, set a password, log in with it', async ({ page }) => {
   await expect(page.getByText(`Adresse confirmée : ${email}`)).toBeVisible();
   // Changing the password first needs a confirmation by SMS code (valid 10 minutes).
   await expect(page.getByLabel('Nouveau mot de passe')).toHaveCount(0);
+  // The e-mail field is always shown, disabled until the identity is confirmed.
+  const emailField = page.getByRole('textbox', { name: 'E-mail' });
+  await expect(emailField).toBeDisabled();
+  await expect(page.getByText('Confirmez d’abord votre identité par SMS ci-dessus.')).toBeVisible();
   await resetLimits([phone.e164]);
   await forgetMessages(phone.e164);
   await page.getByRole('button', { name: 'Recevoir un code par SMS' }).click();
@@ -119,6 +123,7 @@ test('confirm an e-mail, set a password, log in with it', async ({ page }) => {
   await enterCode(page, await lastSmsCode(phone.e164));
   await page.getByRole('button', { name: 'Confirmer', exact: true }).click();
   await expect(page.getByText(/Identité confirmée jusqu'à/)).toBeVisible();
+  await expect(emailField).toBeEnabled();
   await page.getByLabel('Nouveau mot de passe').fill('ma-these-en-geologie');
   await page.getByRole('button', { name: 'Enregistrer le mot de passe' }).click();
   await expect(page.getByText('Mot de passe enregistré.', { exact: false })).toBeVisible();

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { AuthModule } from './auth/auth.module.js';
+import { BillingModule } from './billing/billing.module.js';
 import { CollabModule } from './collab/collab.module.js';
 import { CompileModule } from './compile/compile.module.js';
 import { OriginGuard } from './common/origin.guard.js';
@@ -47,6 +48,7 @@ import { SubmissionsModule } from './submissions/submissions.module.js';
     CollabModule,
     SharingModule,
     SubmissionsModule,
+    BillingModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
 })

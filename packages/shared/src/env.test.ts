@@ -82,6 +82,9 @@ describe('apiEnvSchema', () => {
     MINIO_API_ACCESS_KEY: 'api',
     MINIO_API_SECRET_KEY: 'c'.repeat(32),
     COLLAB_INTERNAL_SECRET: 'd'.repeat(32),
+    LIGDICASH_API_KEY: 'test-key',
+    LIGDICASH_AUTH_TOKEN: 'test-token',
+    LIGDICASH_API_URL: 'https://app.ligdicash.com',
   };
 
   it('applies the V1 anti-abuse defaults', () => {
@@ -129,6 +132,8 @@ describe('apiEnvSchema', () => {
         AUTH_SECRET: 'change-me-dev-auth-secret-at-least-32-characters',
         MINIO_API_SECRET_KEY: 'change-me-dev-minio-api',
         COLLAB_INTERNAL_SECRET: 'change-me-dev-collab-internal-secret-0123456789',
+        PAYMENT_PROVIDER: 'simulated',
+        LIGDICASH_API_URL: 'http://127.0.0.1:4999',
       });
     } catch (error) {
       message = String(error);
@@ -142,6 +147,10 @@ describe('apiEnvSchema', () => {
       'COLLAB_INTERNAL_SECRET',
       'REDIS_URL',
       'FILES_PUBLIC_URL',
+      'PAYMENT_PROVIDER',
+      'LIGDICASH_API_URL',
+      'BILLING_SUPPORT_EMAIL',
+      'BILLING_RCCM',
     ]) {
       expect(message).toContain(name);
     }

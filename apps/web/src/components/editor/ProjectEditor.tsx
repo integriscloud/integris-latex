@@ -706,7 +706,7 @@ export function ProjectEditor({
         ) : (
           <p className={styles.menuHelp}>
             {t('autoCompileFree')}{' '}
-            <a href={`${getPathname({ href: '/', locale })}#pricing`}>{t('upgrade')}</a>
+            <a href={getPathname({ href: '/app/billing/checkout', locale })}>{t('upgrade')}</a>
           </p>
         ))}
       {compileState && !compileState.canCompile && (
@@ -744,7 +744,7 @@ export function ProjectEditor({
           })
         : errorMessage(requestError)}{' '}
       {requestError.code === 'compile_limit' && (
-        <ButtonLink href={`${getPathname({ href: '/', locale })}#pricing`} variant="accent">
+        <ButtonLink href={getPathname({ href: '/app/billing/checkout', locale })} variant="accent">
           {t('upgrade')}
         </ButtonLink>
       )}
@@ -767,7 +767,7 @@ export function ProjectEditor({
             perHour: compileState?.maxPerHour ?? 0,
           })}{' '}
         {storageLevel !== 'ok' && t(storageLevel === 'full' ? 'storageFull' : 'storageWarn')}{' '}
-        <a href={`${getPathname({ href: '/', locale })}#pricing`}>{t('upgrade')}</a>
+        <a href={getPathname({ href: '/app/billing/checkout', locale })}>{t('upgrade')}</a>
       </p>
     </Alert>
   );
@@ -849,7 +849,10 @@ export function ProjectEditor({
             message: errorMessage({ code: failed[1].storeCode as ClientErrorCode }),
           })}{' '}
           {failed[1].storeCode === 'storage_limit' && (
-            <ButtonLink href={`${getPathname({ href: '/', locale })}#pricing`} variant="accent">
+            <ButtonLink
+              href={getPathname({ href: '/app/billing/checkout', locale })}
+              variant="accent"
+            >
               {t('upgrade')}
             </ButtonLink>
           )}

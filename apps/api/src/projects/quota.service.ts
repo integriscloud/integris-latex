@@ -9,9 +9,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.service.js';
 
-/** Statuses whose plan applies, within their dates. Status changes (expiry, pause) and grace
- * reminders belong to step 11; the dates are checked here so that a lapsed subscription never
- * gives its quotas, even before its status is changed. */
+/** Statuses whose plan applies, within their dates. The dates are checked here so that a lapsed
+ * subscription never gives its quotas, even before the sweeps change its status. */
 const LIVE_STATUSES: SubscriptionStatus[] = ['TRIALING', 'ACTIVE', 'GRACE'];
 
 const DAY_MS = 86_400_000;
@@ -26,9 +25,13 @@ interface SubscriptionDates {
   graceEndsAt: Date | null;
 }
 
-/** Until when a subscription applies: its grace end, else its period end plus the grace days. */
+/**
+ * Until when a subscription applies: its grace end, else its period end plus the grace days. A
+ * trial has no grace: it ends with its period (step 11 decision).
+ */
 export function subscriptionLiveUntil(subscription: SubscriptionDates): Date | null {
   if (!LIVE_STATUSES.includes(subscription.status)) return null;
+  if (subscription.status === 'TRIALING') return subscription.currentPeriodEnd;
   return (
     subscription.graceEndsAt ??
     new Date(subscription.currentPeriodEnd.getTime() + SUBSCRIPTION_GRACE_DAYS * DAY_MS)

@@ -107,25 +107,27 @@ function EmailForm({ me, locale, canEdit, onReauthRequired }: FormProps & { loca
         )}
         {sentTo && <Alert tone="success">{t('emailSent', { email: sentTo })}</Alert>}
         {error && !canEdit && <Alert tone="error">{message(error)}</Alert>}
-        {canEdit && (
-          <form onSubmit={submit} noValidate className={styles.form}>
-            <TextField
-              label={ta('fields.email')}
-              type="email"
-              autoComplete="email"
-              placeholder={ta('fields.emailPlaceholder')}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              error={error ? message(error) : undefined}
-              required
-            />
-            <div>
-              <Button type="submit" variant="secondary" busy={busy}>
-                {busy ? t('emailSubmitting') : t('emailSubmit')}
-              </Button>
-            </div>
-          </form>
-        )}
+        {/* Always shown: until the identity is confirmed by SMS (panel above), the field is
+            disabled and says so. */}
+        <form onSubmit={submit} noValidate className={styles.form}>
+          <TextField
+            label={ta('fields.email')}
+            type="email"
+            autoComplete="email"
+            placeholder={ta('fields.emailPlaceholder')}
+            value={email}
+            disabled={!canEdit}
+            help={canEdit ? undefined : t('emailNeedsReauth')}
+            onChange={(event) => setEmail(event.target.value)}
+            error={canEdit && error ? message(error) : undefined}
+            required
+          />
+          <div>
+            <Button type="submit" variant="secondary" busy={busy} disabled={!canEdit}>
+              {busy ? t('emailSubmitting') : t('emailSubmit')}
+            </Button>
+          </div>
+        </form>
       </section>
     </AuthCard>
   );

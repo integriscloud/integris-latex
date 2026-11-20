@@ -1,0 +1,151 @@
+/* Subscription, checkout and payment pages (screens without mockup, built from the tokens). */
+
+.subscriptions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: var(--espace-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  padding: var(--espace-5);
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-xl);
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.planName {
+  margin: 0;
+  font: var(--t-titre-4);
+}
+
+.text {
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--texte-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-5);
+  max-width: 640px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--espace-6);
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+  }
+}
+
+.promo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  align-items: flex-end;
+}
+
+.promo > :first-child {
+  flex: 1 1 200px;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  margin: 0;
+}
+
+.line {
+  display: flex;
+  gap: var(--espace-4);
+  justify-content: space-between;
+  font: var(--t-texte-sm);
+}
+
+.line dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.total {
+  padding-top: var(--espace-3);
+  font: var(--t-texte-lg);
+  font-weight: 600;
+  border-top: 1px solid var(--bordure);
+}
+
+.notices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payments {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2) var(--espace-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--espace-3) 0;
+  border-top: 1px solid var(--bordure);
+}
+
+.payment:first-child {
+  border-top: 0;
+}
+
+.paymentText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  min-width: 0;
+  font: var(--t-texte-sm);
+}
+
+.amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+  max-width: 640px;
+}

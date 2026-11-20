@@ -43,6 +43,11 @@ docker compose -f docker/dev.yml exec -T \
     },
     {
       "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": ["arn:aws:s3:::receipts/*"]
+    },
+    {
+      "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:DeleteObject"],
       "Resource": ["arn:aws:s3:::compile-output/*"]
     },

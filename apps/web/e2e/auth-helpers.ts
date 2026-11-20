@@ -239,3 +239,50 @@ export async function forgetInvitations(phones: string[]): Promise<void> {
     data: { status: 'REVOKED' },
   });
 }
+
+/**
+ * Billing tests (step 11) use kept accounts: payments, credits and audit entries are append-only
+ * or point to the payer. Before each run, their subscriptions end, their seats are released and
+ * the trial is available again, their credit balance is zero; a verified e-mail is set.
+ */
+export async function resetBillingAccount(e164: string, email: string): Promise<void> {
+  const user = await prisma().user.findUnique({ where: { phone: e164 } });
+  if (!user) return;
+  const owned = await prisma().membership.findMany({
+    where: { userId: user.id, role: 'OWNER' },
+    select: { organizationId: true },
+  });
+  const organizations = owned.map((row) => row.organizationId);
+  await prisma().subscription.updateMany({
+    where: { OR: [{ userId: user.id }, { organizationId: { in: organizations } }] },
+    data: { status: 'CANCELED', pendingPlanId: null },
+  });
+  await prisma().seat.updateMany({
+    where: { userId: user.id, releasedAt: null },
+    data: { releasedAt: new Date() },
+  });
+  await prisma().notification.deleteMany({ where: { userId: user.id } });
+  // Credit left by earlier runs: the ledger is append-only, so an entry brings it back to zero.
+  const credit = await prisma().creditEntry.aggregate({
+    where: { userId: user.id },
+    _sum: { amountXof: true },
+  });
+  const balance = credit._sum.amountXof ?? 0;
+  if (balance > 0) {
+    await prisma().creditEntry.create({
+      data: { userId: user.id, amountXof: -balance, reason: 'REFUNDED' },
+    });
+  }
+  await prisma().user.update({
+    where: { id: user.id },
+    data: { email, emailVerifiedAt: new Date(), trialUsedAt: null },
+  });
+  await redis().del(`dev:mail:${email}`, `dev:mail-attachments:${email}`);
+}
+
+/** Names and sizes of the files of the last e-mail with attachments sent to an address. */
+export async function lastMailAttachments(
+  email: string,
+): Promise<{ filename: string; size: number }[]> {
+  return JSON.parse((await redis().get(`dev:mail-attachments:${email}`)) ?? '[]');
+}

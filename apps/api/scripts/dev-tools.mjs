@@ -2,15 +2,20 @@
 //   pnpm dev:share <project id or name> <phone> [EDITOR|SUPERVISOR|REVIEWER|VIEWER|remove]
 //   pnpm dev:otp <phone>
 //   pnpm dev:plan <phone> [FREE|STANDARD|TEAM|BUSINESS] [--lapsed]
+//   pnpm dev:pay [<payment id or phone>] [completed|notcompleted|pending] [--twice]
 // Sharing is done in the app since step 8 (invitation accepted by the invitee). This tool stays
 // for tests: it gives an account a role at once, without invitation nor audit entry. The account
 // is created when the phone number has none (sign-in by SMS code, the code being read with
 // dev:otp since SMS are only written to the logs on latex-dev).
-// dev:plan gives an account a plan without payment (until step 11): it ends the subscriptions and
-// seats given by this tool before, then creates a personal STANDARD subscription or a seat in a
-// test TEAM/BUSINESS organization, for 30 days. FREE only ends them. --lapsed creates the
+// dev:plan gives an account a plan without payment: it ends the personal subscriptions (paid ones
+// too) and the seats given by this tool before, then creates a personal STANDARD subscription or
+// a seat in a test TEAM/BUSINESS organization, for 30 days. FREE only ends them. --lapsed creates the
 // subscription with its period and grace already over (the end of a subscription by its dates).
 // The running API (pnpm dev) then applies the plan's limits (read-only projects) at once.
+// dev:pay settles a payment of the simulated LigdiCash (PAYMENT_PROVIDER=simulated): it sets the
+// outcome the simulated status API answers, then calls the API callback like LigdiCash (JSON then
+// form); --twice sends them twice (idempotency). Without argument: the pending payments. The API
+// still checks the status itself before activating, as with LigdiCash.
 import { createPrismaClient } from '@integris/db';
 import {
   COLLAB_EVENTS_CHANNEL,
@@ -201,7 +206,7 @@ async function plan() {
 async function setPlan(prisma, user, code, lapsed) {
   const now = new Date();
   await prisma.$transaction(async (tx) => {
-    // Every subscription the tool gave before ends now (paid ones do not exist before step 11).
+    // Every personal subscription ends now, paid ones included (a test tool).
     await tx.subscription.updateMany({
       where: { userId: user.id, status: { in: ['TRIALING', 'ACTIVE', 'GRACE', 'PAUSED'] } },
       data: { status: 'CANCELED' },
@@ -324,10 +329,106 @@ async function show(prisma, user) {
     console.log(`    ${p.readOnlyReason ? 'read-only' : 'writable '}  ${p.name}`);
 }
 
+const OUTCOMES = ['completed', 'notcompleted', 'pending'];
+
+async function pay() {
+  if (process.env.PAYMENT_PROVIDER !== 'simulated') {
+    console.error('dev:pay needs PAYMENT_PROVIDER=simulated in .env (then restart pnpm dev).');
+    process.exitCode = 1;
+    return;
+  }
+  const positional = args.filter((arg) => !arg.startsWith('--'));
+  const twice = args.includes('--twice');
+  const [target, outcomeInput = 'completed'] = positional;
+  if (!OUTCOMES.includes(outcomeInput)) {
+    console.error(`Outcome must be one of ${OUTCOMES.join(', ')}.`);
+    process.exitCode = 1;
+    return;
+  }
+  const prisma = createPrismaClient(process.env.DATABASE_URL);
+  const redis = new Redis(process.env.REDIS_URL);
+  try {
+    if (!target) {
+      const pending = await prisma.payment.findMany({
+        where: { status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: { user: { select: { phone: true } } },
+      });
+      console.log(
+        'Usage: pnpm dev:pay <payment id or phone> [completed|notcompleted|pending] [--twice]\n',
+      );
+      console.log('Pending payments:');
+      for (const p of pending) {
+        console.log(
+          `  ${p.id}  ${p.amountXof} FCFA  ${p.purpose} ${p.planCode}  (${p.user.phone ?? '-'})`,
+        );
+      }
+      return;
+    }
+    const byPhone = /^\+?[\d ]{8,}$/.test(target);
+    const payment = byPhone
+      ? await prisma.payment.findFirst({
+          where: { user: { phone: phoneOf(target) }, providerToken: { not: null } },
+          orderBy: { createdAt: 'desc' },
+        })
+      : await prisma.payment.findUnique({ where: { id: target } });
+    if (!payment?.providerToken?.startsWith('sim_')) {
+      console.error('No payment of the simulated LigdiCash found (pay from the app first).');
+      process.exitCode = 1;
+      return;
+    }
+    const key = `dev:pay:${payment.providerToken}`;
+    const stored = await redis.get(key);
+    if (!stored) {
+      console.error('Simulated invoice expired (7 days).');
+      process.exitCode = 1;
+      return;
+    }
+    await redis.set(
+      key,
+      JSON.stringify({ ...JSON.parse(stored), status: outcomeInput }),
+      'KEEPTTL',
+    );
+    const url = `http://127.0.0.1:${PORTS.api}/api/payments/ligdicash/callback`;
+    const customData = [{ keyof_customdata: 'transaction_id', valueof_customdata: payment.id }];
+    const form = new URLSearchParams({
+      status: outcomeInput,
+      'custom_data[0][keyof_customdata]': 'transaction_id',
+      'custom_data[0][valueof_customdata]': payment.id,
+    });
+    for (let round = 0; round < (twice ? 2 : 1); round++) {
+      for (const [type, body] of [
+        ['application/json', JSON.stringify({ status: outcomeInput, custom_data: customData })],
+        ['application/x-www-form-urlencoded', form.toString()],
+      ]) {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': type },
+          body,
+        });
+        console.log(`Callback (${type}): ${response.status}`);
+      }
+    }
+    const after = await prisma.payment.findUnique({
+      where: { id: payment.id },
+      include: { receipt: { select: { number: true } } },
+    });
+    console.log(
+      `Payment ${after.id}: ${after.status}${after.duplicateReason ? ` (${after.duplicateReason})` : ''}` +
+        `${after.receipt ? `, receipt no. ${String(after.receipt.number).padStart(6, '0')}` : ''}.`,
+    );
+  } finally {
+    await prisma.$disconnect();
+    await redis.quit();
+  }
+}
+
 if (command === 'share') await share();
 else if (command === 'otp') await otp();
 else if (command === 'plan') await plan();
+else if (command === 'pay') await pay();
 else {
-  console.error('Commands: share, otp, plan');
+  console.error('Commands: share, otp, plan, pay');
   process.exitCode = 1;
 }

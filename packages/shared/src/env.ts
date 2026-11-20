@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_LIGDICASH_MIN_AMOUNT } from './billing.js';
 import { PORTS } from './ports.js';
 
 const nodeEnv = z.enum(['development', 'test', 'production']).default('development');
@@ -125,12 +126,53 @@ export const apiEnvSchema = z
     INVITATION_VIEWS_PER_HOUR_PER_IP: positiveInt(2000),
     PUBLIC_LINK_READS_PER_HOUR_PER_TOKEN: positiveInt(3000), // openings and source files
     PUBLIC_LINK_READS_PER_HOUR_PER_IP: positiveInt(6000),
+    // Payments (step 11): LigdiCash "payin avec redirection". `simulated` replaces LigdiCash by a
+    // local payment page and callback (development only, refused in production).
+    PAYMENT_PROVIDER: z.enum(['ligdicash', 'simulated']).default('ligdicash'),
+    LIGDICASH_API_KEY: z.string().min(1),
+    LIGDICASH_AUTH_TOKEN: z.string().min(1),
+    // Base of the LigdiCash API only (https://app.ligdicash.com, no sandbox): the paths
+    // (/pay/v01/...) are in the code.
+    LIGDICASH_API_URL: z
+      .url()
+      .refine((url) => ['', '/'].includes(new URL(url).pathname), 'Base URL without path'),
+    // Smallest amount of one LigdiCash transaction (FCFA). Below it, the minimum is paid and the
+    // difference is added to the payer's credit balance.
+    LIGDICASH_MIN_AMOUNT: positiveInt(DEFAULT_LIGDICASH_MIN_AMOUNT),
+    // A payment still pending after this many hours is closed (its reserved credit given back);
+    // paid later, it is credited to the payer.
+    PAYMENT_PENDING_HOURS: positiveInt(24),
+    // Technical ceiling of the seats of one self-serve order (BUSINESS has no maximum in the grid):
+    // keeps amounts within the database integers and one payment from creating huge seat lists.
+    BILLING_MAX_SEATS: positiveInt(5000),
+    // Address shown to ask for a refund (credited duplicates) and on receipts.
+    BILLING_SUPPORT_EMAIL: z.email().optional(),
+    // Legal mentions of Integris Cloud on receipts (required in production).
+    BILLING_COMPANY_NAME: z.string().min(1).default('Integris Cloud'),
+    BILLING_RCCM: z.string().min(1).optional(),
+    BILLING_IFU: z.string().min(1).optional(),
+    BILLING_ADDRESS: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
     // Development fakes and placeholders are refused on a production server.
     if (env.SMS_PROVIDER === 'log' || env.MAIL_PROVIDER === 'log') {
       ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'Development provider' });
+    }
+    if (env.PAYMENT_PROVIDER === 'simulated') {
+      ctx.addIssue({ code: 'custom', path: ['PAYMENT_PROVIDER'], message: 'Development provider' });
+    }
+    if (!env.LIGDICASH_API_URL.startsWith('https://')) {
+      ctx.addIssue({ code: 'custom', path: ['LIGDICASH_API_URL'], message: 'HTTPS required' });
+    }
+    for (const name of [
+      'BILLING_SUPPORT_EMAIL',
+      'BILLING_RCCM',
+      'BILLING_IFU',
+      'BILLING_ADDRESS',
+    ] as const) {
+      if (!env[name])
+        ctx.addIssue({ code: 'custom', path: [name], message: 'Required in production' });
     }
     const urls: [string, string][] = [
       ['PUBLIC_WEB_URL', env.PUBLIC_WEB_URL],
@@ -159,6 +201,8 @@ export const apiEnvSchema = z
       'ALTCHA_HMAC_KEY',
       'MINIO_API_SECRET_KEY',
       'COLLAB_INTERNAL_SECRET',
+      'LIGDICASH_API_KEY',
+      'LIGDICASH_AUTH_TOKEN',
     ] as const) {
       if (env[name].includes('change-me')) {
         ctx.addIssue({ code: 'custom', path: [name], message: 'Placeholder secret' });

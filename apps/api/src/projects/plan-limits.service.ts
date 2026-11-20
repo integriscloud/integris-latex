@@ -160,9 +160,10 @@ export class PlanLimitsService implements OnApplicationBootstrap, OnModuleDestro
   }
 
   /**
-   * Subscriptions whose grace ended are marked EXPIRED and the limits of the users who held them
-   * (the personal subscriber, or the holders of its seats) are applied again. Reminders and the
-   * GRACE status come with the payments (step 11).
+   * Subscriptions whose grace ended, and trials whose period ended (no grace after a trial), are
+   * marked EXPIRED and the limits of the users who held them (the personal subscriber, or the
+   * holders of its seats) are applied again. The GRACE status and the reminders are set by the
+   * billing scheduler (step 11).
    */
   async sweep(now = new Date()): Promise<number> {
     const db = this.prisma.client;
@@ -170,8 +171,10 @@ export class PlanLimitsService implements OnApplicationBootstrap, OnModuleDestro
       where: {
         status: { in: LIVE_STATUSES },
         OR: [
-          { graceEndsAt: { lte: now } },
+          { status: 'TRIALING', currentPeriodEnd: { lte: now } },
+          { status: { not: 'TRIALING' }, graceEndsAt: { lte: now } },
           {
+            status: { not: 'TRIALING' },
             graceEndsAt: null,
             currentPeriodEnd: { lte: new Date(now.getTime() - SUBSCRIPTION_GRACE_DAYS * DAY_MS) },
           },
@@ -179,6 +182,7 @@ export class PlanLimitsService implements OnApplicationBootstrap, OnModuleDestro
       },
       select: {
         id: true,
+        status: true,
         userId: true,
         seats: { where: { releasedAt: null }, select: { userId: true } },
       },
@@ -197,7 +201,9 @@ export class PlanLimitsService implements OnApplicationBootstrap, OnModuleDestro
               action: 'SUBSCRIPTION_EXPIRED',
               targetType: 'Subscription',
               targetId: subscription.id,
-              metadata: { reason: 'grace_over' },
+              metadata: {
+                reason: subscription.status === 'TRIALING' ? 'trial_over' : 'grace_over',
+              },
             },
           });
         }

@@ -36,6 +36,10 @@ export function testEnv(overrides: Record<string, string> = {}): ApiEnv {
     MINIO_API_ACCESS_KEY: 'unused',
     MINIO_API_SECRET_KEY: 'unused-in-tests',
     COLLAB_INTERNAL_SECRET: 'test-collab-internal-secret-0123456789abcdef',
+    LIGDICASH_API_KEY: 'test-ligdicash-key',
+    LIGDICASH_AUTH_TOKEN: 'test-ligdicash-token',
+    LIGDICASH_API_URL: 'https://ligdicash.test',
+    BILLING_SUPPORT_EMAIL: 'facturation@integris.test',
     ...overrides,
   });
 }

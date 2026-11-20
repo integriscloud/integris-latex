@@ -158,7 +158,7 @@ export function HistoryPanel({
 
   const canRestore = list?.canRestore ?? false;
   const version = detail && detail.version.id === selected ? detail : null;
-  const pricing = `${getPathname({ href: '/', locale })}#pricing`;
+  const pricing = getPathname({ href: '/app/billing/checkout', locale });
 
   if (selected) {
     return (

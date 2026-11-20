@@ -178,6 +178,7 @@ export class FakeProjectsDb {
       locale: 'fr',
       editorSpellcheck: false,
       lastSpace: null,
+      trialUsedAt: null,
       isSuperAdmin: false,
       disabledAt: null,
       createdAt: new Date(),
@@ -435,6 +436,10 @@ export class FakeProjectsDb {
             graceEndsAt: null,
           },
         })),
+    },
+    // No credit in the projects tests (payments: test/fake-billing-db.ts).
+    creditEntry: {
+      aggregate: async () => ({ _sum: { amountXof: null } }),
     },
     usageCounter: {
       findUnique: async ({

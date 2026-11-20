@@ -1,4 +1,5 @@
 export * from './auth.js';
+export * from './billing.js';
 export * from './collab.js';
 export * from './compile.js';
 export * from './compile-log.js';

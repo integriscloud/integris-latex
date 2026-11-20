@@ -81,6 +81,8 @@ export const accountUsageSchema = z.object({
     supervisionDashboard: z.boolean(),
     maxSupervisedStudents: count.nullable(),
   }),
+  /** Credit balance (FCFA) deducted from the next payment (step 11). */
+  creditBalance: count,
   /** Owned projects outside the trash. */
   writable: z.array(ownedProjectSchema),
   readOnly: z.array(ownedProjectSchema),

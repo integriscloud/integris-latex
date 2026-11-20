@@ -24,8 +24,12 @@ export class OwnerLockService {
 
   constructor(private readonly redis: RedisService) {}
 
-  async run<T>(ownerId: string, task: () => Promise<T>): Promise<T> {
-    const key = `lock:owner:${ownerId}`;
+  run<T>(ownerId: string, task: () => Promise<T>): Promise<T> {
+    return this.runKey(`lock:owner:${ownerId}`, task);
+  }
+
+  /** Same lock on any key (billing: `lock:billing:<payer id>`). */
+  async runKey<T>(key: string, task: () => Promise<T>): Promise<T> {
     const token = randomUUID();
     const deadline = Date.now() + WAIT_MS;
     while ((await this.redis.client.set(key, token, 'PX', LOCK_MS, 'NX')) !== 'OK') {
@@ -36,11 +40,9 @@ export class OwnerLockService {
       void this.redis.client
         .eval(EXTEND, 1, key, token, LOCK_MS)
         .then((extended) => {
-          if (extended !== 1) this.logger.warn({ ownerId }, 'Owner lock lost during a task');
+          if (extended !== 1) this.logger.warn({ key }, 'Lock lost during a task');
         })
-        .catch((error: unknown) =>
-          this.logger.warn({ err: error, ownerId }, 'Owner lock renewal failed'),
-        );
+        .catch((error: unknown) => this.logger.warn({ err: error, key }, 'Lock renewal failed'));
     }, RENEW_MS);
     try {
       return await task();

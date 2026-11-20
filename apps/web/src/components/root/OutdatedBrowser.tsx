@@ -7,6 +7,7 @@ import {
   outdatedBrowserScript,
 } from '../../lib/browsers/outdated';
 import styles from './outdated-browser.module.css';
+import { ServerOnlyScript } from './ServerOnlyScript';
 
 /**
  * Banner of a browser older than the target (docs/spec.md, "Navigateurs"), on every page. It is
@@ -38,7 +39,7 @@ export async function OutdatedBrowser({ locale }: { locale: Locale }) {
           </p>
         </Alert>
       </div>
-      <script dangerouslySetInnerHTML={{ __html: outdatedBrowserScript(buildMinimums()) }} />
+      <ServerOnlyScript html={outdatedBrowserScript(buildMinimums())} />
     </>
   );
 }

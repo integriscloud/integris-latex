@@ -43,6 +43,7 @@ export class FakePrisma {
       locale: 'fr',
       editorSpellcheck: false,
       lastSpace: null,
+      trialUsedAt: null,
       isSuperAdmin: false,
       disabledAt: null,
       createdAt: new Date(),

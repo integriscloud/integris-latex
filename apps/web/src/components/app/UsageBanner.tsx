@@ -54,7 +54,10 @@ export function UsageBanner({ usage }: { usage: ProjectUsage }) {
       alert={alert}
       action={
         alert && (
-          <ButtonLink href={`${getPathname({ href: '/', locale })}#pricing`} variant="accent">
+          <ButtonLink
+            href={getPathname({ href: '/app/billing/checkout', locale })}
+            variant="accent"
+          >
             {t('upgrade')}
           </ButtonLink>
         )

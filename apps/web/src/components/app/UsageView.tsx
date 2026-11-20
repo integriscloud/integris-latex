@@ -33,7 +33,7 @@ export function UsageView({ usage }: { usage: AccountUsage }) {
   const router = useRouter();
   const [writable, setWritable] = useState<{ id: string; name: string } | null>(null);
   const name = (value: { fr: string; en: string }) => (locale === 'fr' ? value.fr : value.en);
-  const pricing = `${getPathname({ href: '/', locale })}#pricing`;
+  const pricing = getPathname({ href: '/app/billing/checkout', locale });
   const date = (value: string) => format.dateTime(new Date(value), { dateStyle: 'medium' });
 
   const meterValue = (meter: Meter, value: UsageMeter) => {
@@ -108,6 +108,15 @@ export function UsageView({ usage }: { usage: AccountUsage }) {
           {usage.sources.length > 1 && <p className={styles.muted}>{t('bestWins')}</p>}
         </div>
       </Panel>
+
+      {usage.creditBalance > 0 && (
+        <Alert tone="info" announce={false}>
+          <p>
+            {t('credit', { amount: usage.creditBalance })}{' '}
+            <a href={getPathname({ href: '/app/billing', locale })}>{t('creditLink')}</a>
+          </p>
+        </Alert>
+      )}
 
       <UsageSummary
         plan={<span className={styles.label}>{t('quotasTitle')}</span>}

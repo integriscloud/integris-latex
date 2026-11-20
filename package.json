@@ -22,6 +22,7 @@
     "dev:share": "node apps/api/scripts/dev-tools.mjs share",
     "dev:otp": "node apps/api/scripts/dev-tools.mjs otp",
     "dev:plan": "node apps/api/scripts/dev-tools.mjs plan",
+    "dev:pay": "node apps/api/scripts/dev-tools.mjs pay",
     "dev:check-env": "node scripts/check-env.mjs"
   },
   "devDependencies": {

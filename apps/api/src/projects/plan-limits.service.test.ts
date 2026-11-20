@@ -52,6 +52,15 @@ describe('subscription dates', () => {
     ).toBe(false);
   });
 
+  it('ends a trial with its period, without grace (step 11 decision)', () => {
+    expect(
+      subscriptionLiveUntil({ status: 'TRIALING', currentPeriodEnd: end(2), graceEndsAt: null }),
+    ).toEqual(end(2));
+    expect(
+      isSubscriptionLive({ status: 'TRIALING', currentPeriodEnd: end(-1), graceEndsAt: null }, now),
+    ).toBe(false);
+  });
+
   it('never applies a paused, expired or canceled subscription', () => {
     for (const status of ['PAUSED', 'EXPIRED', 'CANCELED'] as const) {
       expect(

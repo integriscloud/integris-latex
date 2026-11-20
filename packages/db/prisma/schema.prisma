@@ -196,6 +196,16 @@ enum PaymentPurpose {
   EXTRA_SEATS
 }
 
+// Ledger of a payer's credit balance (balance = sum of amounts, never negative).
+enum CreditReason {
+  DUPLICATE_PAYMENT // payment verified twice or for a change already applied
+  MIN_AMOUNT_TOPUP // remainder below the LigdiCash minimum: the minimum is paid, the rest credited
+  PRORATION_SURPLUS // upgrade credit larger than the new price
+  USED // deducted from a payment (reserved at checkout)
+  RELEASED // reservation given back: the payment failed or expired
+  REFUNDED // paid back from the back-office (step 14)
+}
+
 enum NotificationChannel {
   IN_APP
   SMS
@@ -221,6 +231,8 @@ model User {
   // Browser spell checker in the editor's code (off by default; comments and fields keep it).
   editorSpellcheck Boolean   @default(false)
   lastSpace        String? // last chosen space: "personal" or an organization id
+  // The STANDARD trial is given once per account (step 11 decision)
+  trialUsedAt      DateTime?
   isSuperAdmin     Boolean   @default(false)
   disabledAt       DateTime?
   createdAt        DateTime  @default(now())
@@ -240,6 +252,8 @@ model User {
   reviews               SubmissionReviewer[]
   compilations          Compilation[]
   payments              Payment[]
+  credits               CreditEntry[]
+  promoRedemptions      PromoRedemption[]
   notifications         Notification[]
   usage                 UsageCounter[]
   auditLogs             AuditLog[]
@@ -285,26 +299,34 @@ model Plan {
 }
 
 model Subscription {
-  id                  String             @id @default(cuid())
-  planId              String
-  plan                Plan               @relation(fields: [planId], references: [id])
+  id                   String             @id @default(cuid())
+  planId               String
+  plan                 Plan               @relation(fields: [planId], references: [id])
   // exactly one of userId (FREE/STANDARD) or organizationId (TEAM/BUSINESS), enforced by a CHECK
-  userId              String?
-  user                User?              @relation("PersonalSubscription", fields: [userId], references: [id])
-  organizationId      String?            @unique
-  organization        Organization?      @relation(fields: [organizationId], references: [id])
-  status              SubscriptionStatus
-  billingPeriod       BillingPeriod
-  seatCount           Int                @default(1)
-  currentPeriodStart  DateTime
-  currentPeriodEnd    DateTime
-  graceEndsAt         DateTime?
-  pausedAt            DateTime? // STANDARD paused while holding a TEAM/BUSINESS seat
-  pausedRemainingDays Int?
-  pendingPlanId       String? // downgrade applied at period end
-  trialEndsAt         DateTime?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  userId               String?
+  user                 User?              @relation("PersonalSubscription", fields: [userId], references: [id])
+  organizationId       String?            @unique
+  organization         Organization?      @relation(fields: [organizationId], references: [id])
+  status               SubscriptionStatus
+  billingPeriod        BillingPeriod
+  seatCount            Int                @default(1)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  graceEndsAt          DateTime?
+  pausedAt             DateTime? // STANDARD paused while holding a TEAM/BUSINESS seat
+  pausedRemainingDays  Int?
+  // Lower plan, period or seat count paid in advance, applied at period end (renewal)
+  pendingPlanId        String?
+  pendingBillingPeriod BillingPeriod?
+  pendingSeatCount     Int?
+  pendingValueXof      Int? // value of the pending period (after promo)
+  // Value (FCFA, after promo) of the paid time [paidFromAt, currentPeriodEnd]: base of the
+  // upgrade proration credit
+  paidValueXof         Int                @default(0)
+  paidFromAt           DateTime?
+  trialEndsAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   seats    Seat[]
   payments Payment[]
@@ -342,13 +364,18 @@ model PromoCode {
   redemptions PromoRedemption[]
 }
 
+// A code is used once per account (step 11 decision)
 model PromoRedemption {
   id          String    @id @default(cuid())
   promoCodeId String
   promoCode   PromoCode @relation(fields: [promoCodeId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
   paymentId   String    @unique
   payment     Payment   @relation(fields: [paymentId], references: [id])
   createdAt   DateTime  @default(now())
+
+  @@unique([promoCodeId, userId])
 }
 
 model Payment {
@@ -361,8 +388,17 @@ model Payment {
   planCode              PlanCode
   billingPeriod         BillingPeriod
   seats                 Int            @default(1)
-  amountXof             Int // final amount charged (TTC)
-  breakdown             Json // base, proration credit, volume discount, promo
+  amountXof             Int // final amount charged through LigdiCash (TTC), 0 when credit or promo covers all
+  breakdown             Json // base, proration credit, volume discount, promo, credit used, minimum top-up
+  // What was bought and the subscription state it was priced on (duplicate detection)
+  order                 Json
+  creditUsedXof         Int            @default(0)
+  promoCodeId           String?
+  locale                Locale         @default(fr)
+  checkoutUrl           String?
+  // Why a verified payment was credited instead of applied
+  duplicateReason       String?
+  lastCheckedAt         DateTime?
   status                PaymentStatus  @default(PENDING)
   provider              String         @default("LIGDICASH")
   providerToken         String?        @unique
@@ -374,8 +410,30 @@ model Payment {
 
   receipt    Receipt?
   redemption PromoRedemption?
+  credits    CreditEntry[]
 
   @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model CreditEntry {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  amountXof Int // positive: credit added; negative: credit used
+  reason    CreditReason
+  paymentId String?
+  payment   Payment?     @relation(fields: [paymentId], references: [id])
+  createdAt DateTime     @default(now())
+
+  @@index([userId])
+  @@index([paymentId])
+}
+
+// Gap-free counters (receipt numbers): incremented inside the transaction that uses them
+model BillingCounter {
+  id    String @id
+  value Int
 }
 
 model Receipt {

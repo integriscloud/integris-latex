@@ -1,4 +1,4 @@
-import { projectListSchema, toReviewListSchema } from '@integris/shared';
+import { billingOverviewSchema, projectListSchema, toReviewListSchema } from '@integris/shared';
 import { ButtonLink, PageHeader } from '@integris/ui';
 import { FileArchive, Plus } from 'lucide-react';
 import type { Locale } from 'next-intl';
@@ -7,9 +7,12 @@ import { AppFrame } from '../../../../components/app/AppFrame';
 import { ProjectsView } from '../../../../components/app/ProjectsView';
 import { UsageBanner } from '../../../../components/app/UsageBanner';
 import { authMetadata } from '../../../../components/auth/AuthChrome';
+import { BillingNotices } from '../../../../components/billing/BillingNotices';
 import { ToReviewSection } from '../../../../components/submissions/ToReviewSection';
 import { spaceLabels } from '../../../../components/auth/space-labels';
 import { getPathname, redirect } from '../../../../i18n/navigation';
+import { planNamesOf } from '../../../../lib/billing';
+import { fetchPublicPlans } from '../../../../lib/plans';
 import { serverGet } from '../../../../lib/server-api';
 import { atProjectLimit } from '../../../../lib/usage';
 import { requireMe } from '../../../../lib/session';
@@ -34,10 +37,13 @@ export default async function ProjectsPage({ params }: PageProps) {
   const me = await requireMe(locale);
   const space = me.spaces.find((item) => item.id === me.currentSpaceId);
   if (!space) return redirect({ href: '/spaces', locale });
-  const [list, toReview] = await Promise.all([
+  const [list, toReview, billing] = await Promise.all([
     serverGet('projects', projectListSchema),
     serverGet('submissions/to-review', toReviewListSchema),
+    // Billing notices (renewal, grace, trial, credit): never blocks the projects page.
+    serverGet('billing', billingOverviewSchema).catch(() => null),
   ]);
+  const plans = billing?.notices.length ? await fetchPublicPlans() : null;
   if (!list) return redirect({ href: '/login', locale });
 
   const t = await getTranslations('Projects');
@@ -68,6 +74,13 @@ export default async function ProjectsPage({ params }: PageProps) {
           )
         }
       />
+      {billing && (
+        <BillingNotices
+          notices={billing.notices}
+          planNames={planNamesOf(plans, locale)}
+          supportEmail={billing.supportEmail}
+        />
+      )}
       <UsageBanner usage={list.usage} />
       {toReview && <ToReviewSection list={toReview} locale={locale} />}
       <ProjectsView list={list} now={new Date().toISOString()} />

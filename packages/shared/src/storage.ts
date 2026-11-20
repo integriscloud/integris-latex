@@ -67,3 +67,11 @@ export function allowedExtensionOf(path: string): ProjectExtension | null {
 export function isTextExtension(extension: ProjectExtension): boolean {
   return TEXT_PROJECT_EXTENSIONS.includes(extension);
 }
+
+/** Private MinIO bucket holding receipt PDFs (API access only; receipts are sent by e-mail). */
+export const RECEIPTS_BUCKET = 'receipts';
+
+/** Object key of a receipt PDF, by its sequential number. */
+export function receiptKey(number: number): string {
+  return `${String(number).padStart(6, '0')}.pdf`;
+}
