@@ -3,6 +3,7 @@
   "ui": "stream",
   "globalDependencies": ["eslint.config.mjs", "tsconfig.base.json", ".env.example"],
   "globalEnv": ["NODE_ENV"],
+  "globalPassThroughEnv": ["REDIS_URL"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

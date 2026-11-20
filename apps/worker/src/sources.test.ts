@@ -29,6 +29,7 @@ describe('downloadSources', () => {
     engine: 'PDFLATEX',
     mainFile: 'main.tex',
     timeoutSeconds: 20,
+    cache: true,
     files,
   });
   const options = () => ({ minioOrigin: origin, maxTotalBytes: 1000 });
