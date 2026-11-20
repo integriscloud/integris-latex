@@ -195,6 +195,8 @@ Tout paiement passe par la plateforme, via LigdiCash, sur le compte marchand d'I
 - **Ajout de sièges** : payé au prorata jusqu'à la prochaine échéance, puis tous les sièges sont renouvelés ensemble.
 - **Dépassement de quota** : blocage et proposition de plan supérieur ; recharges en V2.
 - **Reçus** : PDF automatique à chaque paiement, envoyé par e-mail uniquement, numérotation continue. Taux de TVA et obligation éventuelle de facture certifiée à confirmer par le comptable d'Integris.
+  - *TVA* (décision étape 11) : taux réglable en configuration (`VAT_RATE_PERCENT`, 0 par défaut). Les prix de la table Plan restent TTC. Chaque reçu affiche toujours le montant HT, une ligne dédiée « TVA (x %) » (« TVA (0 %) : 0 FCFA » tant que le taux est 0) et le total TTC payé ; le taux est conservé avec chaque paiement, de sorte qu'un changement de taux ne demande aucune modification de code et ne modifie pas les reçus déjà émis.
+  - *Mentions légales* (décision étape 11) : raison sociale, RCCM, IFU et adresse d'Integris Cloud sont en configuration ; « à compléter » sur les reçus en développement ; l'API refuse de démarrer en production si l'une d'elles est vide (voir Points ouverts).
 - **Remboursement** : aucun, sauf erreur ou doublon ; les doublons sont détectés et remboursés ou convertis en crédit.
 - **Business en libre-service** : formulaire avec nom de l'organisation, IFU facultatif, nombre de sièges, durée et code promo ; prix calculé en direct ; paiement LigdiCash ; activation immédiate.
 - **Essais et promotions** : 14 jours de Standard sans paiement ; 30 jours de Business pour une université pilote (activé depuis le back-office) ; codes promo en pourcentage avec date de fin et nombre d'utilisations.
@@ -203,7 +205,7 @@ Tout paiement passe par la plateforme, via LigdiCash, sur le compte marchand d'I
 - **Standard et siège Team ou Business** (décision étape 11) : le Standard payé est mis en pause et prolongé d'autant, sans crédit. Le prorata ne joue qu'à l'intérieur d'un même abonnement (mensuel vers annuel, Team vers Business, sièges ajoutés).
 - **Doublons** (décision étape 11) : un paiement vérifié en double (même commande, ou changement déjà appliqué) est marqué « crédité », a son reçu, et son montant s'ajoute au solde de crédit du payeur, déduit automatiquement de son paiement suivant. Le payeur est prévenu aussitôt (application et e-mail) du montant crédité et du moyen d'obtenir un remboursement (adresse e-mail de facturation, en citant le numéro du reçu). Le solde de crédit est visible dans « Ma consommation » et sur la page de paiement. Chaque crédit est journalisé. Le remboursement se décide au back-office (étape 14).
 - **Montant nul ou faible** (décision étape 11) : si le crédit ou un code promo couvre tout le prix, l'offre est activée aussitôt sans LigdiCash, avec un paiement de 0 FCFA, son reçu et son journal. Un montant minimum de transaction LigdiCash est réglable (100 FCFA par défaut) : si le reste à payer est inférieur à ce minimum, le minimum est payé et la différence s'ajoute au solde de crédit, avec une explication sur la page de paiement et sur le reçu.
-- **Choix par défaut de l'étape 11** (proposés, à confirmer) : renouvellement payé pendant la grâce à partir de l'ancienne échéance (après retour en Gratuit, nouvel abonnement au paiement) ; prorata au jour près, crédit arrondi au FCFA supérieur et prix des sièges ajoutés au FCFA inférieur ; plan inférieur choisi au renouvellement et appliqué à l'échéance ; reçus TTC sans ligne de TVA, mentions légales en configuration, numérotation continue ; rappels par SMS et dans l'application.
+- **Choix de l'étape 11** (confirmés le 20 novembre 2026) : renouvellement payé pendant la grâce à partir de l'ancienne échéance (après retour en Gratuit, nouvel abonnement au paiement) ; prorata au jour près, crédit arrondi au FCFA supérieur et prix des sièges ajoutés au FCFA inférieur ; plan inférieur choisi au renouvellement et appliqué à l'échéance ; rappels par SMS et dans l'application.
 
 **Back-office Integris (super-administrateur)** : plans, prix et quotas modifiables sans code ; utilisateurs et organisations ; paiements et remboursements ; essais Business ; codes promo ; modèles publics ; statistiques (inscrits, payants, revenus, compilations).
 
@@ -332,7 +334,8 @@ L'intégration des maquettes du designer se fait écran par écran à partir de 
 - [ ] Confirmer l'attribution des 4 IP aux rôles
 - [ ] Paramètres SMTP d'Integris (hôte, port, compte d'envoi, adresse expéditrice)
 - [ ] Identifiants LigdiCash du compte marchand Integris (test et production) et expéditeur SMS INTEGRIS
-- [ ] Taux de TVA et facture certifiée : avis du comptable d'Integris
+- [ ] Taux de TVA et facture certifiée : avis du comptable d'Integris (le taux se règle par `VAT_RATE_PERCENT`, 0 en attendant)
+- [ ] **Bloquant pour la mise en production** : raison sociale, RCCM, IFU et adresse d'Integris Cloud pour les reçus (`BILLING_COMPANY_NAME`, `BILLING_RCCM`, `BILLING_IFU`, `BILLING_ADDRESS`) ; l'API refuse de démarrer en production tant que l'une d'elles est vide
 - [ ] Portée des cookies du portail Integris (doivent rester limités à leur sous-domaine)
 - [ ] Premiers modèles de mémoires (normes de 3 universités)
 - [ ] Maquettes du designer : éditeur en priorité

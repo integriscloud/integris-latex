@@ -6,6 +6,10 @@ const nodeEnv = z.enum(['development', 'test', 'production']).default('developme
 
 const positiveInt = (fallback: number) => z.coerce.number().int().positive().default(fallback);
 
+/** Optional text: an empty value (`KEY=` in .env) counts as missing. */
+const optionalText = () =>
+  z.preprocess((value) => (value === '' ? undefined : value), z.string().trim().min(1).optional());
+
 /** Comma-separated list, e.g. "226,225". Empty items are dropped. */
 const csv = (fallback: string) =>
   z
@@ -146,12 +150,20 @@ export const apiEnvSchema = z
     // keeps amounts within the database integers and one payment from creating huge seat lists.
     BILLING_MAX_SEATS: positiveInt(5000),
     // Address shown to ask for a refund (credited duplicates) and on receipts.
-    BILLING_SUPPORT_EMAIL: z.email().optional(),
-    // Legal mentions of Integris Cloud on receipts (required in production).
-    BILLING_COMPANY_NAME: z.string().min(1).default('Integris Cloud'),
-    BILLING_RCCM: z.string().min(1).optional(),
-    BILLING_IFU: z.string().min(1).optional(),
-    BILLING_ADDRESS: z.string().min(1).optional(),
+    BILLING_SUPPORT_EMAIL: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.email().optional(),
+    ),
+    // Legal mentions of Integris Cloud on receipts: "à compléter" on the receipts while missing
+    // in development; the API refuses to start in production without them (docs/spec.md,
+    // "Points ouverts").
+    BILLING_COMPANY_NAME: optionalText(),
+    BILLING_RCCM: optionalText(),
+    BILLING_IFU: optionalText(),
+    BILLING_ADDRESS: optionalText(),
+    // VAT rate (%) shown on receipts. Plan prices are TTC: the receipt splits the amount paid
+    // into HT and VAT with this rate (0 until the accountant of Integris decides).
+    VAT_RATE_PERCENT: z.coerce.number().min(0).max(100).default(0),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
@@ -167,6 +179,7 @@ export const apiEnvSchema = z
     }
     for (const name of [
       'BILLING_SUPPORT_EMAIL',
+      'BILLING_COMPANY_NAME',
       'BILLING_RCCM',
       'BILLING_IFU',
       'BILLING_ADDRESS',

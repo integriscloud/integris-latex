@@ -160,6 +160,8 @@ describe('checkout and LigdiCash callback', () => {
     expect(t.db.rows('auditLog', { action: 'PAYMENT_VERIFIED' })).toHaveLength(1);
     expect(t.db.rows('receipt')).toHaveLength(1);
     expect(t.db.rows('receipt')[0]).toMatchObject({ number: 1 });
+    // The VAT rate of the payment is kept: a later change of VAT_RATE_PERCENT leaves it alone.
+    expect(t.db.rows('payment')[0]!.breakdown).toMatchObject({ vatRatePercent: 0 });
     const mail = t.outbox.mails.find((item) => item.subject.includes('000001'))!;
     expect(mail.to).toBe(user.email);
     expect(mail.attachments?.[0]).toMatchObject({

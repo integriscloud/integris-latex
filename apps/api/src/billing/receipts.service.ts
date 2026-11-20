@@ -1,5 +1,5 @@
 import type { Locale, Payment, Prisma, Receipt } from '@integris/db';
-import { RECEIPTS_BUCKET, receiptKey } from '@integris/shared';
+import { RECEIPTS_BUCKET, receiptKey, vatOf } from '@integris/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import PDFDocument from 'pdfkit';
@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import {
   formatDate,
+  formatPercent,
   formatXof,
   receiptLabels,
   receiptMail,
@@ -31,6 +32,8 @@ export interface Breakdown {
   minAmount: number;
   periodStart: string;
   periodEnd: string;
+  /** VAT rate when the payment was created (VAT_RATE_PERCENT); absent before it existed (0). */
+  vatRatePercent?: number;
 }
 
 /** Who paid, as printed on the receipt (`Receipt.billedTo`). */
@@ -191,7 +194,7 @@ export class ReceiptsService {
       size: 'A4',
       margin: 56,
       compress: env.NODE_ENV !== 'test',
-      info: { Title: `${t.title} ${number}`, Author: env.BILLING_COMPANY_NAME },
+      info: { Title: `${t.title} ${number}`, Author: env.BILLING_COMPANY_NAME ?? 'Integris LaTeX' },
     });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -205,23 +208,23 @@ export class ReceiptsService {
     const muted = '#4a5550';
     doc.fontSize(20).fillColor('#0f2d22').text('Integris LaTeX');
     doc.fontSize(10).fillColor(muted);
-    doc.text(env.BILLING_COMPANY_NAME);
-    doc.text(env.BILLING_ADDRESS ?? `${t.toComplete}`);
+    doc.text(env.BILLING_COMPANY_NAME ?? `${t.companyName}${t.colon}${t.toComplete}`);
+    doc.text(env.BILLING_ADDRESS ?? `${t.address}${t.colon}${t.toComplete}`);
     doc.text(
-      `${t.rccm} : ${env.BILLING_RCCM ?? t.toComplete} · ${t.ifu} : ${env.BILLING_IFU ?? t.toComplete}`,
+      `${t.rccm}${t.colon}${env.BILLING_RCCM ?? t.toComplete} · ${t.ifu}${t.colon}${env.BILLING_IFU ?? t.toComplete}`,
     );
     if (env.BILLING_SUPPORT_EMAIL) doc.text(env.BILLING_SUPPORT_EMAIL);
     doc.moveDown(1.5);
 
     doc.fontSize(16).fillColor('#000000').text(`${t.number} ${number}`);
     doc.fontSize(10).fillColor(muted);
-    doc.text(`${t.date} : ${formatDate(payment.verifiedAt ?? receipt.createdAt)}`);
+    doc.text(`${t.date}${t.colon}${formatDate(payment.verifiedAt ?? receipt.createdAt)}`);
     doc.moveDown();
-    doc.fillColor('#000000').text(`${t.billedTo} :`);
+    doc.fillColor('#000000').text(`${t.billedTo}${t.colon.trimEnd()}`);
     doc.fillColor(muted);
     doc.text(billedTo.name);
     if (billedTo.organization) doc.text(billedTo.organization);
-    if (billedTo.ifu) doc.text(`${t.ifu} : ${billedTo.ifu}`);
+    if (billedTo.ifu) doc.text(`${t.ifu}${t.colon}${billedTo.ifu}`);
     if (billedTo.email) doc.text(billedTo.email);
     doc.moveDown(1.5);
 
@@ -262,17 +265,22 @@ export class ReceiptsService {
     }
     if (breakdown.prorationSurplus) line(t.prorationSurplus(xof(breakdown.prorationSurplus)), '');
     doc.moveDown(0.5);
+    // Plan prices are TTC: the amount paid is split with the rate kept on the payment.
+    const rate = breakdown.vatRatePercent ?? 0;
+    const { ht, vat } = vatOf(payment.amountXof, rate);
+    line(t.ht, xof(ht));
+    line(t.vat(formatPercent(locale, rate)), xof(vat));
     line(t.paid, xof(payment.amountXof), true);
     doc.moveDown();
 
     doc.fontSize(10).fillColor(muted);
     doc.text(
-      `${t.method} : ${payment.amountXof > 0 ? `${t.methodLigdiCash}${typeof raw.operator_name === 'string' ? ` (${raw.operator_name})` : ''}` : t.methodCredit}`,
+      `${t.method}${t.colon}${payment.amountXof > 0 ? `${t.methodLigdiCash}${typeof raw.operator_name === 'string' ? ` (${raw.operator_name})` : ''}` : t.methodCredit}`,
       left,
       doc.y,
     );
     if (payment.providerTransactionId) {
-      doc.text(`${t.transaction} : ${payment.providerTransactionId}`);
+      doc.text(`${t.transaction}${t.colon}${payment.providerTransactionId}`);
     }
     if (payment.status === 'CREDITED') {
       doc.moveDown();

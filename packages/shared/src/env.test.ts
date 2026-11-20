@@ -87,6 +87,24 @@ describe('apiEnvSchema', () => {
     LIGDICASH_API_URL: 'https://app.ligdicash.com',
   };
 
+  it('accepts empty legal mentions in development and defaults the VAT rate to 0', () => {
+    const env = parseEnv(apiEnvSchema, {
+      ...base,
+      BILLING_COMPANY_NAME: '',
+      BILLING_RCCM: '',
+      BILLING_IFU: '',
+      BILLING_ADDRESS: '',
+      BILLING_SUPPORT_EMAIL: '',
+    });
+    expect(env.BILLING_RCCM).toBeUndefined();
+    expect(env.BILLING_COMPANY_NAME).toBeUndefined();
+    expect(env.VAT_RATE_PERCENT).toBe(0);
+    expect(parseEnv(apiEnvSchema, { ...base, VAT_RATE_PERCENT: '18' }).VAT_RATE_PERCENT).toBe(18);
+    expect(() => parseEnv(apiEnvSchema, { ...base, VAT_RATE_PERCENT: '-1' })).toThrow(
+      /VAT_RATE_PERCENT/,
+    );
+  });
+
   it('applies the V1 anti-abuse defaults', () => {
     const env = parseEnv(apiEnvSchema, base);
     expect(env.OTP_LENGTH).toBe(6);
@@ -150,7 +168,10 @@ describe('apiEnvSchema', () => {
       'PAYMENT_PROVIDER',
       'LIGDICASH_API_URL',
       'BILLING_SUPPORT_EMAIL',
+      'BILLING_COMPANY_NAME',
       'BILLING_RCCM',
+      'BILLING_IFU',
+      'BILLING_ADDRESS',
     ]) {
       expect(message).toContain(name);
     }

@@ -142,6 +142,7 @@ export class BillingService {
           minAmount: this.minAmount,
           periodStart: prepared.periodStart.toISOString(),
           periodEnd: prepared.periodEnd.toISOString(),
+          vatRatePercent: this.config.env.VAT_RATE_PERCENT,
         };
         const payment = await tx.payment.create({
           data: {

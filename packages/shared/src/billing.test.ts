@@ -7,6 +7,7 @@ import {
   quotePrice,
   remainingValue,
   seatsAllowed,
+  vatOf,
 } from './billing.js';
 
 const standard: PricingPlan = {
@@ -190,6 +191,25 @@ describe('quotePrice', () => {
       minimumTopUp: 0,
       total: 100,
     });
+  });
+});
+
+describe('vatOf (Plan prices are TTC)', () => {
+  it('shows a zero VAT line at 0 %, and splits HT and VAT that add up to the amount paid', () => {
+    expect(vatOf(20000, 0)).toEqual({ ht: 20000, vat: 0 });
+    expect(vatOf(0, 18)).toEqual({ ht: 0, vat: 0 });
+    // 2 000 TTC at 18 %: 1 694.92 HT → 1 695 HT + 305 VAT.
+    expect(vatOf(2000, 18)).toEqual({ ht: 1695, vat: 305 });
+    for (const [amount, rate] of [
+      [500, 18],
+      [20000, 5.5],
+      [3_000_000, 18],
+      [1, 18],
+    ]) {
+      const { ht, vat } = vatOf(amount!, rate!);
+      expect(ht + vat).toBe(amount);
+      expect(Number.isInteger(ht) && Number.isInteger(vat)).toBe(true);
+    }
   });
 });
 

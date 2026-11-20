@@ -14,6 +14,14 @@ export function formatXof(locale: Locale, amount: number): string {
   return `${number}\u00a0FCFA`;
 }
 
+/** "0 %" (fr) or "0%" (en), with up to two decimals ("18 %", "5,5 %"). */
+export function formatPercent(locale: Locale, rate: number): string {
+  const value = new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    maximumFractionDigits: 2,
+  }).format(rate);
+  return locale === 'fr' ? `${value}\u00a0%` : `${value}%`;
+}
+
 /** dd/mm/yyyy (fr) or dd/mm/yyyy too in English: the format used across West Africa. */
 export function formatDate(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0');
@@ -93,6 +101,11 @@ export const receiptLabels = {
     ifu: 'IFU',
     rccm: 'RCCM',
     toComplete: 'à compléter',
+    companyName: 'Raison sociale',
+    address: 'Adresse',
+    colon: '\u00a0: ',
+    ht: 'Montant HT',
+    vat: (rate: string) => `TVA (${rate})`,
     description: 'Désignation',
     amount: 'Montant',
     seats: (count: number) => (count > 1 ? `${count} sièges` : '1 siège'),
@@ -112,7 +125,7 @@ export const receiptLabels = {
       `Montant minimum d’une transaction LigdiCash (${minimum}) : ${credit} ajoutés à votre solde de crédit`,
     prorationSurplus: (credit: string) =>
       `Crédit des jours restants supérieur au prix : ${credit} ajoutés à votre solde de crédit`,
-    paid: 'Montant payé (TTC)',
+    paid: 'Total payé (TTC)',
     method: 'Moyen de paiement',
     methodLigdiCash: 'LigdiCash',
     methodCredit: 'Solde de crédit et remises, sans transaction LigdiCash',
@@ -133,6 +146,11 @@ export const receiptLabels = {
     ifu: 'IFU',
     rccm: 'RCCM',
     toComplete: 'to be completed',
+    companyName: 'Company name',
+    address: 'Address',
+    colon: ': ',
+    ht: 'Amount excl. tax',
+    vat: (rate: string) => `VAT (${rate})`,
     description: 'Item',
     amount: 'Amount',
     seats: (count: number) => (count > 1 ? `${count} seats` : '1 seat'),
@@ -152,7 +170,7 @@ export const receiptLabels = {
       `Minimum amount of a LigdiCash transaction (${minimum}): ${credit} added to your credit balance`,
     prorationSurplus: (credit: string) =>
       `Credit for the days left above the price: ${credit} added to your credit balance`,
-    paid: 'Amount paid (incl. tax)',
+    paid: 'Total paid (incl. tax)',
     method: 'Payment method',
     methodLigdiCash: 'LigdiCash',
     methodCredit: 'Credit balance and discounts, no LigdiCash transaction',

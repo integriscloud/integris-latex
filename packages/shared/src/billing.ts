@@ -185,6 +185,15 @@ export function remainingValue(current: PricedSubscription, now: Date): number {
   return total ? Math.ceil((current.paidValueXof * left) / total) : 0;
 }
 
+/**
+ * VAT included in an amount TTC (Plan prices are TTC): HT rounded to the nearest FCFA, VAT the
+ * rest, so that HT + VAT is always the amount paid.
+ */
+export function vatOf(amountTtc: number, ratePercent: number): { ht: number; vat: number } {
+  const ht = ratePercent > 0 ? Math.round((amountTtc * 100) / (100 + ratePercent)) : amountTtc;
+  return { ht, vat: amountTtc - ht };
+}
+
 // ───────────── API schemas ─────────────
 
 const count = z.number().int().nonnegative();
