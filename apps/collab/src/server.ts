@@ -480,6 +480,12 @@ export function createCollabServer(options: CollabServerOptions): CollabServer {
       notifyProject(event.projectId, { type: 'comments' });
       return;
     }
+    if (event.type === 'files-changed') {
+      // Only the connections already authorized on the project are told; documents are named
+      // by file id, so a move changes none of them.
+      notifyProject(event.projectId, { type: 'files' });
+      return;
+    }
     const name = fileDocumentName(event.projectId, event.fileId);
     const document = server.hocuspocus.documents.get(name);
     const state = docs.get(name);

@@ -531,3 +531,26 @@ button.versionFile {
   max-height: 120px;
   overflow: auto;
 }
+
+/* Word count of the document, in the editor settings menu (screen without mockup). */
+.wordCount {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  max-width: 320px;
+  padding-bottom: var(--espace-3);
+  border-bottom: 1px solid var(--bordure);
+}
+
+.menuTitle {
+  margin: 0;
+  font: var(--t-texte-sm);
+  font-weight: 600;
+}
+
+.wordCountValue {
+  margin: 0;
+  font: var(--t-texte);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

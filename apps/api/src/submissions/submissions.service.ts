@@ -35,7 +35,14 @@ import { ApiError } from '../common/api-error.js';
 import { consumeLimit } from '../common/rate-limit.js';
 import { ApiConfig } from '../config/api-config.js';
 import { CompileService, type FrozenSource } from '../compile/compile.service.js';
-import { blobKey, blobOf, HistoryService, type Manifest } from '../history/history.service.js';
+import {
+  blobKey,
+  blobOf,
+  HistoryService,
+  type Manifest,
+  type ManifestFile,
+  matcher,
+} from '../history/history.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProjectEventsService } from '../projects/project-events.service.js';
 import { fail, type ProjectAccess, ProjectsService } from '../projects/projects.service.js';
@@ -383,7 +390,7 @@ export class SubmissionsService implements OnModuleInit {
       const bytes = file.blob
         ? await this.storage.get(PROJECTS_BUCKET, blobKey(projectId, file.blob))
         : new Uint8Array();
-      files.push({ path, sha256: sha256(bytes) });
+      files.push({ path, sha256: sha256(bytes), ...(file.fileId ? { fileId: file.fileId } : {}) });
     }
 
     const db = this.prisma.client;
@@ -655,28 +662,40 @@ export class SubmissionsService implements OnModuleInit {
         if (this.lastReady(latest)?.number !== number) fail(HttpStatus.CONFLICT, 'version_changed');
 
         const current = await db.projectFile.findMany({ where: { projectId } });
+        // Each file sent and the file it is now: same id (it may have moved since), or the
+        // same path for versions frozen before files were followed by id.
+        const match = matcher(current);
         const byPath = new Map(current.map((file) => [file.path, file]));
+        const sent = new Map(
+          version!.filePaths.map((path) => {
+            const frozen = manifest.files.find((file) => file.path === path);
+            return [path, frozen ? match(frozen) : byPath.get(path)] as const;
+          }),
+        );
         // Files validated by another submission are neither changed nor taken over.
-        const lockedElsewhere = version!.filePaths.some((path) => {
-          const lock = byPath.get(path)?.lockedBySubmissionId;
+        const lockedElsewhere = [...sent.values()].some((now) => {
+          const lock = now?.lockedBySubmissionId;
           return lock && lock !== submissionId;
         });
         if (lockedElsewhere) fail(HttpStatus.CONFLICT, 'file_locked');
         const changed = version!.filePaths.filter((path) => {
           const frozen = manifest.files.find((file) => file.path === path);
-          const now = byPath.get(path);
+          const now = sent.get(path);
           return frozen && (!now || blobOf(now) !== frozen.blob);
         });
         const remaining = current.map((file) => file.path);
+        const keptFolders = (await db.projectFolder.findMany({ where: { projectId } })).map(
+          (row) => row.path,
+        );
         for (const path of changed) {
-          if (!byPath.has(path) && pathConflicts(remaining, path)) {
+          if (!sent.get(path) && pathConflicts(remaining, path, keptFolders)) {
             fail(HttpStatus.CONFLICT, 'validation_conflict');
           }
           remaining.push(path);
         }
         const added = changed.reduce((total, path) => {
           const frozen = manifest.files.find((file) => file.path === path)!;
-          return total + frozen.sizeBytes - (byPath.get(path)?.sizeBytes ?? 0);
+          return total + frozen.sizeBytes - (sent.get(path)?.sizeBytes ?? 0);
         }, 0);
         if (added > 0) await this.projects.checkStorageFor(project.ownerId, added);
 
@@ -726,16 +745,18 @@ export class SubmissionsService implements OnModuleInit {
                 beforeVersionLabel: before ? beforeLabel : null,
               },
             );
+            // The validated content goes back into the file itself, wherever it is now.
+            const ids = [...sent.values()].flatMap((now) => (now ? [now.id] : []));
             for (const { path, storageKey } of writes) {
               const frozen = manifest.files.find((file) => file.path === path)!;
-              const now = byPath.get(path);
+              const now = sent.get(path);
               if (now) {
                 await tx.projectFile.update({
                   where: { id: now.id },
                   data: { storageKey, sizeBytes: frozen.sizeBytes },
                 });
               } else {
-                await tx.projectFile.create({
+                const created = await tx.projectFile.create({
                   data: {
                     projectId,
                     path,
@@ -744,10 +765,11 @@ export class SubmissionsService implements OnModuleInit {
                     sizeBytes: frozen.sizeBytes,
                   },
                 });
+                ids.push(created.id);
               }
             }
             const locked = await tx.projectFile.updateMany({
-              where: { projectId, path: { in: version!.filePaths }, lockedBySubmissionId: null },
+              where: { projectId, id: { in: ids }, lockedBySubmissionId: null },
               data: { lockedBySubmissionId: submissionId },
             });
             if (locked.count !== version!.filePaths.length)
@@ -757,7 +779,10 @@ export class SubmissionsService implements OnModuleInit {
                 submissionId,
                 validatedById: actor.userId,
                 validatedAt,
-                files: version!.files as Prisma.InputJsonArray,
+                // Paths and SHA-256 only (docs/spec.md, "Trace des validations").
+                files: (version!.files as unknown as SubmissionFileHash[]).map(
+                  ({ path, sha256 }) => ({ path, sha256 }),
+                ),
               },
             });
           });
@@ -771,15 +796,14 @@ export class SubmissionsService implements OnModuleInit {
           throw error;
         }
         const obsolete = changed.flatMap((path) => {
-          const key = byPath.get(path)?.storageKey;
+          const key = sent.get(path)?.storageKey;
           return key ? [key] : [];
         });
         await this.storage.deleteKeys(PROJECTS_BUCKET, obsolete).catch(() => undefined);
         // Every text file now locked: its open editors drop what they have not stored.
-        const lockedIds = version!.filePaths.flatMap((path) => {
-          const now = byPath.get(path);
-          return now?.kind === 'TEXT' ? [now.id] : [];
-        });
+        const lockedIds = [...sent.values()].flatMap((now) =>
+          now?.kind === 'TEXT' ? [now.id] : [],
+        );
         return { restored: changed, locked: lockedIds, beforeVersionId: before };
       },
     );
@@ -989,13 +1013,11 @@ export class SubmissionsService implements OnModuleInit {
       where: { id: version.projectVersionId },
     });
     const manifest = await this.history.readManifest(projectVersion);
-    const current = await db.projectFile.findMany({
-      where: { projectId, path: { in: version.filePaths } },
-    });
-    const byPath = new Map(current.map((file) => [file.path, file]));
+    // Followed by id: a file moved since it was sent is the same file.
+    const match = matcher(await db.projectFile.findMany({ where: { projectId } }));
     return version.filePaths.filter((path) => {
       const frozen = manifest.files.find((file) => file.path === path);
-      const now = byPath.get(path);
+      const now = frozen && match(frozen);
       return !frozen || !now || blobOf(now) !== frozen.blob;
     });
   }
@@ -1085,9 +1107,22 @@ export class SubmissionsService implements OnModuleInit {
       this.history.readManifest(fromVersion),
       this.history.readManifest(toVersion),
     ]);
-    const paths = [...new Set([...from.filePaths, ...to.filePaths])].sort((a, b) =>
-      a.localeCompare(b),
-    );
+    // Files of both sendings paired by id (a file moved between them is the same file), or by
+    // path for versions frozen before files were followed by id. Shown under their latest path.
+    const pairs = new Map<string, { a?: ManifestFile; b?: ManifestFile }>();
+    for (const path of to.filePaths) {
+      const b = after.files.find((file) => file.path === path);
+      const a = b?.fileId
+        ? before.files.find((file) => file.fileId === b.fileId)
+        : before.files.find((file) => file.path === path);
+      pairs.set(path, { a, b });
+    }
+    const paired = new Set([...pairs.values()].flatMap(({ a }) => (a ? [a.path] : [])));
+    for (const path of from.filePaths) {
+      if (paired.has(path) || pairs.has(path)) continue;
+      pairs.set(path, { a: before.files.find((file) => file.path === path) });
+    }
+    const paths = [...pairs.keys()].sort((a, b) => a.localeCompare(b));
     const text = async (blob: string | null) =>
       blob ? decoder.decode(await this.storage.get(PROJECTS_BUCKET, blobKey(projectId, blob))) : '';
     const files: FileComparison[] = [];
@@ -1095,8 +1130,8 @@ export class SubmissionsService implements OnModuleInit {
     // answer); the files beyond the budget show "too large".
     let budget = COMPARE_BUDGET_BYTES;
     for (const path of paths) {
-      const a = before.files.find((file) => file.path === path);
-      const b = after.files.find((file) => file.path === path);
+      const { a, b } = pairs.get(path)!;
+      if (!a && !b) continue;
       const kind = (b ?? a)!.kind;
       const change = !a ? 'added' : !b ? 'removed' : a.blob === b.blob ? 'same' : 'modified';
       const empty = { hunks: [], added: 0, removed: 0, tooLarge: false };

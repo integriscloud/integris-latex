@@ -94,7 +94,8 @@ export function PdfViewer({
   const latestUrl = useRef(url);
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [sizes, setSizes] = useState<PageSize[]>([]);
-  const [failed, setFailed] = useState(false);
+  // Why the PDF could not be loaded (the browser's own error, shown as is): null when loaded.
+  const [failure, setFailure] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [zoom, setZoom] = useState<number | 'fit'>('fit');
   const [width, setWidth] = useState(0);
@@ -130,7 +131,7 @@ export function PdfViewer({
           return;
         }
         rendered.current.clear();
-        setFailed(false);
+        setFailure(null);
         setSizes(pageSizes);
         setDoc((previous) => {
           void previous?.loadingTask.destroy();
@@ -141,8 +142,14 @@ export function PdfViewer({
             scroller.current.scrollTop = position * scroller.current.scrollHeight;
         });
       })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        // Kept in the console and under the message: a failure only seen in one browser
+        // version can then be reported precisely.
+        console.error('PDF.js could not load the PDF', error);
+        const reason =
+          error instanceof Error ? `${error.name}: ${error.message}` : String(error ?? '');
+        setFailure(reason.slice(0, 300) || 'Error');
       });
     return () => {
       cancelled = true;
@@ -307,9 +314,14 @@ export function PdfViewer({
         </a>
       </div>
       <div ref={scroller} className={styles.pages}>
-        {failed ? (
+        {failure !== null ? (
           <div className={styles.message}>
-            <Alert tone="error">{labels.failed}</Alert>
+            <Alert tone="error">
+              <p>{labels.failed}</p>
+              <p>
+                <code className={styles.reason}>{failure}</code>
+              </p>
+            </Alert>
             <Button variant="secondary" onClick={() => setAttempt((value) => value + 1)}>
               {labels.retry}
             </Button>

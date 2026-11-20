@@ -123,3 +123,8 @@
   font: var(--t-texte);
   line-height: 1.5;
 }
+
+.select {
+  min-height: 46px;
+  cursor: pointer;
+}

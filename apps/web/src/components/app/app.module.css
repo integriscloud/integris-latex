@@ -117,3 +117,41 @@
   gap: var(--espace-5);
   max-width: 640px;
 }
+
+/* "Move to…": the folders of the project as a list of choices. */
+.folderChoices {
+  display: flex;
+  flex-direction: column;
+  max-height: 50vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 0;
+}
+
+.folderChoices legend {
+  margin-bottom: var(--espace-2);
+}
+
+.folderChoice {
+  display: flex;
+  gap: var(--espace-2);
+  align-items: center;
+  min-height: var(--cible-tactile);
+  font: var(--t-texte-sm);
+  cursor: pointer;
+}
+
+.folderChoice input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--action);
+}
+
+.folderName {
+  overflow: hidden;
+  font-family: var(--font-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

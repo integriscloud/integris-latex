@@ -7,6 +7,7 @@ import type {
   Plan,
   Project,
   ProjectFile,
+  ProjectFolder,
   ProjectInvitation,
   ProjectMember,
   ProjectRole,
@@ -75,6 +76,7 @@ export class FakeProjectsDb {
   personalPlans = new Map<string, string>();
   projects: Project[] = [];
   files: ProjectFile[] = [];
+  folders: ProjectFolder[] = [];
   members: ProjectMember[] = [];
   /** Validated submissions (project id, submission id) and the submissions with a trace. */
   validated: { projectId: string; id: string }[] = [];
@@ -108,6 +110,8 @@ export class FakeProjectsDb {
       submissionVersions: copy(this.submissionVersions),
       records: copy(this.records),
       files: copy(this.files),
+      folders: copy(this.folders),
+      projects: copy(this.projects),
     };
   }
 
@@ -121,6 +125,7 @@ export class FakeProjectsDb {
     this.personalPlans.clear();
     this.projects = [];
     this.files = [];
+    this.folders = [];
     this.members = [];
     this.validated = [];
     this.traced.clear();
@@ -564,6 +569,13 @@ export class FakeProjectsDb {
         return row ? this.submissionView(row) : null;
       },
       findMany: async ({ where, include }: { where: Where; include?: Where }) => {
+        // Moving files: the submissions that can still be sent follow the new paths.
+        const not = (where.status as { not?: string } | undefined)?.not;
+        if (not) {
+          return this.submissions
+            .filter((item) => item.projectId === where.projectId && item.status !== not)
+            .map((item) => ({ id: item.id, filePaths: [...item.filePaths] }));
+        }
         // Erasing a project: its validated submissions (test rows of `validated` included).
         if (!include) {
           return [
@@ -1053,6 +1065,48 @@ export class FakeProjectsDb {
         this.projects = this.projects.filter((project) => project.id !== where.id);
       },
     },
+    projectFolder: {
+      findMany: async ({ where }: { where: { projectId: string } }) =>
+        this.folders
+          .filter((folder) => folder.projectId === where.projectId)
+          .map((folder) => ({ ...folder })),
+      count: async ({ where }: { where: { projectId: string } }) =>
+        this.folders.filter((folder) => folder.projectId === where.projectId).length,
+      create: async ({ data }: { data: { projectId: string; path: string } }) => {
+        if (this.folders.some((f) => f.projectId === data.projectId && f.path === data.path)) {
+          throw Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+        }
+        const folder: ProjectFolder = { id: randomUUID(), createdAt: new Date(), ...data };
+        this.folders.push(folder);
+        return { ...folder };
+      },
+      createMany: async ({
+        data,
+        skipDuplicates,
+      }: {
+        data: { projectId: string; path: string }[];
+        skipDuplicates?: boolean;
+      }) => {
+        let count = 0;
+        for (const row of data) {
+          const exists = this.folders.some(
+            (f) => f.projectId === row.projectId && f.path === row.path,
+          );
+          if (exists && skipDuplicates) continue;
+          if (exists) throw Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+          this.folders.push({ id: randomUUID(), createdAt: new Date(), ...row });
+          count++;
+        }
+        return { count };
+      },
+      deleteMany: async ({ where }: { where: { projectId: string; path?: { in: string[] } } }) => {
+        const before = this.folders.length;
+        this.folders = this.folders.filter(
+          (f) => f.projectId !== where.projectId || (where.path && !where.path.in.includes(f.path)),
+        );
+        return { count: before - this.folders.length };
+      },
+    },
     projectFile: {
       findMany: async ({ where }: { where: Where }) =>
         this.files
@@ -1084,6 +1138,8 @@ export class FakeProjectsDb {
       },
       update: async ({ where, data }: { where: { id: string }; data: Partial<ProjectFile> }) => {
         const file = this.files.find((item) => item.id === where.id)!;
+        // PostgreSQL text never holds NUL.
+        if (data.path?.includes('\u0000')) throw new Error('invalid byte sequence for UTF8');
         if (data.path && data.path !== file.path) this.checkUnique(file.projectId, data.path);
         Object.assign(file, data, { updatedAt: new Date() });
         return file;

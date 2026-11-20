@@ -121,3 +121,10 @@
   font: var(--t-texte-sm);
   color: var(--texte-3);
 }
+
+/* The browser's error under "The PDF could not be loaded". */
+.reason {
+  font: var(--t-legende);
+  font-family: var(--font-code);
+  overflow-wrap: anywhere;
+}

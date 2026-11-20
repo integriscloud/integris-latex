@@ -143,3 +143,70 @@ test('compiles in the sandbox, shows the PDF, the translated errors and SyncTeX'
     'Undefined control sequence',
   );
 });
+
+test('shows every page of a document whose chapters live in folders, also after a reload', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const phone = testPhone(test.info().project.name, 91);
+  created.push(phone.e164);
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await signUp(page, phone);
+  const response = await page.request.post('/api/projects', {
+    headers: writeHeaders(page),
+    data: { name: 'Mémoire en chapitres' },
+  });
+  const { id } = (await response.json()) as { id: string };
+  const files = [
+    [
+      'main.tex',
+      '\\documentclass{article}\n\\begin{document}\nPremière page.\n\\newpage\n\\input{chapitres/ch1}\n\\newpage\n\\input{chapitres/ch2}\n\\end{document}\n',
+    ],
+    ['chapitres/ch1.tex', '\\section{Chapitre un}\nDeuxième page.\n'],
+    ['chapitres/ch2.tex', '\\section{Chapitre deux}\nTroisième page.\n'],
+  ] as const;
+  for (const [path, content] of files) {
+    const upload = await page.request.put(
+      `/api/projects/${id}/files/upload?path=${encodeURIComponent(path)}&replace=true`,
+      { headers: writeHeaders(page, 'application/octet-stream'), data: Buffer.from(content) },
+    );
+    expect(upload.ok()).toBe(true);
+  }
+  // An empty folder next to them (step 4 bis) changes nothing for the compilation.
+  const folder = await page.request.post(`/api/projects/${id}/folders`, {
+    headers: writeHeaders(page),
+    data: { path: 'annexes' },
+  });
+  expect(folder.status()).toBe(201);
+
+  await page.goto(`/fr/app/projects/${id}/edit`);
+  await expect(page.getByRole('textbox', { name: 'Code de main.tex' })).toBeVisible();
+  await showPane(page, 'PDF');
+  await compileButton(page).click();
+  await expect(page.getByText(/Compilation réussie en/)).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByText('Page 1 sur 3')).toBeVisible({ timeout: 30_000 });
+  for (const number of [1, 2, 3]) {
+    await expect(page.getByLabel(`Page ${number} du PDF`)).toBeAttached();
+  }
+  await expect(page.getByText("Le PDF n'a pas pu être chargé.")).toHaveCount(0);
+
+  // The signed link of the last PDF: a PDF, readable by the app's origin (PDF.js uses fetch).
+  const state = (await (await page.request.get(`/api/projects/${id}/compile`)).json()) as {
+    lastPdf: { pdf: { url: string } | null } | null;
+  };
+  const origin = new URL(page.url()).origin;
+  const pdf = await page.request.get(state.lastPdf!.pdf!.url, { headers: { origin } });
+  expect(pdf.status()).toBe(200);
+  expect(pdf.headers()['content-type']).toBe('application/pdf');
+  expect(pdf.headers()['access-control-allow-origin']).toBe(origin);
+  expect((await pdf.body()).subarray(0, 5).toString()).toBe('%PDF-');
+
+  // The last PDF is shown again after a full reload.
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: 'Code de main.tex' })).toBeVisible();
+  await showPane(page, 'PDF');
+  await expect(page.getByText('Page 1 sur 3')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel('Page 3 du PDF')).toBeAttached();
+  expect(pageErrors).toEqual([]);
+});

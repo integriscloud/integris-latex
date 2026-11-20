@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFileTree, fileTypeLabel } from './build-tree';
+import { buildFileTree, fileIconKind } from './build-tree';
 
 const file = (path: string) => ({ id: path, path, size: '1 Ko' });
 
@@ -21,9 +21,21 @@ describe('buildFileTree', () => {
     ]);
   });
 
-  it('labels file types like the mockup', () => {
-    expect(fileTypeLabel('a/fig.JPEG')).toBe('IMG');
-    expect(fileTypeLabel('refs.bib')).toBe('BIB');
-    expect(fileTypeLabel('x.cls')).toBe('STY');
+  it('shows empty folders', () => {
+    const tree = buildFileTree([file('main.tex'), file('a/x.tex')], ['a', 'a/vide', 'annexes']);
+    expect(tree.map((entry) => entry.path)).toEqual(['a', 'annexes', 'main.tex']);
+    const a = tree[0]!;
+    expect(a.type === 'folder' && a.children.map((entry) => entry.path)).toEqual([
+      'a/vide',
+      'a/x.tex',
+    ]);
+  });
+
+  it('gives each file type its icon', () => {
+    expect(fileIconKind('a/fig.JPEG')).toBe('image');
+    expect(fileIconKind('refs.bib')).toBe('bibliography');
+    expect(fileIconKind('x.cls')).toBe('style');
+    expect(fileIconKind('carte.pdf')).toBe('pdf');
+    expect(fileIconKind('notes.md')).toBe('text');
   });
 });

@@ -65,6 +65,8 @@ export { Faq, type FaqItem } from './faq/Faq';
 export {
   PasswordField,
   PhoneField,
+  SelectField,
+  type SelectFieldProps,
   TextAreaField,
   TextField,
   type PasswordFieldProps,
@@ -75,9 +77,11 @@ export {
 export { FeatureGrid, type Feature } from './feature-grid/FeatureGrid';
 export { FileDrop, type FileDropProps } from './file-drop/FileDrop';
 export { FileTree, type FileTreeProps } from './file-tree/FileTree';
+export { RowMenu, type RowMenuProps, type TreeMenuItem } from './file-tree/RowMenu';
 export {
   buildFileTree,
-  fileTypeLabel,
+  fileIconKind,
+  type FileIconKind,
   type FileTreeEntry,
   type FileTreeFolder,
   type FileTreeLeaf,

@@ -16,7 +16,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { FilesService } from '../projects/files.service.js';
 import { fail, ProjectsService } from '../projects/projects.service.js';
 import { RedisService } from '../redis/redis.service.js';
-import { type Actor, ProjectAuditService } from './project-audit.service.js';
+import { type Actor, ProjectAuditService } from '../projects/project-audit.service.js';
 
 const HOUR_MS = 3_600_000;
 

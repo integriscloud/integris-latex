@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import type { ButtonHTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes, Ref } from 'react';
 import styles from './icon-button.module.css';
 
 export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
@@ -7,6 +7,7 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   /** Accessible name, required: the button shows no text. */
   label: string;
   tone?: 'default' | 'danger';
+  ref?: Ref<HTMLButtonElement>;
 }
 
 /** Square 44 px button with an icon only. */

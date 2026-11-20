@@ -38,7 +38,7 @@ export default defineConfig({
           {
             name: 'chromium-120',
             // The journeys that load the heaviest browser code: editor, PDF.js, SyncTeX.
-            testMatch: /(compile|editor)\.spec\.ts/,
+            testMatch: /(compile|editor|files)\.spec\.ts/,
             use: {
               ...devices['Desktop Chrome'],
               ...throughFront,

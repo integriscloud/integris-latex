@@ -9,7 +9,8 @@ export interface Actor {
 
 /**
  * Audit entries of a project (append-only table): every share, role change, removed access,
- * invitation and public link (creation, opening, revocation). Always written with the client of
+ * invitation and public link (creation, opening, revocation), every move of a file or a folder
+ * and every download of the project. Always written with the client of
  * the transaction that makes the change: no change without its entry, no entry without its change.
  */
 @Injectable()

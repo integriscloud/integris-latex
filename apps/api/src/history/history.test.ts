@@ -274,6 +274,100 @@ describe('version history', () => {
       await restore(version.id, { path: 'none.tex' }).expect(404);
     });
 
+    it('follows moved files: the same file goes back, with its comments, and paths can swap', async () => {
+      await as(owner).upload('a.tex', strToU8('A1')).expect(200);
+      await as(owner).upload('b.tex', strToU8('B1')).expect(200);
+      await as(owner).post(`projects/${projectId}/folders`, { path: 'annexes/vide' }).expect(201);
+      const version = (await name(owner, 'v1').expect(201)).body;
+      const a = fileAt('a.tex')!;
+      const b = fileAt('b.tex')!;
+      ctx.db.comments.push({
+        id: 'comment-1',
+        projectId,
+        fileId: a.id,
+        authorId: owner.id,
+        anchor: {},
+        quotedText: 'A1',
+        body: 'Note',
+        suggestedText: null,
+        suggestionStatus: null,
+        suggestionDecidedById: null,
+        suggestionDecidedAt: null,
+        status: 'OPEN',
+        submissionId: null,
+        createdAt: new Date(),
+        resolvedAt: null,
+        resolvedById: null,
+      });
+      // a.tex and b.tex swap their paths, a.tex changes, the empty folder goes.
+      const move = (id: string, path: string) =>
+        request(ctx.app.getHttpServer())
+          .patch(`/api/projects/${projectId}/files/${id}`)
+          .set('Origin', ORIGIN)
+          .set(TEST_USER_HEADER, owner.id)
+          .send({ path })
+          .expect(200);
+      await move(a.id, 'tmp.tex');
+      await move(b.id, 'a.tex');
+      await move(a.id, 'b.tex');
+      await as(owner).upload('b.tex', strToU8('A2'), true).expect(200);
+      await request(ctx.app.getHttpServer())
+        .delete(`/api/projects/${projectId}/folders`)
+        .set('Origin', ORIGIN)
+        .set(TEST_USER_HEADER, owner.id)
+        .send({ path: 'annexes' })
+        .expect(200);
+
+      const detail = (await as(owner).get(`projects/${projectId}/versions/${version.id}`)).body;
+      expect(
+        detail.files.map((file: { path: string; change: string }) => [file.path, file.change]),
+      ).toEqual([
+        ['a.tex', 'moved'],
+        ['b.tex', 'moved'],
+        ['main.tex', 'same'],
+      ]);
+      expect(detail.added).toEqual([]);
+
+      const { body } = await restore(version.id).expect(201);
+      expect(body).toEqual({ restored: 2, removed: 0, kept: [] });
+      expect(fileAt('a.tex')!.id).toBe(a.id);
+      expect(fileAt('b.tex')!.id).toBe(b.id);
+      expect(textAt('a.tex')).toBe('A1');
+      expect(textAt('b.tex')).toBe('B1');
+      expect(ctx.db.comments[0]!.fileId).toBe(a.id);
+      expect(ctx.db.folders.map((folder) => folder.path)).toEqual(['annexes/vide']);
+    });
+
+    it('never puts a file back where an empty folder now stands', async () => {
+      await as(owner).upload('a.tex', strToU8('A1')).expect(200);
+      const version = (await name(owner, 'v1').expect(201)).body;
+      await as(owner)
+        .delete(`projects/${projectId}/files/${fileAt('a.tex')!.id}`)
+        .expect(200);
+      await as(owner).post(`projects/${projectId}/folders`, { path: 'a.tex' }).expect(201);
+      const { body } = await restore(version.id, { path: 'a.tex' }).expect(201);
+      expect(body).toEqual({ restored: 0, removed: 0, kept: ['a.tex'] });
+      expect(fileAt('a.tex')).toBeUndefined();
+    });
+
+    it('restores the content of one moved file where it is now', async () => {
+      await as(owner).upload('a.tex', strToU8('A1')).expect(200);
+      const version = (await name(owner, 'v1').expect(201)).body;
+      const a = fileAt('a.tex')!;
+      await request(ctx.app.getHttpServer())
+        .patch(`/api/projects/${projectId}/files/${a.id}`)
+        .set('Origin', ORIGIN)
+        .set(TEST_USER_HEADER, owner.id)
+        .send({ path: 'parties/a.tex' })
+        .expect(200);
+      await as(owner).upload('parties/a.tex', strToU8('A2'), true).expect(200);
+      const { body } = await restore(version.id, { path: 'a.tex' }).expect(201);
+      expect(body).toEqual({ restored: 1, removed: 0, kept: [] });
+      expect(fileAt('a.tex')).toBeUndefined();
+      expect(fileAt('parties/a.tex')!.id).toBe(a.id);
+      expect(textAt('parties/a.tex')).toBe('A1');
+    });
+
     it('leaves files locked by a validated submission as they are', async () => {
       await as(owner).upload('a.tex', strToU8('A1')).expect(200);
       const version = (await name(owner, 'v1').expect(201)).body;

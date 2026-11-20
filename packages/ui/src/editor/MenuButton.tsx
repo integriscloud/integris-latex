@@ -14,10 +14,12 @@ export interface MenuButtonProps {
   /** Content of the menu: settings with their labels. */
   children: ReactNode;
   className?: string;
+  /** Called when the panel opens (content computed on demand, e.g. the word count). */
+  onOpen?: () => void;
 }
 
 /** Icon button of the editor's top bar that opens a panel of settings. */
-export function MenuButton({ icon, label, children, className }: MenuButtonProps) {
+export function MenuButton({ icon, label, children, className, onOpen }: MenuButtonProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -31,7 +33,10 @@ export function MenuButton({ icon, label, children, className }: MenuButtonProps
         label={label}
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!open) onOpen?.();
+          setOpen(!open);
+        }}
       />
       <div id={panelId} className={panel.menu} hidden={!open}>
         {children}

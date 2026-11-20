@@ -1,4 +1,7 @@
 .tree {
+  /* Room below the last row: dropping there moves to the root. */
+  padding-bottom: var(--espace-4);
+  border-radius: var(--r-md);
   font: var(--t-texte-sm);
 }
 
@@ -9,52 +12,82 @@
 }
 
 .row {
+  /* One step per level: the chevron column plus a little air. */
+  --tree-step: calc(var(--espace-5) - var(--espace-1));
+
   display: flex;
-  gap: var(--espace-1) var(--espace-2);
+  gap: var(--espace-1);
   align-items: center;
   min-height: var(--cible-tactile);
   padding-left: var(--espace-2);
   border-radius: var(--r-md);
+  /* A long press opens the menu, not the browser's own. */
+  -webkit-touch-callout: none;
 }
 
 .row:hover {
   background: var(--surface-creuse);
 }
 
-.row[data-active] {
+/* The open file and the current folder. */
+.row[data-active],
+.row[data-selected] {
   background: var(--action-doux);
+  box-shadow: inset 3px 0 0 var(--action);
 }
 
-/* Indentation per depth (6 levels shown, deeper ones stay at the last step). */
 .row[data-depth='1'] {
-  padding-left: calc(var(--espace-2) + var(--espace-5));
+  padding-left: calc(var(--espace-2) + var(--tree-step));
 }
 
 .row[data-depth='2'] {
-  padding-left: calc(var(--espace-2) + var(--espace-5) * 2);
+  padding-left: calc(var(--espace-2) + var(--tree-step) * 2);
 }
 
 .row[data-depth='3'] {
-  padding-left: calc(var(--espace-2) + var(--espace-5) * 3);
+  padding-left: calc(var(--espace-2) + var(--tree-step) * 3);
 }
 
 .row[data-depth='4'] {
-  padding-left: calc(var(--espace-2) + var(--espace-5) * 4);
+  padding-left: calc(var(--espace-2) + var(--tree-step) * 4);
 }
 
 .row[data-depth='5'] {
-  padding-left: calc(var(--espace-2) + var(--espace-5) * 5);
+  padding-left: calc(var(--espace-2) + var(--tree-step) * 5);
 }
 
 .row[data-depth='6'] {
-  padding-left: calc(var(--espace-2) + var(--espace-5) * 6);
+  padding-left: calc(var(--espace-2) + var(--tree-step) * 6);
+}
+
+.row[data-depth='7'] {
+  padding-left: calc(var(--espace-2) + var(--tree-step) * 7);
+}
+
+.row[data-depth='8'] {
+  padding-left: calc(var(--espace-2) + var(--tree-step) * 8);
+}
+
+/* Drag and drop: the folder (or the root) that would receive the dragged entry. */
+.tree[data-drop],
+.row[data-drop] {
+  background: var(--action-doux);
+  box-shadow: inset 0 0 0 2px var(--action);
+}
+
+.row[data-dragged] {
+  opacity: 0.5;
+}
+
+.row[draggable='true'] {
+  cursor: grab;
 }
 
 .folder,
 .file {
   display: flex;
   flex: 1 1 0;
-  gap: var(--espace-2);
+  gap: var(--espace-1);
   align-items: center;
   min-width: 0;
   min-height: var(--cible-tactile);
@@ -76,29 +109,39 @@
   outline-offset: 2px;
 }
 
-.type {
+.folder svg,
+.file svg {
   flex: none;
-  width: 34px;
-  padding: 1px 0;
-  border-radius: var(--r-sm);
-  background: var(--action-doux);
-  font: var(--t-legende);
-  font-family: var(--font-code);
-  font-size: 10px;
-  color: var(--action);
-  text-align: center;
 }
 
-.dir {
-  background: var(--or-50);
-  color: var(--or-700);
+/* Files line up with the names of the folders: room of the chevron. */
+.chevronSpace {
+  flex: none;
+  width: 16px;
+}
+
+.folderIcon {
+  color: var(--or-600);
+}
+
+.fileIcon {
+  color: var(--action);
+}
+
+.row[data-root] .folderIcon {
+  color: var(--texte-2);
 }
 
 .name {
   overflow: hidden;
+  margin-left: var(--espace-1);
   font-family: var(--font-code);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.row[data-root] .name {
+  font-family: var(--font-ui);
 }
 
 .link {
@@ -158,6 +201,18 @@
 .actions {
   display: flex;
   flex: none;
-  gap: var(--espace-1);
+  gap: 0;
   margin-left: auto;
+}
+
+/* Quick actions of folders: shown on hover or keyboard focus, where hovering exists. */
+.quick {
+  display: none;
+}
+
+@media (hover: hover) {
+  .row:hover .quick,
+  .row:focus-within .quick {
+    display: inline-flex;
+  }
 }

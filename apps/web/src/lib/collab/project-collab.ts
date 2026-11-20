@@ -60,6 +60,9 @@ export interface FileSession {
 /** A change of the text of an open file; `local` when typed in this page. */
 export type TextListener = (fileId: string, text: string, local: boolean) => void;
 
+/** What changed on the project for everyone: comments, rights, or files and folders. */
+export type ProjectChange = 'comments' | 'access' | 'files';
+
 export interface CollabSnapshot {
   connected: boolean;
   files: ReadonlyMap<string, FileSnapshot>;
@@ -111,7 +114,7 @@ export class ProjectCollab {
   private readonly textListeners = new Set<TextListener>();
   private readonly deletedListeners = new Set<(fileId: string) => void>();
   private readonly lockedListeners = new Set<(fileId: string) => void>();
-  private readonly projectListeners = new Set<(change: 'comments' | 'access') => void>();
+  private readonly projectListeners = new Set<(change: ProjectChange) => void>();
   private readonly flushes = new Map<number, (code: StoreBlockCode | null) => void>();
   private nextFlush = 1;
   private everConnected = false;
@@ -140,7 +143,7 @@ export class ProjectCollab {
     // The server tells every editor of the project when comments or rights change.
     this.presence.on('stateless', ({ payload }: { payload: string }) => {
       const message = parseServerMessage(payload);
-      if (message?.type === 'comments' || message?.type === 'access') {
+      if (message?.type === 'comments' || message?.type === 'access' || message?.type === 'files') {
         for (const listener of this.projectListeners) listener(message.type);
       }
     });
@@ -173,7 +176,7 @@ export class ProjectCollab {
   }
 
   /** Comments of the project changed, or the rights on it (read them again). */
-  onProjectChange(listener: (change: 'comments' | 'access') => void) {
+  onProjectChange(listener: (change: ProjectChange) => void) {
     this.projectListeners.add(listener);
     return () => {
       this.projectListeners.delete(listener);
@@ -291,8 +294,10 @@ export class ProjectCollab {
     provider.on('close', ({ event }: { event: { reason?: string } }) => {
       if (event.reason === COLLAB_CLOSE.revoked.reason)
         update({ writable: false, closed: 'revoked' });
-      if (event.reason === COLLAB_CLOSE.deleted.reason)
+      if (event.reason === COLLAB_CLOSE.deleted.reason) {
         update({ writable: false, closed: 'deleted' });
+        for (const listener of this.deletedListeners) listener(fileId);
+      }
       // Once the socket is done with this close: a new document, read from the server.
       if (event.reason === COLLAB_CLOSE.locked.reason) {
         setTimeout(() => {

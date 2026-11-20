@@ -23,8 +23,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Versions listed at most (the most recent).
 const LIST_LIMIT = 200;
 
-/** A file in a version: its content is the history object `blob` (null for an empty file). */
+/**
+ * A file in a version: its content is the history object `blob` (null for an empty file).
+ * `fileId` (versions taken since step 4 bis) follows the file through moves; older versions
+ * are matched by path.
+ */
 export interface ManifestFile {
+  fileId?: string;
   path: string;
   kind: ProjectFile['kind'];
   sizeBytes: number;
@@ -35,6 +40,16 @@ export interface ManifestFile {
 export interface Manifest {
   mainFilePath: string;
   files: ManifestFile[];
+  /** Kept folders (empty ones); absent from versions taken before step 4 bis. */
+  folders?: string[];
+}
+
+/** The current file a file of a version stands for: same id, or same path for old versions. */
+export function matcher<T extends Pick<ProjectFile, 'id' | 'path'>>(current: T[]) {
+  const byId = new Map(current.map((file) => [file.id, file]));
+  const byPath = new Map(current.map((file) => [file.path, file]));
+  return (file: Pick<ManifestFile, 'fileId' | 'path'>): T | undefined =>
+    file.fileId ? byId.get(file.fileId) : byPath.get(file.path);
 }
 
 /**
@@ -48,9 +63,14 @@ export const blobKey = (projectId: string, blob: string) =>
 
 const sameManifest = (a: Manifest, b: Manifest) => {
   if (a.mainFilePath !== b.mainFilePath || a.files.length !== b.files.length) return false;
+  if ((a.folders ?? []).join('\n') !== (b.folders ?? []).join('\n')) return false;
   const blobs = new Map(b.files.map((file) => [file.path, file.blob]));
   return a.files.every((file) => blobs.has(file.path) && blobs.get(file.path) === file.blob);
 };
+
+// Temporary path of a file during a restoration that swaps paths: "#" is refused in project
+// paths, so it never meets a real file (and PostgreSQL text accepts it, unlike NUL).
+const parked = (id: string) => `#restore/${id}`;
 
 export interface VersionOptions {
   label?: string | null;
@@ -124,10 +144,13 @@ export class HistoryService {
     const project = await db.project.findUnique({ where: { id: projectId } });
     if (!project) return null;
     const files = await db.projectFile.findMany({ where: { projectId } });
+    const folders = await db.projectFolder.findMany({ where: { projectId } });
     const manifest: Manifest = {
       mainFilePath: project.mainFilePath,
+      folders: folders.map((folder) => folder.path).sort(),
       files: files
         .map((file) => ({
+          fileId: file.id,
           path: file.path,
           kind: file.kind,
           sizeBytes: file.sizeBytes,
@@ -278,21 +301,28 @@ export class HistoryService {
   async detail(userId: string, projectId: string, versionId: string): Promise<VersionDetail> {
     const { version, manifest } = await this.version(userId, projectId, versionId);
     const current = await this.prisma.client.projectFile.findMany({ where: { projectId } });
-    const byPath = new Map(current.map((file) => [file.path, file]));
-    const paths = new Set(manifest.files.map((file) => file.path));
+    const match = matcher(current);
+    const matched = new Set<string>();
     return {
       version: (await this.summaries([version]))[0]!,
       files: manifest.files.map((file) => {
-        const now = byPath.get(file.path);
+        const now = match(file);
+        if (now) matched.add(now.id);
         return {
           path: file.path,
           kind: file.kind,
           sizeBytes: file.sizeBytes,
-          change: !now ? 'removed' : blobOf(now) === file.blob ? 'same' : 'modified',
+          change: !now
+            ? 'removed'
+            : now.path !== file.path
+              ? 'moved'
+              : blobOf(now) === file.blob
+                ? 'same'
+                : 'modified',
         };
       }),
       added: current
-        .filter((file) => !paths.has(file.path))
+        .filter((file) => !matched.has(file.id))
         .map((file) => file.path)
         .sort(),
     };
@@ -342,44 +372,70 @@ export class HistoryService {
       if (fresh.readOnlyReason) fail(HttpStatus.FORBIDDEN, 'read_only');
 
       const current = await db.projectFile.findMany({ where: { projectId } });
-      const byPath = new Map(current.map((file) => [file.path, file]));
-      const wanted = new Set(manifest.files.map((file) => file.path));
+      const match = matcher(current);
       const kept: string[] = [];
-      const writes = targets.filter((file) => {
-        const now = byPath.get(file.path);
-        if (now && blobOf(now) === file.blob) return false;
-        if (now?.lockedBySubmissionId) {
-          kept.push(file.path);
-          return false;
-        }
-        return true;
-      });
+      // Each file of the version: the current file it stands for (same id), if any.
+      const pairs = targets.map((file) => ({ file, now: match(file) }));
+      const claimed = new Set(pairs.flatMap(({ now }) => (now ? [now.id] : [])));
       const removals = path
         ? []
         : current.filter((file) => {
-            if (wanted.has(file.path)) return false;
+            if (claimed.has(file.id)) return false;
             if (file.lockedBySubmissionId) kept.push(file.path);
             return !file.lockedBySubmissionId;
           });
-      const removedPaths = new Set(removals.map((file) => file.path));
-      // A file to bring back where a kept file now stands as a folder ("a.tex/…") stays out.
-      const remaining = current.filter((file) => !removedPaths.has(file.path)).map((f) => f.path);
-      const creatable = writes.filter((file) => {
-        if (byPath.has(file.path)) return true;
-        if (pathConflicts(remaining, file.path)) {
-          kept.push(file.path);
+      const removedIds = new Set(removals.map((file) => file.id));
+
+      // Locked files stay as they are; a single file is restored where it is now.
+      const changes = pairs.filter(({ file, now }) => {
+        if (!now) return true;
+        const moves = !path && now.path !== file.path;
+        if (!moves && blobOf(now) === file.blob) return false;
+        if (now.lockedBySubmissionId) {
+          kept.push(now.path);
           return false;
         }
-        remaining.push(file.path);
         return true;
       });
+      const changing = new Set(changes.flatMap(({ now }) => (now ? [now.id] : [])));
+      const target = (file: ManifestFile, now: ProjectFile | undefined) =>
+        now && path ? now.path : file.path;
+      // Paths taken after the restoration: files left where they are first, then the others
+      // in turn. A file whose path is taken (by a kept file, or as a folder) stays out.
+      const taken = current
+        .filter((file) => !removedIds.has(file.id) && !changing.has(file.id))
+        .map((file) => file.path);
+      // Kept empty folders stay, unless the whole version brings its own folders.
+      const keptFolders =
+        !path && manifest.folders
+          ? []
+          : (await db.projectFolder.findMany({ where: { projectId } })).map((row) => row.path);
+      const applied = changes.filter(({ file, now }) => {
+        const to = target(file, now);
+        if (now?.path === to || !pathConflicts(taken, to, keptFolders)) {
+          taken.push(to);
+          return true;
+        }
+        if (now) taken.push(now.path);
+        kept.push(file.path);
+        return false;
+      });
 
-      const added = creatable.reduce((total, file) => total + file.sizeBytes, 0);
+      const writes = applied.filter(({ file, now }) => !now || blobOf(now) !== file.blob);
+      const added = writes.reduce((total, { file }) => total + file.sizeBytes, 0);
       const freed =
-        creatable.reduce((total, file) => total + (byPath.get(file.path)?.sizeBytes ?? 0), 0) +
+        writes.reduce((total, { now }) => total + (now?.sizeBytes ?? 0), 0) +
         removals.reduce((total, file) => total + file.sizeBytes, 0);
       if (added > freed) await this.projects.checkStorageFor(project.ownerId, added - freed);
-      if (remaining.length > this.config.env.PROJECT_MAX_FILES) {
+
+      // Kept folders of the version (whole restoration of a version that records them).
+      const folders =
+        !path && manifest.folders
+          ? manifest.folders.filter((folder) => !pathConflicts(taken, folder))
+          : null;
+      const folderCount =
+        folders?.length ?? (await db.projectFolder.count({ where: { projectId } }));
+      if (taken.length + folderCount > this.config.env.PROJECT_MAX_FILES) {
         fail(HttpStatus.CONFLICT, 'too_many_files');
       }
 
@@ -391,51 +447,75 @@ export class HistoryService {
       });
 
       const obsolete: string[] = [];
-      for (const file of creatable) {
+      const contents = new Map<ManifestFile, string>();
+      for (const { file } of writes) {
         const storageKey = this.projects.newKey(projectId);
         if (file.blob) {
           await this.storage.copy(PROJECTS_BUCKET, blobKey(projectId, file.blob), storageKey);
         } else {
           await this.storage.put(PROJECTS_BUCKET, storageKey, new Uint8Array());
         }
-        const now = byPath.get(file.path);
-        if (now) {
-          await db.projectFile.update({
-            where: { id: now.id },
-            data: { storageKey, sizeBytes: file.sizeBytes },
-          });
-          if (now.storageKey) obsolete.push(now.storageKey);
-          if (now.kind === 'TEXT') {
-            await this.events.publish({ type: 'file-replaced', projectId, fileId: now.id });
+        contents.set(file, storageKey);
+      }
+      const replaced: string[] = [];
+      await db.$transaction(async (tx) => {
+        if (removals.length) {
+          await tx.projectFile.deleteMany({ where: { id: { in: [...removedIds] } } });
+        }
+        // Moved files are parked first: two files may swap their paths.
+        const moving = applied.filter(({ file, now }) => now && now.path !== target(file, now));
+        for (const { now } of moving) {
+          await tx.projectFile.update({ where: { id: now!.id }, data: { path: parked(now!.id) } });
+        }
+        for (const { file, now } of applied) {
+          const storageKey = contents.get(file);
+          if (!now) {
+            await tx.projectFile.create({
+              data: {
+                projectId,
+                path: file.path,
+                kind: file.kind,
+                storageKey: storageKey!,
+                sizeBytes: file.sizeBytes,
+              },
+            });
+            continue;
           }
-        } else {
-          await db.projectFile.create({
+          await tx.projectFile.update({
+            where: { id: now.id },
             data: {
-              projectId,
-              path: file.path,
-              kind: file.kind,
-              storageKey,
-              sizeBytes: file.sizeBytes,
+              path: target(file, now),
+              ...(storageKey ? { storageKey, sizeBytes: file.sizeBytes } : {}),
             },
           });
+          if (storageKey) {
+            if (now.storageKey) obsolete.push(now.storageKey);
+            if (now.kind === 'TEXT') replaced.push(now.id);
+          }
         }
-      }
-      if (removals.length) {
-        await db.projectFile.deleteMany({ where: { id: { in: removals.map((file) => file.id) } } });
-        obsolete.push(...removals.flatMap((file) => (file.storageKey ? [file.storageKey] : [])));
-        for (const file of removals) {
-          await this.events.publish({ type: 'file-deleted', projectId, fileId: file.id });
+        if (folders) {
+          await tx.projectFolder.deleteMany({ where: { projectId } });
+          await tx.projectFolder.createMany({
+            data: folders.map((folder) => ({ projectId, path: folder })),
+          });
         }
-      }
-      const main =
-        !path && remaining.includes(manifest.mainFilePath) ? manifest.mainFilePath : null;
-      await db.project.update({
-        where: { id: projectId },
-        data: { lastActivityAt: new Date(), ...(main ? { mainFilePath: main } : {}) },
+        const main = !path && taken.includes(manifest.mainFilePath) ? manifest.mainFilePath : null;
+        await tx.project.update({
+          where: { id: projectId },
+          data: { lastActivityAt: new Date(), ...(main ? { mainFilePath: main } : {}) },
+        });
       });
+      obsolete.push(...removals.flatMap((file) => (file.storageKey ? [file.storageKey] : [])));
+      for (const fileId of replaced) {
+        await this.events.publish({ type: 'file-replaced', projectId, fileId });
+      }
+      for (const file of removals) {
+        await this.events.publish({ type: 'file-deleted', projectId, fileId: file.id });
+      }
+      await this.events.publish({ type: 'files-changed', projectId });
       // History objects are separate copies: the replaced objects can go.
       await this.storage.deleteKeys(PROJECTS_BUCKET, obsolete).catch(() => undefined);
-      return { restored: creatable.length, removed: removals.length, kept: kept.sort() };
+      return { restored: applied.length, removed: removals.length, kept: kept.sort() };
     });
 
     await this.events.changed(projectId);

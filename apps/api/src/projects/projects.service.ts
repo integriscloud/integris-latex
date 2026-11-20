@@ -6,6 +6,7 @@ import {
   type ImportResult,
   MAX_PROJECT_FILE_BYTES,
   normalizeFilePath,
+  projectFolders,
   PROJECTS_BUCKET,
   projectRights,
   type ProjectDetail,
@@ -43,6 +44,11 @@ type NewFile = Pick<ExtractedFile, 'path' | 'kind'> &
 
 const sizeOf = (file: NewFile) => (file.bytes ? file.bytes.length : file.sizeBytes);
 const totalSize = (files: NewFile[]) => files.reduce((total, file) => total + sizeOf(file), 0);
+
+/** Settings of a new project, and its empty folders. */
+type CreateOptions = Partial<Pick<Project, 'mainFilePath' | 'engine' | 'templateId'>> & {
+  folders?: string[];
+};
 
 /** A project the user can reach, with their role on it. */
 export interface ProjectAccess {
@@ -189,12 +195,13 @@ export class ProjectsService {
 
   async detail(userId: string, projectId: string): Promise<ProjectDetail> {
     const { project, role, rights } = await this.access(userId, projectId);
-    const [owner, files] = await Promise.all([
+    const [owner, files, folders] = await Promise.all([
       this.prisma.client.user.findUniqueOrThrow({
         where: { id: project.ownerId },
         select: { displayName: true },
       }),
       this.prisma.client.projectFile.findMany({ where: { projectId }, orderBy: { path: 'asc' } }),
+      this.prisma.client.projectFolder.findMany({ where: { projectId } }),
     ]);
     const sizeBytes = files.reduce((total, file) => total + file.sizeBytes, 0);
     return {
@@ -211,6 +218,10 @@ export class ProjectsService {
         lockedBy: file.lockedBySubmissionId,
         updatedAt: file.updatedAt.toISOString(),
       })),
+      folders: projectFolders(
+        files.map((file) => file.path),
+        folders.map((folder) => folder.path),
+      ),
     };
   }
 
@@ -263,8 +274,8 @@ export class ProjectsService {
   ): Promise<ProjectSummary> {
     const template = await this.templates.visible(owner.id, templateId);
     const archive = await this.storage.get(this.templates.bucket, template.storageKey);
-    const { files } = await this.extract(archive, Number.MAX_SAFE_INTEGER);
-    return this.createWithFiles(owner, name, files, { templateId: template.id });
+    const { files, folders } = await this.extract(archive, Number.MAX_SAFE_INTEGER);
+    return this.createWithFiles(owner, name, files, { templateId: template.id, folders });
   }
 
   /**
@@ -284,11 +295,11 @@ export class ProjectsService {
       await this.checkProjectLimit(owner.id);
       const quotas = await this.quota.quotas(owner.id);
       const left = quotas.storageBytes - (await this.quota.storageUsed(owner.id));
-      const { files, skipped, skippedCount } = await this.extract(
+      const { files, folders, skipped, skippedCount } = await this.extract(
         archive,
         Number(left > 0n ? left : 0n),
       );
-      const project = await this.insert(owner, name, files, {});
+      const project = await this.insert(owner, name, files, { folders });
       return { project, imported: files.length, skipped, skippedCount };
     });
   }
@@ -330,6 +341,9 @@ export class ProjectsService {
         mainFilePath: project.mainFilePath,
         engine: project.engine,
         templateId: project.templateId,
+        folders: (await this.prisma.client.projectFolder.findMany({ where: { projectId } })).map(
+          (folder) => folder.path,
+        ),
       },
     );
   }
@@ -374,7 +388,7 @@ export class ProjectsService {
     owner: { id: string; displayName: string },
     name: string,
     source: NewFile[] | (() => Promise<NewFile[]>),
-    options: Partial<Pick<Project, 'mainFilePath' | 'engine' | 'templateId'>> = {},
+    options: CreateOptions = {},
   ): Promise<ProjectSummary> {
     return this.locks.run(owner.id, async () => {
       const files = typeof source === 'function' ? await source() : source;
@@ -389,7 +403,7 @@ export class ProjectsService {
     owner: { id: string; displayName: string },
     name: string,
     files: NewFile[],
-    options: Partial<Pick<Project, 'mainFilePath' | 'engine' | 'templateId'>>,
+    options: CreateOptions,
   ): Promise<ProjectSummary> {
     const db = this.prisma.client;
     const project = await db.project.create({
@@ -424,6 +438,11 @@ export class ProjectsService {
         );
       }
       await db.projectFile.createMany({ data: rows });
+      if (options.folders?.length) {
+        await db.projectFolder.createMany({
+          data: options.folders.map((path) => ({ projectId: project.id, path })),
+        });
+      }
     } catch (error) {
       await this.erase(project.id).catch((cleanup: unknown) =>
         this.logger.error({ err: cleanup, projectId: project.id }, 'Cleanup of a failed creation'),
@@ -551,6 +570,7 @@ export class ProjectsService {
       db.projectInvitation.deleteMany({ where: { projectId } }),
       db.projectMember.deleteMany({ where: { projectId } }),
       db.projectFile.deleteMany({ where: { projectId } }),
+      db.projectFolder.deleteMany({ where: { projectId } }),
       db.project.delete({ where: { id: projectId } }),
     ]);
     return true;

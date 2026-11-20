@@ -36,7 +36,8 @@ export const versionFileSchema = z.object({
   kind: z.enum(['TEXT', 'BINARY']),
   sizeBytes: z.number().int().nonnegative(),
   /** Compared with the project now. */
-  change: z.enum(['same', 'modified', 'removed']),
+  // 'moved': the same file is now at another path (its content may have changed too).
+  change: z.enum(['same', 'modified', 'moved', 'removed']),
 });
 export type VersionFile = z.infer<typeof versionFileSchema>;
 

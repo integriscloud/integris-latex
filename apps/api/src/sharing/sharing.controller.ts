@@ -31,13 +31,12 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { Auth, type AuthContext, AuthGuard } from '../auth/auth.guard.js';
+import { ipOf } from '../common/request-ip.js';
 import { ApiZodBody, ZodBody } from '../common/zod-body.js';
 import { TEXT_HEADERS } from '../projects/projects.controller.js';
 import { CommentsService } from './comments.service.js';
 import { ShareLinksService } from './share-links.service.js';
 import { SharingService } from './sharing.service.js';
-
-const ipOf = (request: Request) => request.ip ?? null;
 
 /** Search engines never index anything reached through a token. */
 const NO_INDEX = { 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' };

@@ -429,6 +429,15 @@ describe('collab server', () => {
     expect(reviewer.stateless.filter((payload) => payload.includes('comments'))).toHaveLength(1);
   });
 
+  it('tells the editors open on a project that its files moved', async () => {
+    const viewer = connect('viewer', presenceDocumentName(PROJECT));
+    await synced(viewer);
+    await collab.handleEvent({ type: 'files-changed', projectId: PROJECT });
+    await until(() => viewer.stateless.includes(JSON.stringify({ type: 'files' })));
+    await collab.handleEvent({ type: 'files-changed', projectId: 'other-project-1' });
+    expect(viewer.stateless.filter((payload) => payload.includes('files'))).toHaveLength(1);
+  });
+
   it('gives presence documents to every role, read-only and without storage', async () => {
     const viewer = connect('viewer', presenceDocumentName(PROJECT));
     await synced(viewer);

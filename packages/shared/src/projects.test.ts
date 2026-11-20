@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  checkEntryName,
+  movedPath,
   normalizeFilePath,
   normalizeProjectPath,
+  parentFolder,
   pathConflicts,
+  projectFolders,
   projectRights,
 } from './projects.js';
 import { allowedExtensionOf, extensionOf } from './storage.js';
@@ -58,6 +62,47 @@ describe('extensions', () => {
   });
 });
 
+describe('pathConflicts with kept folders', () => {
+  const files = ['main.tex', 'chapitres/intro.tex'];
+  const folders = ['annexes/tableaux', 'vide'];
+
+  it('refuses a file or a folder named like a kept folder or one of its parents', () => {
+    expect(pathConflicts(files, 'vide', folders)).toBe(true);
+    expect(pathConflicts(files, 'annexes', folders)).toBe(true);
+    expect(pathConflicts(files, 'annexes/tableaux', folders)).toBe(true);
+  });
+
+  it('accepts a file or a folder inside a kept folder', () => {
+    expect(pathConflicts(files, 'vide/a.tex', folders)).toBe(false);
+    expect(pathConflicts(files, 'annexes/tableaux/b', folders)).toBe(false);
+    expect(pathConflicts(files, 'annexes/autre.tex', folders)).toBe(false);
+  });
+
+  it('refuses a folder named like a file or a folder holding files', () => {
+    expect(pathConflicts(files, 'main.tex', folders)).toBe(true);
+    expect(pathConflicts(files, 'chapitres', folders)).toBe(true);
+  });
+});
+
+describe('folders', () => {
+  it('lists the kept folders and the folders of the files, parents included', () => {
+    expect(projectFolders(['main.tex', 'a/b/c.tex', 'a/d.tex'], ['x/y', 'a'])).toEqual([
+      'a',
+      'a/b',
+      'x',
+      'x/y',
+    ]);
+  });
+
+  it('gives the parent folder and the path after a move', () => {
+    expect(parentFolder('a/b/c.tex')).toBe('a/b');
+    expect(parentFolder('main.tex')).toBe('');
+    expect(movedPath('a/b/c.tex', '')).toBe('c.tex');
+    expect(movedPath('c.tex', 'x/y')).toBe('x/y/c.tex');
+    expect(movedPath('a/b', 'x')).toBe('x/b');
+  });
+});
+
 describe('pathConflicts', () => {
   const existing = ['main.tex', 'chapitres/intro.tex'];
 
@@ -90,5 +135,67 @@ describe('projectRights', () => {
         manage: share,
       });
     }
+  });
+});
+
+describe('checkEntryName', () => {
+  const existing = {
+    files: ['main.tex', 'chapitres/intro.tex', 'figures/carte.png'],
+    folders: ['annexes'],
+  };
+
+  it('adds .tex to a file name without extension and builds the path in the folder', () => {
+    expect(checkEntryName(' test ', 'file', 'chapitres', existing)).toEqual({
+      ok: true,
+      name: 'test.tex',
+      path: 'chapitres/test.tex',
+    });
+    expect(checkEntryName('refs.bib', 'file', '', existing)).toMatchObject({ path: 'refs.bib' });
+    expect(
+      checkEntryName('annexe', 'file', '', existing, { defaultExtension: '.md' }),
+    ).toMatchObject({ name: 'annexe.md' });
+    expect(checkEntryName('donnees', 'folder', 'annexes', existing)).toMatchObject({
+      path: 'annexes/donnees',
+    });
+  });
+
+  it('gives the precise reason of a refusal', () => {
+    const problem = (name: string, kind: 'file' | 'folder' = 'file', folder = '') => {
+      const check = checkEntryName(name, kind, folder, existing);
+      return check.ok ? null : check.problem;
+    };
+    expect(problem('  ')).toEqual({ code: 'name_empty' });
+    expect(problem('a/b.tex')).toEqual({ code: 'name_slash' });
+    expect(problem('..', 'folder')).toEqual({ code: 'name_dots' });
+    expect(problem('cours%1.tex')).toEqual({ code: 'name_char', char: '%' });
+    expect(problem('notes.docx')).toMatchObject({
+      code: 'name_extension',
+      extension: '.docx',
+      extensions: expect.arrayContaining(['.tex', '.bib', '.png']),
+    });
+    expect(problem('intro', 'file', 'chapitres')).toEqual({
+      code: 'name_taken',
+      name: 'intro.tex',
+    });
+    expect(problem('annexes', 'folder')).toEqual({ code: 'name_taken', name: 'annexes' });
+    expect(problem('figures', 'folder')).toEqual({ code: 'name_taken', name: 'figures' });
+    expect(problem(`${'a'.repeat(121)}`, 'folder')).toEqual({ code: 'name_too_long', max: 120 });
+    const deep = Array.from({ length: 3 }, () => 'b'.repeat(100)).join('/');
+    expect(problem('c'.repeat(10), 'folder', deep)).toEqual({ code: 'path_too_long', max: 300 });
+    expect(problem('x', 'folder', 'a/b/c/d/e/f/g/h/i/j')).toEqual({
+      code: 'path_too_deep',
+      max: 10,
+    });
+  });
+
+  it('ignores the entry being renamed', () => {
+    expect(
+      checkEntryName('intro', 'file', 'chapitres', existing, {
+        ignore: 'chapitres/intro.tex',
+      }),
+    ).toMatchObject({ ok: true, path: 'chapitres/intro.tex' });
+    expect(
+      checkEntryName('chapitres', 'folder', '', existing, { ignore: 'chapitres' }),
+    ).toMatchObject({ ok: true });
   });
 });

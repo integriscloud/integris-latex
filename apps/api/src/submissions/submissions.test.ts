@@ -602,6 +602,51 @@ describe('submissions', () => {
       ).toMatchObject({ locked: true, lockedBy: created.id });
     });
 
+    it('follows a file moved after sending: the file itself is put back and locked', async () => {
+      const created = await draft({ reviewerIds: [supervisor.id] });
+      await send(created.id);
+      const ch2 = fileAt('ch2.tex')!;
+      const server = () => request(ctx.app.getHttpServer());
+      await server()
+        .patch(`/api/projects/${projectId}/files/${ch2.id}`)
+        .set('Origin', ORIGIN)
+        .set(TEST_USER_HEADER, student.id)
+        .send({ path: 'chapitres/ch2.tex' })
+        .expect(200);
+      await write('chapitres/ch2.tex', 'Réécrit après le déplacement\n');
+      await as(supervisor).post(`/${created.id}/open`).expect(201);
+      expect((await detail(created.id, supervisor)).changedSinceSent).toEqual(['ch2.tex']);
+
+      await as(supervisor).post(`/${created.id}/validate`, { number: 1 }).expect(201);
+      // No copy at the old path: the moved file takes the validated text and is locked.
+      expect(fileAt('ch2.tex')).toBeUndefined();
+      const moved = fileAt('chapitres/ch2.tex')!;
+      expect(moved.id).toBe(ch2.id);
+      expect(moved.lockedBySubmissionId).toBe(created.id);
+      expect(textAt('chapitres/ch2.tex')).toBe(CH2);
+      // The trace keeps the paths and hashes sent, nothing else.
+      expect(ctx.db.records[0]!.files).toEqual([{ path: 'ch2.tex', sha256: sha(CH2) }]);
+    });
+
+    it('lets a draft follow its files when they move', async () => {
+      const created = await draft();
+      const ch2 = fileAt('ch2.tex')!;
+      await request(ctx.app.getHttpServer())
+        .patch(`/api/projects/${projectId}/folders`)
+        .set('Origin', ORIGIN)
+        .set(TEST_USER_HEADER, editor.id)
+        .send({ from: 'chapitres', to: 'x' })
+        .expect(404);
+      await request(ctx.app.getHttpServer())
+        .patch(`/api/projects/${projectId}/files/${ch2.id}`)
+        .set('Origin', ORIGIN)
+        .set(TEST_USER_HEADER, editor.id)
+        .send({ path: 'parties/ch2.tex' })
+        .expect(200);
+      expect((await detail(created.id)).filePaths).toEqual(['parties/ch2.tex']);
+      await send(created.id, ['parties/ch2.tex']);
+    });
+
     it('is unlocked by a supervisor: the submission stays validated, the trace is kept', async () => {
       const created = await draft({ reviewerIds: [supervisor.id, reviewer.id] });
       await send(created.id);

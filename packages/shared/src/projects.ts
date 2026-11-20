@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { PLAN_CODES } from './plans.js';
-import { allowedExtensionOf } from './storage.js';
+import { ALLOWED_PROJECT_EXTENSIONS, allowedExtensionOf, extensionOf } from './storage.js';
 
 /** Days a project stays in the trash before it is erased (docs/spec.md, "Projets"). */
 export const TRASH_RETENTION_DAYS = 30;
@@ -38,6 +38,9 @@ export const PROJECT_ERROR_CODES = [
   'main_missing',
   'compile_unavailable',
   'no_output',
+  // Project download (ZIP).
+  'download_in_progress',
+  'download_expired',
 ] as const;
 export type ProjectErrorCode = (typeof PROJECT_ERROR_CODES)[number];
 
@@ -75,16 +78,121 @@ export function normalizeFilePath(input: string): string | null {
 }
 
 /**
- * Whether a file can be created at `path` next to the existing file paths: no file with the same
- * path, no existing file used as a folder ("a.tex/b.tex"), and no folder of that name.
+ * Whether a file or a folder can be created at `path` next to the existing file paths and kept
+ * folders: no file or folder with the same path, and no existing file used as a folder
+ * ("a.tex/b.tex"). Being inside a kept folder is fine.
  */
-export function pathConflicts(existing: Iterable<string>, path: string): boolean {
+export function pathConflicts(
+  existing: Iterable<string>,
+  path: string,
+  folders: Iterable<string> = [],
+): boolean {
   for (const other of existing) {
     if (other === path || other.startsWith(`${path}/`) || path.startsWith(`${other}/`)) {
       return true;
     }
   }
+  for (const folder of folders) {
+    if (folder === path || folder.startsWith(`${path}/`)) return true;
+  }
   return false;
+}
+
+/** Folder that holds `path` ("" for the root). */
+export function parentFolder(path: string): string {
+  const slash = path.lastIndexOf('/');
+  return slash < 0 ? '' : path.slice(0, slash);
+}
+
+/** Every folder of a project, sorted: the kept folders and the folders of the file paths. */
+export function projectFolders(filePaths: Iterable<string>, kept: Iterable<string>): string[] {
+  const folders = new Set<string>();
+  const add = (folder: string) => {
+    for (let end = folder.indexOf('/'); end >= 0; end = folder.indexOf('/', end + 1)) {
+      folders.add(folder.slice(0, end));
+    }
+    if (folder) folders.add(folder);
+  };
+  for (const path of filePaths) add(parentFolder(path));
+  for (const folder of kept) add(folder);
+  return [...folders].sort();
+}
+
+/** Extension given to a new file typed without one ("test" → "test.tex"). */
+export const DEFAULT_FILE_EXTENSION = '.tex';
+
+/** Why a name typed for a file or a folder is refused, with what the message needs. */
+export type NameProblem =
+  | { code: 'name_empty' }
+  | { code: 'name_slash' }
+  | { code: 'name_dots' }
+  | { code: 'name_char'; char: string }
+  | { code: 'name_too_long'; max: number }
+  | { code: 'path_too_long'; max: number }
+  | { code: 'path_too_deep'; max: number }
+  | { code: 'name_extension'; extension: string; extensions: readonly string[] }
+  | { code: 'name_taken'; name: string };
+
+export type NameCheck =
+  { ok: true; name: string; path: string } | { ok: false; problem: NameProblem };
+
+/**
+ * Checks a name typed for a new or renamed file or folder in `folder` ("" for the root), with
+ * the precise reason of a refusal. A file name without extension takes `defaultExtension`
+ * (".tex" for a new file, the current one for a renamed file). `existing` holds the file paths
+ * and kept folders of the project; `ignore` is the path being renamed (and what it holds).
+ */
+export function checkEntryName(
+  input: string,
+  kind: 'file' | 'folder',
+  folder: string,
+  existing: { files: readonly string[]; folders: readonly string[] },
+  options: { ignore?: string; defaultExtension?: string } = {},
+): NameCheck {
+  let name = input.normalize('NFC').trim();
+  if (!name) return { ok: false, problem: { code: 'name_empty' } };
+  if (name.includes('/')) return { ok: false, problem: { code: 'name_slash' } };
+  if (name === '.' || name === '..') return { ok: false, problem: { code: 'name_dots' } };
+  const forbidden = FORBIDDEN_PATH_CHARS.exec(name);
+  if (forbidden) return { ok: false, problem: { code: 'name_char', char: forbidden[0] } };
+  if (kind === 'file') {
+    if (!name.includes('.')) name += options.defaultExtension ?? DEFAULT_FILE_EXTENSION;
+    if (!allowedExtensionOf(name)) {
+      return {
+        ok: false,
+        problem: {
+          code: 'name_extension',
+          extension: extensionOf(name) ?? name.slice(name.lastIndexOf('.')),
+          extensions: ALLOWED_PROJECT_EXTENSIONS,
+        },
+      };
+    }
+  }
+  if (name.length > PATH_LIMITS.maxSegment) {
+    return { ok: false, problem: { code: 'name_too_long', max: PATH_LIMITS.maxSegment } };
+  }
+  const path = folder ? `${folder}/${name}` : name;
+  if (path.length > PATH_LIMITS.maxLength) {
+    return { ok: false, problem: { code: 'path_too_long', max: PATH_LIMITS.maxLength } };
+  }
+  if (path.split('/').length > PATH_LIMITS.maxDepth) {
+    return { ok: false, problem: { code: 'path_too_deep', max: PATH_LIMITS.maxDepth } };
+  }
+  const { ignore } = options;
+  const kept = (other: string) => !ignore || (other !== ignore && !other.startsWith(`${ignore}/`));
+  if (
+    path !== ignore &&
+    pathConflicts(existing.files.filter(kept), path, existing.folders.filter(kept))
+  ) {
+    return { ok: false, problem: { code: 'name_taken', name } };
+  }
+  return { ok: true, name, path };
+}
+
+/** Path of a file or folder moved into `folder` ("" for the root), keeping its name. */
+export function movedPath(path: string, folder: string): string {
+  const name = path.slice(path.lastIndexOf('/') + 1);
+  return folder ? `${folder}/${name}` : name;
 }
 
 // ───────────── Roles and rights ─────────────
@@ -159,6 +267,8 @@ export const moveFileSchema = z.object({ path });
 /** Rename or move a folder and everything inside it. */
 export const moveFolderSchema = z.object({ from: path, to: path });
 export const deleteFolderSchema = z.object({ path });
+/** New empty folder. */
+export const createFolderSchema = z.object({ path });
 
 export const projectNameQuerySchema = z.object({ name });
 export const uploadQuerySchema = z.object({
@@ -220,6 +330,8 @@ export const projectDetailSchema = projectSummarySchema.extend({
   engine: z.enum(['PDFLATEX', 'XELATEX', 'LUALATEX']),
   rights: projectRightsSchema,
   files: z.array(projectFileSchema),
+  /** Every folder, empty or not, sorted. */
+  folders: z.array(z.string()),
 });
 export type ProjectDetail = z.infer<typeof projectDetailSchema>;
 
@@ -254,6 +366,18 @@ export const projectLimitsSchema = z.object({
   extensions: z.array(z.string()),
 });
 export type ProjectLimits = z.infer<typeof projectLimitsSchema>;
+
+/**
+ * A download of the whole project (ZIP), granted by `POST :id/archive`: the browser follows
+ * `GET :id/archive?t=<token>` within five minutes. `tooLargeForImport` when the project is beyond a
+ * limit of the ZIP import (warning shown before the download, never a refusal).
+ */
+export const archiveGrantSchema = z.object({
+  token: z.string(),
+  tooLargeForImport: z.boolean(),
+});
+export type ArchiveGrant = z.infer<typeof archiveGrantSchema>;
+export const archiveQuerySchema = z.object({ t: z.string().min(1).max(128) });
 
 export const templateSummarySchema = z.object({
   id,

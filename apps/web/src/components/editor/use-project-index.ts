@@ -24,6 +24,8 @@ export interface IndexedFile {
 
 interface SymbolCache {
   text: string;
+  // Symbols carry the path of their file: a moved file gets them again.
+  path: string;
   symbols: ProjectSymbols;
 }
 
@@ -108,9 +110,9 @@ export function useProjectIndex(projectId: string, files: readonly ProjectFileIn
   const symbols = useCallback((): ProjectSymbols => {
     const all = indexed().map((file) => {
       const cached = cache.current.get(file.id);
-      if (cached && cached.text === file.text) return cached.symbols;
+      if (cached && cached.text === file.text && cached.path === file.path) return cached.symbols;
       const fresh = symbolsOf(file);
-      cache.current.set(file.id, { text: file.text, symbols: fresh });
+      cache.current.set(file.id, { text: file.text, path: file.path, symbols: fresh });
       return fresh;
     });
     return {

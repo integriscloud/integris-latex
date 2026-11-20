@@ -2,7 +2,10 @@ import {
   allowedExtensionOf,
   extensionOf,
   normalizeFilePath,
+  normalizeProjectPath,
   PATH_LIMITS,
+  pathConflicts,
+  projectFolders,
   type ProjectErrorCode,
   type SkippedFile,
 } from '@integris/shared';
@@ -30,6 +33,8 @@ export interface ExtractedFile {
 
 export interface ZipImport {
   files: ExtractedFile[];
+  /** Empty folders of the archive (directory entries holding no file kept). */
+  folders: string[];
   /** Files left out, the first MAX_REPORTED of them (paths truncated). */
   skipped: SkippedFile[];
   skippedCount: number;
@@ -320,9 +325,10 @@ export async function readProjectZip(archive: Uint8Array, limits: ZipLimits): Pr
   }
   const data = locateData(reader, entries, directoryOffset);
 
-  const fileEntries = entries
+  const named = entries
     .map((entry, index) => ({ entry, data: data[index]!, path: archivePath(entry.name)! }))
-    .filter(({ path }) => !path.endsWith('/') && !IGNORED.some((pattern) => pattern.test(path)));
+    .filter(({ path }) => !IGNORED.some((pattern) => pattern.test(path)));
+  const fileEntries = named.filter(({ path }) => !path.endsWith('/'));
   const root = commonRoot(fileEntries.map(({ path }) => path));
 
   const budget = { left: limits.maxTotalBytes };
@@ -388,8 +394,20 @@ export async function readProjectZip(archive: Uint8Array, limits: ZipLimits): Pr
     accepted.push(file);
   }
   if (!accepted.length) throw new ZipError('archive_empty');
+
+  // Directory entries: kept only when no file kept lies inside (the others exist anyway).
+  const implied = new Set(projectFolders(paths, []));
+  const folders: string[] = [];
+  for (const { path: fullPath } of named) {
+    if (!fullPath.endsWith('/') || !fullPath.startsWith(root)) continue;
+    const folder = normalizeProjectPath(fullPath.slice(root.length, -1));
+    if (!folder || implied.has(folder) || folders.includes(folder)) continue;
+    if (pathConflicts(paths, folder)) continue;
+    folders.push(folder);
+  }
   return {
     files: accepted,
+    folders: folders.filter((folder) => !folders.some((other) => other.startsWith(`${folder}/`))),
     skipped: skipped.slice(0, MAX_REPORTED).map((file) => ({
       ...file,
       path: file.path.slice(0, PATH_LIMITS.maxLength),

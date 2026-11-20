@@ -24,7 +24,7 @@ import { QuotaService } from '../projects/quota.service.js';
 import { RedisService } from '../redis/redis.service.js';
 import { consumeSmsBudget } from '../sms/sms-budget.js';
 import { SMS_SENDER, type SmsSender } from '../sms/sms-sender.js';
-import { ProjectAuditService } from './project-audit.service.js';
+import { ProjectAuditService } from '../projects/project-audit.service.js';
 import { invitationMail, invitationSms } from './sharing-messages.js';
 import { ShareLinksService } from './share-links.service.js';
 

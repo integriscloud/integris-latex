@@ -7,6 +7,7 @@ import {
   type TextareaHTMLAttributes,
   useId,
   useState,
+  type SelectHTMLAttributes,
 } from 'react';
 import styles from './field.module.css';
 
@@ -197,6 +198,37 @@ export function TextAreaField({ label, optionalLabel, help, error, ...props }: T
           aria-describedby={describedBy(id, help, error)}
           {...props}
         />
+      </div>
+    </FieldFrame>
+  );
+}
+
+export interface SelectFieldProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id'> {
+  label: string;
+  help?: string;
+  error?: string;
+  options: readonly { value: string; label: string }[];
+}
+
+/** A choice in a list (a destination folder). */
+export function SelectField({ label, help, error, options, ...props }: SelectFieldProps) {
+  const id = useId();
+  return (
+    <FieldFrame id={id} label={label} help={help} error={error}>
+      <div className={boxClass(error)}>
+        <select
+          id={id}
+          className={`${styles.input} ${styles.select}`}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy(id, help, error)}
+          {...props}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
     </FieldFrame>
   );

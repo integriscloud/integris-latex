@@ -121,6 +121,9 @@ export const collabServerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('comments') }),
   // On the presence document: rights on the project changed (read the project again).
   z.object({ type: z.literal('access') }),
+  // On the presence document: files or folders were created, moved or deleted (read the
+  // project again).
+  z.object({ type: z.literal('files') }),
 ]);
 export type CollabServerMessage = z.infer<typeof collabServerMessageSchema>;
 
@@ -149,6 +152,8 @@ export const collabEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('project-access'), projectId: z.string() }),
   // A comment was added, answered, resolved or decided: the open editors read them again.
   z.object({ type: z.literal('comments-changed'), projectId: z.string() }),
+  // Files or folders were created, moved or deleted: the open editors read the project again.
+  z.object({ type: z.literal('files-changed'), projectId: z.string() }),
 ]);
 export type CollabEvent = z.infer<typeof collabEventSchema>;
 

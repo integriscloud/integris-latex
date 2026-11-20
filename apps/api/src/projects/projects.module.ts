@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { FilesService } from './files.service.js';
 import { OwnerLockService } from './owner-lock.service.js';
+import { ProjectAuditService } from './project-audit.service.js';
 import { ProjectEventsService } from './project-events.service.js';
 import { ProjectsController, TemplatesController } from './projects.controller.js';
 import { ProjectsService } from './projects.service.js';
 import { QuotaService } from './quota.service.js';
 import { TemplatesService } from './templates.service.js';
 import { TrashPurgeService } from './trash-purge.service.js';
+import { ProjectArchiveService } from './zip-export.js';
 
 @Module({
   imports: [AuthModule],
@@ -15,12 +17,14 @@ import { TrashPurgeService } from './trash-purge.service.js';
   providers: [
     FilesService,
     OwnerLockService,
+    ProjectAuditService,
     ProjectEventsService,
+    ProjectArchiveService,
     ProjectsService,
     QuotaService,
     TemplatesService,
     TrashPurgeService,
   ],
-  exports: [ProjectsService, QuotaService, ProjectEventsService, FilesService],
+  exports: [ProjectsService, QuotaService, ProjectEventsService, FilesService, ProjectAuditService],
 })
 export class ProjectsModule {}

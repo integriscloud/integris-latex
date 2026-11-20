@@ -98,6 +98,8 @@ export const apiEnvSchema = z
     // Imports decompressing at the same time in one API process, and imports per user per hour.
     ZIP_MAX_CONCURRENT_IMPORTS: positiveInt(2),
     ZIP_IMPORTS_PER_HOUR: positiveInt(20),
+    // Project downloads (ZIP) per account and per hour; one download at a time per project.
+    ZIP_EXPORTS_PER_HOUR: positiveInt(20),
     // Files in one project (uploads and new files; an import is limited by ZIP_MAX_FILES).
     PROJECT_MAX_FILES: positiveInt(2000),
     // How often projects deleted more than 30 days ago are erased.

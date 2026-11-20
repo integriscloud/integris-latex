@@ -3,6 +3,8 @@
 import {
   COMMENT_LIMITS,
   type CommentInfo,
+  MAX_PROJECT_FILE_BYTES,
+  parentFolder,
   type ProjectDetail,
   type UserPreferences,
 } from '@integris/shared';
@@ -30,7 +32,9 @@ import {
 import {
   ArrowLeft,
   Code,
+  Download,
   FileText,
+  FolderPlus,
   FolderTree,
   LocateFixed,
   Lock,
@@ -53,7 +57,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { getPathname } from '../../i18n/navigation';
-import { apiRead, apiRequest, type ClientErrorCode } from '../../lib/api-client';
+import { apiRead, apiRequest, type ApiResult, type ClientErrorCode } from '../../lib/api-client';
 import { anchorOf, rangeOf } from '../../lib/collab/anchors';
 import { collabUrl, ProjectCollab } from '../../lib/collab/project-collab';
 import { loadSubmission } from '../../lib/submissions/api';
@@ -63,7 +67,8 @@ import type { LineSelection } from '../../lib/editor/line-comment';
 import { type OutlineEntry, parseOutline } from '../../lib/editor/outline';
 import { formatBytes } from '../../lib/format';
 import { forwardSearch, inverseSearch, type PdfArea } from '../../lib/pdf/synctex';
-import { TextDialog } from '../app/dialogs';
+import { useProjectDownload } from '../app/file-ops';
+import { useFileTreeActions } from '../app/file-tree-actions';
 import { useApiErrorMessage } from '../app/use-api-error';
 import { ShareDialog } from '../sharing/ShareDialog';
 import { CodeEditor, type CodeEditorHandle } from './CodeEditor';
@@ -79,6 +84,7 @@ import { useEditorPhrases } from './phrases';
 import { useCompiler } from './use-compiler';
 import { useComments } from './use-comments';
 import { useProjectIndex } from './use-project-index';
+import { useWordCount } from './use-word-count';
 
 /** First file shown: the one asked in the URL, else the main file, else the first text file. */
 function firstFile(project: ProjectDetail, asked: string | null): string | null {
@@ -131,6 +137,7 @@ export function ProjectEditor({
   initialSpellcheck: boolean;
 }) {
   const t = useTranslations('Editor');
+  const tOps = useTranslations('FileOps');
   const ts = useTranslations('Submissions');
   const locale = useLocale();
   const errorMessage = useApiErrorMessage(locale);
@@ -154,7 +161,6 @@ export function ProjectEditor({
   const [spellcheck, setSpellcheck] = useState(initialSpellcheck);
   const [settingsFailed, setSettingsFailed] = useState(false);
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
-  const [newFile, setNewFile] = useState(false);
   const pendingGoTo = useRef<{ line: number; column: number } | null>(null);
   const [highlight, setHighlight] = useState<(PdfArea & { at: number }) | null>(null);
   const [syncMissed, setSyncMissed] = useState(false);
@@ -170,6 +176,7 @@ export function ProjectEditor({
   const [historyFocus, setHistoryFocus] = useState<string | null>(null);
 
   const index = useProjectIndex(project.id, project.files);
+  const wordCount = useWordCount(project.id, project.files, project.mainFilePath, index);
   const filesById = useMemo(
     () => new Map(project.files.map((file) => [file.id, file])),
     [project.files],
@@ -246,6 +253,11 @@ export function ProjectEditor({
 
   /** Writes every open file to storage now; true when all of them are stored. */
   const flushAll = useCallback(async () => (await collab.flush()).ok, [collab]);
+
+  // The open files are written to storage first: the archive holds what was typed.
+  const download = useProjectDownload(project.id, flushAll);
+  // Owner and editors download the project, read-only projects included (reading).
+  const canDownload = project.role === 'OWNER' || project.role === 'EDITOR';
 
   const compiler = useCompiler(project.id, flushAll);
   const { compile, edited } = compiler;
@@ -348,7 +360,8 @@ export function ProjectEditor({
   useEffect(
     () =>
       collab.onProjectChange((change) => {
-        if (change === 'access') void reloadProject();
+        // Rights changed, or files created, moved or deleted by someone else.
+        if (change === 'access' || change === 'files') void reloadProject();
       }),
     [collab, reloadProject],
   );
@@ -541,21 +554,35 @@ export function ProjectEditor({
           main: file.path === project.mainFilePath,
           locked: file.locked,
         })),
+        project.folders,
       ),
-    [project.files, project.mainFilePath, locale],
+    [project.files, project.folders, project.mainFilePath, locale],
   );
 
-  // A file created in the dialog is opened once the project lists it.
-  const created = useRef<string | null>(null);
-  const createFile = async (path: string) => {
-    const result = await apiRequest<ProjectDetail>('POST', `projects/${project.id}/files`, {
-      path,
-    });
+  /** Applies an answer carrying the project: the open file stays open while it exists. */
+  const apply = (result: ApiResult<ProjectDetail>) => {
     if (!result.ok) return errorMessage(result.error);
-    created.current = result.data.files.find((file) => !filesById.has(file.id))?.id ?? null;
     setProject(result.data);
+    setActiveId((current) =>
+      current && result.data.files.some((file) => file.id === current)
+        ? current
+        : firstFile(result.data, null),
+    );
     return null;
   };
+
+  // A file created from the tree is opened once the project lists it.
+  const created = useRef<string | null>(null);
+  const files = useFileTreeActions({
+    project,
+    apply,
+    canEdit,
+    maxFileBytes: MAX_PROJECT_FILE_BYTES,
+    fallbackFolder: active ? parentFolder(active.path) : '',
+    onCreated: (file) => {
+      if (file.kind === 'TEXT') created.current = file.id;
+    },
+  });
 
   useEffect(() => {
     if (!created.current || !filesById.has(created.current)) return;
@@ -839,23 +866,36 @@ export function ProjectEditor({
           <>
             <div className={styles.filesActions}>
               {canEdit && (
-                <Button variant="secondary" onClick={() => setNewFile(true)}>
-                  <SquarePen size={20} strokeWidth={1.75} aria-hidden="true" />
-                  {t('newFile')}
-                </Button>
+                <>
+                  <Button variant="secondary" onClick={files.newFile}>
+                    <SquarePen size={20} strokeWidth={1.75} aria-hidden="true" />
+                    {tOps('newFile')}
+                  </Button>
+                  <Button variant="secondary" onClick={files.newFolder}>
+                    <FolderPlus size={20} strokeWidth={1.75} aria-hidden="true" />
+                    {tOps('newFolder')}
+                  </Button>
+                </>
               )}
               <a className={styles.manage} href={projectHref}>
                 {t('manageFiles')}
               </a>
             </div>
+            {files.status}
             <FileTree
               label={t('filesLabel')}
               entries={tree}
               mainLabel={t('main')}
               lockedLabel={t('locked')}
               fileHref={textFileHref}
-              onOpenFile={(file) => openFile(file.id)}
+              onOpenFile={(file) => {
+                // The folder of the open file becomes the current folder.
+                files.selectFolder(null);
+                openFile(file.id);
+              }}
               activeId={activeId ?? undefined}
+              rootLabel={tOps('root')}
+              {...files.treeProps}
             />
           </>
         )}
@@ -1101,7 +1141,59 @@ export function ProjectEditor({
               menu={compileMenu}
             />
             <IconButton icon={Share2} label={t('share')} onClick={() => setShareOpen(true)} />
-            <MenuButton icon={Settings} label={t('settings')}>
+            <MenuButton icon={Settings} label={t('settings')} onOpen={() => void wordCount.count()}>
+              <section className={styles.wordCount} aria-live="polite">
+                <h2 className={styles.menuTitle}>{t('wordCount')}</h2>
+                {wordCount.state.status === 'done' ? (
+                  <>
+                    <p className={styles.wordCountValue}>
+                      {t('wordCountValue', { count: wordCount.state.count.words })}
+                    </p>
+                    <p className={styles.menuHelp}>
+                      {t('wordCountDetail', {
+                        files: wordCount.state.count.files.length,
+                        formulas: wordCount.state.count.formulas,
+                      })}
+                    </p>
+                    {wordCount.state.count.missing.length > 0 && (
+                      <p className={styles.menuHelp}>
+                        {t('wordCountMissing', {
+                          paths: wordCount.state.count.missing.join(', '),
+                        })}
+                      </p>
+                    )}
+                  </>
+                ) : wordCount.state.status === 'no-main' ? (
+                  <p className={styles.menuHelp}>
+                    {t('wordCountNoMain', { path: project.mainFilePath })}
+                  </p>
+                ) : (
+                  <p className={styles.menuHelp}>{t('wordCountLoading')}</p>
+                )}
+                <p className={styles.menuHelp}>{t('wordCountHelp')}</p>
+                <Button
+                  variant="secondary"
+                  busy={wordCount.state.status === 'counting'}
+                  onClick={() => void wordCount.count()}
+                >
+                  {t('wordCountRecount')}
+                </Button>
+              </section>
+              {canDownload && (
+                <Button
+                  variant="secondary"
+                  busy={download.busy}
+                  onClick={() => void download.start()}
+                >
+                  <Download size={20} strokeWidth={1.75} aria-hidden="true" />
+                  {tOps('download')}
+                </Button>
+              )}
+              {download.error && (
+                <p className={styles.menuHelp} role="alert">
+                  {download.error}
+                </p>
+              )}
               <label className={styles.choice}>
                 <input
                   type="checkbox"
@@ -1165,16 +1257,8 @@ export function ProjectEditor({
           void reloadProject();
         }}
       />
-      <TextDialog
-        open={newFile}
-        title={t('newFileTitle')}
-        label={t('newFilePath')}
-        help={t('newFileHelp')}
-        initial=""
-        submitLabel={t('create')}
-        onSubmit={createFile}
-        onClose={() => setNewFile(false)}
-      />
+      {files.dialogs}
+      {download.dialog}
     </>
   );
 }

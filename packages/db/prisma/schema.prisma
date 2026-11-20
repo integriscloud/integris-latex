@@ -503,6 +503,7 @@ model Project {
   updatedAt      DateTime    @updatedAt
 
   files         ProjectFile[]
+  folders       ProjectFolder[]
   members       ProjectMember[]
   invitations   ProjectInvitation[]
   shareLinks    ShareLink[]
@@ -529,6 +530,19 @@ model ProjectFile {
 
   comments Comment[]
   document FileDocument?
+
+  @@unique([projectId, path])
+}
+
+// A folder kept on its own: created empty, or left empty after its last file was deleted or
+// moved away. The tree is the union of these folders and the folders of the file paths; a folder
+// only disappears when it is deleted. Counted with the files in PROJECT_MAX_FILES.
+model ProjectFolder {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  path      String // e.g. "chapters/annexes", same rules as file paths
+  createdAt DateTime @default(now())
 
   @@unique([projectId, path])
 }
@@ -759,7 +773,7 @@ model SubmissionVersion {
   projectVersion   ProjectVersion         @relation(fields: [projectVersionId], references: [id])
   filePaths        String[]
   message          String?
-  files            Json // [{ path, sha256 }] of the files chosen, as frozen
+  files            Json // [{ path, sha256, fileId? }] of the files chosen, as frozen
   sentById         String
   sentBy           User                   @relation(fields: [sentById], references: [id])
   sentIp           String?

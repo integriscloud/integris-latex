@@ -98,7 +98,7 @@ test('create a project, upload files, import a ZIP, use the trash', async ({ pag
   const picker = page.getByLabel(/Choisir des fichiers/);
   await picker.setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: PNG });
   // The tree row (the progress line also names the file).
-  await expect(page.getByRole('button', { name: 'Supprimer logo.png' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Actions de logo.png' })).toBeVisible();
   // The result is shown under the drop zone and scrolled into view.
   await expect(page.getByText('1 fichier téléversé.')).toBeInViewport();
   await picker.setInputFiles({
@@ -117,14 +117,19 @@ test('create a project, upload files, import a ZIP, use the trash', async ({ pag
   });
   await expect(page.getByText(/faux\.png : Le contenu du fichier ne correspond pas/)).toBeVisible();
 
-  // New text file in a new folder.
-  await page.getByRole('button', { name: 'Nouveau fichier' }).click();
-  await page.getByLabel('Chemin du fichier').fill('chapitres/introduction.tex');
+  // New folder, then a new text file in it, by name only: it opens in the editor.
+  await page.getByRole('button', { name: 'Nouveau dossier', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Nom').fill('chapitres');
   await page.getByRole('button', { name: 'Créer', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'chapitres', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Nouveau fichier', exact: true }).click();
+  await expect(page.getByRole('dialog').getByLabel('Dans le dossier')).toHaveValue('chapitres');
+  await page.getByRole('dialog').getByLabel('Nom').fill('introduction');
+  await page.getByRole('button', { name: 'Créer', exact: true }).click();
+  await expect(page).toHaveURL(/\/edit\?file=/);
   await expect(
-    page.getByRole('button', { name: 'Supprimer chapitres/introduction.tex' }),
+    page.getByRole('textbox', { name: 'Code de chapitres/introduction.tex' }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'chapitres/', exact: true })).toBeVisible();
 
   // ZIP import with a file left out.
   await page.goto('/fr/app/new?tab=zip');
@@ -198,7 +203,7 @@ test('the FREE plan blocks a 4th project with an upgrade offer', async ({ page }
   await page.getByText('Mémoire', { exact: true }).click();
   await expect(page.getByLabel('Nom du projet')).toHaveValue('Mémoire');
   await page.getByRole('button', { name: 'Créer le projet' }).click();
-  await expect(page.getByRole('button', { name: 'chapitres/', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'chapitres', exact: true })).toBeVisible();
 
   await eraseAllProjects(page);
 });

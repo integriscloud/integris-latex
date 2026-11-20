@@ -1,6 +1,9 @@
 import {
   ALLOWED_PROJECT_EXTENSIONS,
+  type ArchiveGrant,
+  archiveQuerySchema,
   createFileSchema,
+  createFolderSchema,
   createProjectSchema,
   deleteFolderSchema,
   duplicateProjectSchema,
@@ -37,11 +40,13 @@ import type { Request, Response } from 'express';
 import type { z } from 'zod';
 import { ApiConfig } from '../config/api-config.js';
 import { readRawBody } from '../common/raw-body.js';
+import { ipOf } from '../common/request-ip.js';
 import { ApiZodBody, ZodBody, ZodQuery } from '../common/zod-body.js';
 import { Auth, type AuthContext, AuthGuard } from '../auth/auth.guard.js';
 import { FilesService } from './files.service.js';
 import { ProjectsService } from './projects.service.js';
 import { TemplatesService } from './templates.service.js';
+import { ProjectArchiveService } from './zip-export.js';
 
 /** Headers of user text read by fetch(), never a page: inert and unreadable by other sites. */
 export const TEXT_HEADERS = {
@@ -59,6 +64,7 @@ export class ProjectsController {
   constructor(
     private readonly projects: ProjectsService,
     private readonly files: FilesService,
+    private readonly archives: ProjectArchiveService,
     private readonly config: ApiConfig,
   ) {}
 
@@ -126,6 +132,28 @@ export class ProjectsController {
     @ZodBody(updateProjectSchema) body: z.infer<typeof updateProjectSchema>,
   ): Promise<ProjectDetail> {
     return this.projects.update(auth.user.id, id, body);
+  }
+
+  /**
+   * Grants a download of the whole project (owner, editors): counted against
+   * ZIP_EXPORTS_PER_HOUR, with a warning when the project is too large to be imported again.
+   */
+  @Post(':id/archive')
+  @HttpCode(200)
+  grantArchive(@Auth() auth: AuthContext, @Param('id') id: string): Promise<ArchiveGrant> {
+    return this.archives.grant(auth.user.id, id);
+  }
+
+  /** The project as a ZIP archive, streamed, for a token given by `POST :id/archive`. */
+  @Get(':id/archive')
+  async archive(
+    @Auth() auth: AuthContext,
+    @Param('id') id: string,
+    @ZodQuery(archiveQuerySchema) query: z.infer<typeof archiveQuerySchema>,
+    @Req() request: Request,
+    @Res() response: Response,
+  ): Promise<void> {
+    await this.archives.send({ userId: auth.user.id, ip: ipOf(request) }, id, query.t, response);
   }
 
   @Post(':id/duplicate')
@@ -213,8 +241,9 @@ export class ProjectsController {
     @Param('id') id: string,
     @Param('fileId') fileId: string,
     @ZodBody(moveFileSchema) body: z.infer<typeof moveFileSchema>,
+    @Req() request: Request,
   ): Promise<ProjectDetail> {
-    return this.files.move(auth.user.id, id, fileId, body.path);
+    return this.files.move({ userId: auth.user.id, ip: ipOf(request) }, id, fileId, body.path);
   }
 
   @Delete(':id/files/:fileId')
@@ -226,14 +255,27 @@ export class ProjectsController {
     return this.files.remove(auth.user.id, id, fileId);
   }
 
+  /** New empty folder, kept until it is deleted. */
+  @Post(':id/folders')
+  @ApiZodBody(createFolderSchema)
+  createFolder(
+    @Auth() auth: AuthContext,
+    @Param('id') id: string,
+    @ZodBody(createFolderSchema) body: z.infer<typeof createFolderSchema>,
+  ): Promise<ProjectDetail> {
+    return this.files.createFolder(auth.user.id, id, body.path);
+  }
+
   @Patch(':id/folders')
   @ApiZodBody(moveFolderSchema)
   moveFolder(
     @Auth() auth: AuthContext,
     @Param('id') id: string,
     @ZodBody(moveFolderSchema) body: z.infer<typeof moveFolderSchema>,
+    @Req() request: Request,
   ): Promise<ProjectDetail> {
-    return this.files.moveFolder(auth.user.id, id, body.from, body.to);
+    const actor = { userId: auth.user.id, ip: ipOf(request) };
+    return this.files.moveFolder(actor, id, body.from, body.to);
   }
 
   @Delete(':id/folders')

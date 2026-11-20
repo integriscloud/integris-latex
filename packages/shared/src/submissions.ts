@@ -132,7 +132,12 @@ export const compareQuerySchema = z.object({
 const date = z.iso.datetime();
 const person = z.object({ id: z.string(), name: z.string() });
 
-export const submissionFileHashSchema = z.object({ path: z.string(), sha256: z.string() });
+export const submissionFileHashSchema = z.object({
+  path: z.string(),
+  sha256: z.string(),
+  /** The file in the project (versions sent since step 4 bis): followed through moves. */
+  fileId: z.string().optional(),
+});
 export type SubmissionFileHash = z.infer<typeof submissionFileHashSchema>;
 
 export const submissionVersionSchema = z.object({
