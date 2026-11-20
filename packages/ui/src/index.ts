@@ -111,6 +111,12 @@ export { Section, type SectionProps } from './section/Section';
 export { SiteFooter, type FooterColumn, type SiteFooterProps } from './site-footer/SiteFooter';
 export { SiteHeader, type NavLink, type SiteHeaderProps } from './site-header/SiteHeader';
 export { SpaceCard, type SpaceCardProps } from './space-card/SpaceCard';
+export { DiffView, type DiffViewLine, type DiffViewProps } from './submission/DiffView';
+export {
+  SubmissionStatusBadge,
+  type SubmissionStatusBadgeProps,
+  type SubmissionStatusName,
+} from './submission/SubmissionStatusBadge';
 export { Steps, type StepsProps } from './steps/Steps';
 export { StepList, type Step } from './step-list/StepList';
 export { Tabs, type TabItem, type TabsProps } from './tabs/Tabs';

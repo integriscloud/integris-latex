@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { routing } from '../../i18n/routing';
+import { BrowserTimeZone } from './BrowserTimeZone';
 import { OutdatedBrowser } from './OutdatedBrowser';
 
 /**
@@ -41,7 +42,9 @@ export async function LocaleRoot({
     <html lang={locale} className={fontClasses}>
       <body className={bodyClassName}>
         <OutdatedBrowser locale={locale} />
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <NextIntlClientProvider>
+          <BrowserTimeZone>{children}</BrowserTimeZone>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

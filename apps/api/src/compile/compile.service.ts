@@ -83,6 +83,27 @@ const OPEN: CompilationStatus[] = ['QUEUED', 'RUNNING'];
 /** A job not seen in the queue this long after its creation is lost (Redis flushed, crash). */
 const LOST_AFTER_MS = 60_000;
 
+/** A file of a frozen version: its history object in the projects bucket. */
+export interface FrozenSource {
+  path: string;
+  storageKey: string;
+  sizeBytes: number;
+}
+
+/**
+ * What the submissions module tells the compile service about the compilation of a submission
+ * version (registered at start, so neither module imports the other).
+ */
+export interface FrozenHooks {
+  /** Sources of a queued compilation, to sign its URLs again; null when gone. */
+  sources(submissionVersionId: string): Promise<{ mainFile: string; files: FrozenSource[] } | null>;
+  /** The compilation of a submission version finished (once). */
+  finished(row: CompilationRow): Promise<void>;
+}
+
+/** Only the project's own compilations: never the frozen ones of submissions. */
+const PROJECT_ONLY = { submissionVersionId: null };
+
 /**
  * Compilations (docs/spec.md, "Compilation"): the owner and editors start them, usage is
  * charged to the project owner (duration and compilations per hour of their best plan,
@@ -94,6 +115,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CompileService.name);
   private readonly linkKey: Buffer;
   private renewTimer: ReturnType<typeof setInterval> | null = null;
+  private frozenHooks: FrozenHooks | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -125,6 +147,10 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     if (this.renewTimer) clearInterval(this.renewTimer);
   }
 
+  registerFrozen(hooks: FrozenHooks): void {
+    this.frozenHooks = hooks;
+  }
+
   // ───────────── Starting ─────────────
 
   /** Queues a compilation of the project as it is stored now. */
@@ -141,7 +167,9 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     }
 
     // A compilation still waiting for this project is replaced by the new one (and not charged).
-    const waiting = await db.compilation.findMany({ where: { projectId, status: 'QUEUED' } });
+    const waiting = await db.compilation.findMany({
+      where: { projectId, status: 'QUEUED', ...PROJECT_ONLY },
+    });
     for (const previous of waiting) {
       if (await this.queue.cancel(previous.id)) {
         await db.compilation.updateMany({
@@ -190,6 +218,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
           engine: project.engine,
           mainFile: project.mainFilePath,
           timeoutSeconds: quotas.maxCompileSeconds,
+          cache: true,
           files: await this.signFiles(files),
           signedAt: now,
         },
@@ -204,6 +233,87 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
       this.logger.error({ err: (error as Error).message, projectId }, 'Compilation not queued');
       throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE, 'compile_unavailable');
     }
+  }
+
+  /**
+   * Queues the compilation of a submission version (docs/spec.md, "Encadrement"): its frozen
+   * sources, without the project's cache, within the duration of the owner's plan. It is charged
+   * to the owner like any compilation (counted in the statistics) but never takes a place of the
+   * hourly limit: a student is never kept from sending before a deadline. Sendings have their own
+   * limit (SUBMISSION_SENDS_PER_HOUR). The caller has checked the rights.
+   */
+  async startFrozen(input: {
+    projectId: string;
+    ownerId: string;
+    userId: string;
+    engine: CompilationRow['engine'];
+    submissionVersionId: string;
+    mainFile: string;
+    files: FrozenSource[];
+  }): Promise<CompilationRow> {
+    const quotas = await this.quota.quotas(input.ownerId);
+    const db = this.prisma.client;
+    const id = randomUUID();
+    const row = await db.compilation.create({
+      data: {
+        id,
+        projectId: input.projectId,
+        triggeredById: input.userId,
+        chargedUserId: input.ownerId,
+        engine: input.engine,
+        priority: quotas.compilePriority,
+        status: 'QUEUED',
+        submissionVersionId: input.submissionVersionId,
+      },
+    });
+    try {
+      await this.queue.add(
+        {
+          compilationId: id,
+          projectId: input.projectId,
+          engine: input.engine,
+          mainFile: input.mainFile,
+          timeoutSeconds: quotas.maxCompileSeconds,
+          cache: false,
+          files: await this.signFiles(input.files),
+          signedAt: Date.now(),
+        },
+        COMPILE_PRIORITY_RANK[quotas.compilePriority],
+      );
+    } catch (error) {
+      await db.compilation
+        .updateMany({ where: { id, status: 'QUEUED' }, data: { status: 'FAILED' } })
+        .catch(() => undefined);
+      this.logger.error(
+        { err: (error as Error).message, projectId: input.projectId },
+        'Submission compilation not queued',
+      );
+      throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE, 'compile_unavailable');
+    }
+    return row;
+  }
+
+  /**
+   * Finishes a compilation of a submission version whose worker event was missed (or whose job
+   * was lost). Only open compilations are looked at: the others are final.
+   */
+  async refreshFrozen(row: CompilationRow, ownerId: string): Promise<CompilationRow> {
+    if (!OPEN.includes(row.status)) return row;
+    const quotas = await this.quota.quotas(ownerId);
+    return this.refresh(row, quotas.maxCompileSeconds);
+  }
+
+  /** What a compilation of a submission version shows: PDF links, errors (every role). */
+  frozenView(row: CompilationRow, projectName: string): Promise<Compilation> {
+    return this.view(row, null, projectName, true);
+  }
+
+  /** Deletes the outputs of a compilation (a draft submission deleted with its failed sendings). */
+  async dropOutputs(projectId: string, compilationId: string): Promise<void> {
+    await this.storage.deletePrefix(
+      COMPILE_OUTPUT_BUCKET,
+      compileOutputPrefix(projectId, compilationId),
+    );
   }
 
   /** Presigned GET URLs of the project files, one per file, valid 5 minutes. */
@@ -240,16 +350,22 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
       if (!row || row.status !== 'QUEUED') continue;
       const project = await db.project.findUnique({ where: { id: row.projectId } });
       if (!project || project.deletedAt) continue;
-      const [files, quotas] = await Promise.all([
-        db.projectFile.findMany({ where: { projectId: row.projectId } }),
-        this.quota.quotas(row.chargedUserId),
-      ]);
+      const quotas = await this.quota.quotas(row.chargedUserId);
+      // A submission version compiles its frozen files, read again from the database.
+      const frozen = row.submissionVersionId
+        ? await this.frozenHooks?.sources(row.submissionVersionId)
+        : null;
+      if (row.submissionVersionId && !frozen) continue;
+      const files = frozen
+        ? frozen.files
+        : await db.projectFile.findMany({ where: { projectId: row.projectId } });
       await this.queue.updateData(id, {
         compilationId: id,
         projectId: row.projectId,
         engine: row.engine,
-        mainFile: project.mainFilePath,
+        mainFile: frozen ? frozen.mainFile : project.mainFilePath,
         timeoutSeconds: quotas.maxCompileSeconds,
+        cache: !frozen,
         files: await this.signFiles(files),
         signedAt: now,
       });
@@ -298,14 +414,26 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     });
     if (!updated.count) return;
     await this.queue.forget(id);
+    if (row.submissionVersionId) {
+      const done = await db.compilation.findUnique({ where: { id } });
+      if (done && this.frozenHooks) await this.frozenHooks.finished(done);
+      return;
+    }
     await this.dropOldOutputs(row.projectId);
   }
 
-  /** Keeps the outputs of the last compilation, of the last PDF and of the last success only. */
+  /**
+   * Keeps the outputs of the last compilation, of the last PDF and of the last success only. The
+   * PDFs of submission versions are kept with their submission.
+   */
   private async dropOldOutputs(projectId: string): Promise<void> {
     const db = this.prisma.client;
     const finished = await db.compilation.findMany({
-      where: { projectId, OR: [{ pdfKey: { not: null } }, { logKey: { not: null } }] },
+      where: {
+        projectId,
+        ...PROJECT_ONLY,
+        OR: [{ pdfKey: { not: null } }, { logKey: { not: null } }],
+      },
       orderBy: { queuedAt: 'desc' },
     });
     const lastPdf = finished.find((row) => row.pdfKey);
@@ -331,11 +459,11 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     const db = this.prisma.client;
     const [current, lastPdf] = await Promise.all([
       db.compilation.findFirst({
-        where: { projectId, status: { not: 'CANCELED' } },
+        where: { projectId, status: { not: 'CANCELED' }, ...PROJECT_ONLY },
         orderBy: { queuedAt: 'desc' },
       }),
       db.compilation.findFirst({
-        where: { projectId, pdfKey: { not: null } },
+        where: { projectId, pdfKey: { not: null }, ...PROJECT_ONLY },
         orderBy: { queuedAt: 'desc' },
       }),
     ]);
@@ -411,7 +539,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
   /** PDF of the last successful compilation, for a public link (no account, no compilation). */
   async publicPdf(projectId: string, projectName: string) {
     const row = await this.prisma.client.compilation.findFirst({
-      where: { projectId, status: 'SUCCEEDED', pdfKey: { not: null } },
+      where: { projectId, status: 'SUCCEEDED', pdfKey: { not: null }, ...PROJECT_ONLY },
       orderBy: { queuedAt: 'desc' },
     });
     if (!row?.pdfKey) return null;

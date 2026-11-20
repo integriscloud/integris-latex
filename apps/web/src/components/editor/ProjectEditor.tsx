@@ -56,6 +56,7 @@ import { getPathname } from '../../i18n/navigation';
 import { apiRead, apiRequest, type ClientErrorCode } from '../../lib/api-client';
 import { anchorOf, rangeOf } from '../../lib/collab/anchors';
 import { collabUrl, ProjectCollab } from '../../lib/collab/project-collab';
+import { loadSubmission } from '../../lib/submissions/api';
 import { replaceText } from '../../lib/collab/text';
 import { textKindOf } from '../../lib/editor/language';
 import type { LineSelection } from '../../lib/editor/line-comment';
@@ -72,6 +73,7 @@ import styles from './editor.module.css';
 import { HistoryPanel } from './HistoryPanel';
 import { OutlinePanel } from './OutlinePanel';
 import { PdfViewer } from './PdfViewer';
+import { SubmissionsPanel } from '../submissions/SubmissionsPanel';
 import { ProjectSearch, type ReplaceReport } from './ProjectSearch';
 import { useEditorPhrases } from './phrases';
 import { useCompiler } from './use-compiler';
@@ -116,7 +118,7 @@ const writeFlag = (key: string, value: boolean) => {
  * Open files are shared documents of the collaboration server, which writes them to storage a
  * few seconds after a change; changes typed offline stay in the page and are sent when the
  * network comes back. Ctrl+S and Ctrl+Enter store and compile. Sharing and comments anchored
- * to the text (step 8); submissions (step 9) only have their place here.
+ * to the text (step 8); submissions to supervisors (step 9).
  */
 export function ProjectEditor({
   initial,
@@ -129,6 +131,7 @@ export function ProjectEditor({
   initialSpellcheck: boolean;
 }) {
   const t = useTranslations('Editor');
+  const ts = useTranslations('Submissions');
   const locale = useLocale();
   const errorMessage = useApiErrorMessage(locale);
   const phrases = useEditorPhrases();
@@ -162,6 +165,9 @@ export function ProjectEditor({
   const [commentHint, setCommentHint] = useState<string | null>(null);
   const [activeComment, setActiveComment] = useState<string | null>(null);
   const pendingShow = useRef<string | null>(null);
+  // A file just locked by a validation: the version saved before its files were put back.
+  const [lockNotice, setLockNotice] = useState<{ versionId: string; label: string } | null>(null);
+  const [historyFocus, setHistoryFocus] = useState<string | null>(null);
 
   const index = useProjectIndex(project.id, project.files);
   const filesById = useMemo(
@@ -176,6 +182,10 @@ export function ProjectEditor({
 
   const projectHref = getPathname({ href: `/app/projects/${project.id}`, locale });
   const editorHref = getPathname({ href: `/app/projects/${project.id}/edit`, locale });
+  const submissionHref = useCallback(
+    (id: string) => getPathname({ href: `/app/projects/${project.id}/submissions/${id}`, locale }),
+    [project.id, locale],
+  );
   const fileHref = useCallback(
     (id: string) => `${editorHref}?file=${encodeURIComponent(id)}`,
     [editorHref],
@@ -306,6 +316,34 @@ export function ProjectEditor({
   // A file deleted elsewhere: the list of files is read again.
   useEffect(() => collab.onDeleted(() => void reloadProject()), [collab, reloadProject]);
 
+  // A file locked by a validation was opened again with the validated text: the changes not
+  // stored were dropped, and the version saved before the validation is shown.
+  useEffect(
+    () =>
+      collab.onLocked(() => {
+        void apiRead<ProjectDetail>(`projects/${project.id}`).then(async (result) => {
+          if (!result.ok) return;
+          setProject(result.data);
+          const ids = new Set(result.data.files.flatMap((file) => file.lockedBy ?? []));
+          for (const id of ids) {
+            const detail = await loadSubmission(project.id, id);
+            if (!detail.ok) continue;
+            const validated = [...detail.data.events]
+              .reverse()
+              .find((event) => event.action === 'SUBMISSION_VALIDATED');
+            if (validated?.beforeVersionId && validated.beforeVersionLabel) {
+              setLockNotice({
+                versionId: validated.beforeVersionId,
+                label: validated.beforeVersionLabel,
+              });
+              return;
+            }
+          }
+        });
+      }),
+    [collab, project.id],
+  );
+
   // The owner changed a role: the rights shown here follow (the servers already apply them).
   useEffect(
     () =>
@@ -364,9 +402,12 @@ export function ProjectEditor({
     [comments, ranges, activeComment],
   );
 
-  const tracked = [...live.files].filter(([, file]) => file.writable || file.unsynced > 0);
+  const tracked = [...live.files].filter(
+    ([, file]) => file.writable || (file.edited && file.unsynced > 0),
+  );
   const failed = tracked.find(([, file]) => file.storeCode && file.storeCode !== 'unavailable');
-  const lost = tracked.some(([, file]) => !file.writable && file.unsynced > 0);
+  // Typed here, then refused: the server took the right to write away meanwhile.
+  const lost = tracked.some(([, file]) => !file.writable && file.edited && file.unsynced > 0);
   const offline = !live.connected && tracked.length > 0;
   const status: SaveStatusValue =
     failed || lost
@@ -695,7 +736,7 @@ export function ProjectEditor({
         : activeState?.closed === 'revoked'
           ? t('accessLost')
           : activeState?.synced && !activeState.writable
-            ? activeState.unsynced > 0
+            ? activeState.edited && activeState.unsynced > 0
               ? t('readOnlyRefused')
               : t('readOnlyProject')
             : null;
@@ -711,6 +752,18 @@ export function ProjectEditor({
   const closeMobileNotice = () => {
     setMobileNotice(false);
     writeFlag(MOBILE_NOTICE_KEY, true);
+  };
+
+  /** Opens the history on a version (side pane, or its view on phones). */
+  const showVersion = (versionId: string) => {
+    setHistoryFocus(versionId);
+    setSideTab('history');
+    if (isPhone()) {
+      setView('side');
+    } else if (!sideOpen) {
+      setSideOpen(true);
+      writeFlag(SIDE_KEY, true);
+    }
   };
 
   const toggleSide = () => {
@@ -729,6 +782,17 @@ export function ProjectEditor({
         </div>
       )}
       {offline && <Alert tone="warning">{t('offline')}</Alert>}
+      {lockNotice && (
+        <div className={styles.dismissible}>
+          <Alert tone="info">
+            {ts('restoredNotice', { label: lockNotice.label })}{' '}
+            <Button variant="ghost" onClick={() => showVersion(lockNotice.versionId)}>
+              {t('showBeforeValidation', { label: lockNotice.label })}
+            </Button>
+          </Alert>
+          <IconButton icon={X} label={t('closeNotice')} onClick={() => setLockNotice(null)} />
+        </div>
+      )}
       {failed && (
         <Alert tone="error">
           {t('saveFailed', {
@@ -962,7 +1026,9 @@ export function ProjectEditor({
       >
         {sideTab === 'history' ? (
           <HistoryPanel
+            key={historyFocus ?? ''}
             projectId={project.id}
+            initialSelected={historyFocus}
             flush={flushAll}
             onRestored={() => void reloadProject()}
           />
@@ -987,7 +1053,12 @@ export function ProjectEditor({
             onShow={showComment}
           />
         ) : (
-          <EmptyState icon={MessagesSquare} title={t('submissions')} text={t('submissionsSoon')} />
+          <SubmissionsPanel
+            projectId={project.id}
+            paths={project.files.map((file) => file.path)}
+            flush={flushAll}
+            reviewHref={submissionHref}
+          />
         )}
       </div>
     </>

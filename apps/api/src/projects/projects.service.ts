@@ -208,6 +208,7 @@ export class ProjectsService {
         kind: file.kind,
         sizeBytes: file.sizeBytes,
         locked: file.lockedBySubmissionId !== null,
+        lockedBy: file.lockedBySubmissionId,
         updatedAt: file.updatedAt.toISOString(),
       })),
     };
@@ -540,10 +541,11 @@ export class ProjectsService {
     await db.$transaction([
       db.commentReply.deleteMany({ where: { comment: { projectId } } }),
       db.comment.deleteMany({ where: { projectId } }),
+      db.compilation.deleteMany({ where: { projectId } }),
+      db.submissionVersion.deleteMany({ where: { submission: { projectId } } }),
       db.submissionReviewer.deleteMany({ where: { submission: { projectId } } }),
       db.submission.deleteMany({ where: { projectId } }),
       db.projectVersion.deleteMany({ where: { projectId } }),
-      db.compilation.deleteMany({ where: { projectId } }),
       db.shareLinkOpening.deleteMany({ where: { link: { projectId } } }),
       db.shareLink.deleteMany({ where: { projectId } }),
       db.projectInvitation.deleteMany({ where: { projectId } }),

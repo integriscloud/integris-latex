@@ -165,6 +165,13 @@ enum SubmissionStatus {
   VALIDATED
 }
 
+// Sending of a submission version: its frozen PDF is compiled before the submission moves on.
+enum SubmissionVersionState {
+  COMPILING
+  READY
+  FAILED
+}
+
 enum CompilationStatus {
   QUEUED
   RUNNING
@@ -229,6 +236,7 @@ model User {
   supervising           Supervision[]        @relation("Supervisor")
   supervisedBy          Supervision[]        @relation("Student")
   submissions           Submission[]         @relation("SubmissionAuthor")
+  submissionVersions    SubmissionVersion[]
   reviews               SubmissionReviewer[]
   compilations          Compilation[]
   payments              Payment[]
@@ -641,7 +649,7 @@ model ProjectVersion {
   createdById String?
   createdAt   DateTime    @default(now())
 
-  submissions Submission[]
+  submissionVersions SubmissionVersion[]
 
   @@index([projectId, createdAt])
 }
@@ -706,29 +714,63 @@ model Supervision {
   @@unique([supervisorId, studentId, organizationId])
 }
 
+// A submission (docs/spec.md, "Encadrement"): files to review, sent to one or more reviewers.
+// Each sending freezes a version of the project and compiles it (SubmissionVersion v1, v2…);
+// `filePaths` and `message` hold the draft of the next sending.
 model Submission {
-  id                   String           @id @default(cuid())
-  projectId            String
-  project              Project          @relation(fields: [projectId], references: [id])
-  authorId             String
-  author               User             @relation("SubmissionAuthor", fields: [authorId], references: [id])
-  versionId            String // frozen snapshot at send time
-  version              ProjectVersion   @relation(fields: [versionId], references: [id])
-  previousSubmissionId String? // for "what changed since my last review"
-  filePaths            String[]
-  message              String?
-  dueAt                DateTime?
-  status               SubmissionStatus @default(DRAFT)
-  submittedAt          DateTime?
-  validatedAt          DateTime?
-  validatedById        String?
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
+  id              String           @id @default(cuid())
+  projectId       String
+  project         Project          @relation(fields: [projectId], references: [id])
+  authorId        String
+  author          User             @relation("SubmissionAuthor", fields: [authorId], references: [id])
+  title           String? // at most 120 characters
+  filePaths       String[]
+  message         String?
+  dueAt           DateTime?
+  status          SubmissionStatus @default(DRAFT)
+  submittedAt     DateTime? // first version ready
+  validatedAt     DateTime?
+  validatedById   String?
+  // Number of the version validated (the files of this version are locked).
+  validatedNumber Int?
+  // A supervisor unlocked the validated files: the submission stays validated and closed.
+  unlockedAt      DateTime?
+  unlockedById    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   reviewers SubmissionReviewer[]
+  versions  SubmissionVersion[]
   comments  Comment[]
 
   @@index([projectId, status])
+}
+
+// One sending of a submission: the frozen version of the project, the files chosen with their
+// SHA-256 at sending, and the compilation of that version (its own PDF, never the project's
+// last one). `number` is given when the PDF is ready; a sending without PDF stays FAILED and
+// unnumbered. One COMPILING sending per submission at most (partial unique index).
+model SubmissionVersion {
+  id               String                 @id @default(cuid())
+  submissionId     String
+  submission       Submission             @relation(fields: [submissionId], references: [id])
+  number           Int?
+  projectVersionId String
+  projectVersion   ProjectVersion         @relation(fields: [projectVersionId], references: [id])
+  filePaths        String[]
+  message          String?
+  files            Json // [{ path, sha256 }] of the files chosen, as frozen
+  sentById         String
+  sentBy           User                   @relation(fields: [sentById], references: [id])
+  sentIp           String?
+  state            SubmissionVersionState @default(COMPILING)
+  createdAt        DateTime               @default(now())
+  readyAt          DateTime?
+
+  compilation Compilation?
+
+  @@unique([submissionId, number])
+  @@index([submissionId, createdAt])
 }
 
 model SubmissionReviewer {
@@ -761,23 +803,27 @@ model ValidationRecord {
 // ───────────── Compilation & usage ─────────────
 
 model Compilation {
-  id            String            @id @default(cuid())
-  projectId     String
-  project       Project           @relation(fields: [projectId], references: [id])
-  triggeredById String
-  triggeredBy   User              @relation(fields: [triggeredById], references: [id])
-  chargedUserId String // project owner (quota holder)
-  engine        Engine
-  status        CompilationStatus @default(QUEUED)
-  priority      CompilePriority
-  queuedAt      DateTime          @default(now())
-  startedAt     DateTime?
-  finishedAt    DateTime?
-  durationMs    Int?
-  pdfKey        String?
-  logKey        String?
-  errors        Json? // translated top errors with file/line
-  workerHost    String?
+  id                  String             @id @default(cuid())
+  projectId           String
+  project             Project            @relation(fields: [projectId], references: [id])
+  triggeredById       String
+  triggeredBy         User               @relation(fields: [triggeredById], references: [id])
+  chargedUserId       String // project owner (quota holder)
+  engine              Engine
+  status              CompilationStatus  @default(QUEUED)
+  priority            CompilePriority
+  queuedAt            DateTime           @default(now())
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  durationMs          Int?
+  pdfKey              String?
+  logKey              String?
+  errors              Json? // translated top errors with file/line
+  workerHost          String?
+  // Compilation of a submission version: its PDF is kept with the submission, and it is never
+  // the project's last PDF.
+  submissionVersionId String?            @unique
+  submissionVersion   SubmissionVersion? @relation(fields: [submissionVersionId], references: [id])
 
   @@index([projectId, queuedAt])
   @@index([chargedUserId, queuedAt])

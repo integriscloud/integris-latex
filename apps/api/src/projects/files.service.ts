@@ -293,9 +293,16 @@ export class FilesService {
   }
 
   async remove(userId: string, projectId: string, fileId: string): Promise<ProjectDetail> {
-    await this.projects.require(userId, projectId, 'edit');
-    const file = await this.file(projectId, fileId);
-    await this.prisma.client.projectFile.delete({ where: { id: file.id } });
+    const { project } = await this.projects.require(userId, projectId, 'edit');
+    // Under the owner lock, and only while unlocked: a validation cannot lock it meanwhile.
+    const file = await this.projects.runLocked(project.ownerId, async () => {
+      const found = await this.file(projectId, fileId);
+      const deleted = await this.prisma.client.projectFile.deleteMany({
+        where: { id: found.id, lockedBySubmissionId: null },
+      });
+      if (!deleted.count) fail(HttpStatus.CONFLICT, 'file_locked');
+      return found;
+    });
     if (file.storageKey) await this.removeObjects([file.storageKey]);
     await this.events.publish({ type: 'file-deleted', projectId, fileId: file.id });
     await this.projects.touch(projectId);
@@ -304,14 +311,18 @@ export class FilesService {
   }
 
   async removeFolder(userId: string, projectId: string, input: string): Promise<ProjectDetail> {
-    await this.projects.require(userId, projectId, 'edit');
+    const { project } = await this.projects.require(userId, projectId, 'edit');
     const folder = normalizeProjectPath(input);
     if (!folder) return fail(HttpStatus.BAD_REQUEST, 'invalid_path');
-    const files = (await this.paths(projectId)).filter((file) => inFolder(file.path, folder));
-    if (!files.length) return fail(HttpStatus.NOT_FOUND, 'not_found');
-    if (files.some((file) => file.lockedBySubmissionId)) fail(HttpStatus.CONFLICT, 'file_locked');
-    await this.prisma.client.projectFile.deleteMany({
-      where: { id: { in: files.map((file) => file.id) } },
+    // Under the owner lock: a validation cannot lock one of these files meanwhile.
+    const files = await this.projects.runLocked(project.ownerId, async () => {
+      const found = (await this.paths(projectId)).filter((file) => inFolder(file.path, folder));
+      if (!found.length) return fail(HttpStatus.NOT_FOUND, 'not_found');
+      if (found.some((file) => file.lockedBySubmissionId)) fail(HttpStatus.CONFLICT, 'file_locked');
+      await this.prisma.client.projectFile.deleteMany({
+        where: { id: { in: found.map((file) => file.id) }, lockedBySubmissionId: null },
+      });
+      return found;
     });
     await this.removeObjects(files.flatMap((file) => (file.storageKey ? [file.storageKey] : [])));
     for (const file of files) {

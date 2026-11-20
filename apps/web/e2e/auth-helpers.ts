@@ -98,6 +98,10 @@ export async function deleteTestUsers(phones: string[]): Promise<void> {
   await prisma().projectMember.deleteMany({
     where: { OR: [{ project: owner }, { user: users }] },
   });
+  await prisma().compilation.deleteMany({ where: { project: owner } });
+  await prisma().submissionVersion.deleteMany({ where: { submission: { project: owner } } });
+  await prisma().submissionReviewer.deleteMany({ where: { submission: { project: owner } } });
+  await prisma().submission.deleteMany({ where: { project: owner } });
   await prisma().projectVersion.deleteMany({ where: { project: owner } });
   await prisma().projectFile.deleteMany({ where: { project: owner } });
   await prisma().compilation.deleteMany({ where: { project: owner } });

@@ -3,6 +3,7 @@ import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/pro
 import {
   type AuthorizeRequest,
   type AuthorizeResponse,
+  COLLAB_CLOSE,
   FILE_TEXT_NAME,
   fileDocumentName,
   presenceDocumentName,
@@ -84,6 +85,7 @@ interface Client {
   text: Y.Text;
   readOnly: () => boolean | undefined;
   failed: () => string | null;
+  closed: () => string | null;
   stateless: string[];
 }
 
@@ -109,6 +111,7 @@ describe('collab server', () => {
     });
     let failure: string | null = null;
     let readOnly: boolean | undefined;
+    let closed: string | null = null;
     const stateless: string[] = [];
     const provider = new HocuspocusProvider({
       websocketProvider: socket,
@@ -121,6 +124,9 @@ describe('collab server', () => {
         failure = reason;
       },
       onStateless: ({ payload }) => stateless.push(payload),
+      onClose: ({ event }) => {
+        closed = event.reason;
+      },
     });
     provider.attach();
     const client = {
@@ -129,6 +135,7 @@ describe('collab server', () => {
       text: provider.document.getText(FILE_TEXT_NAME),
       readOnly: () => readOnly,
       failed: () => failure,
+      closed: () => closed,
       stateless,
     };
     clients.push(client);
@@ -377,6 +384,24 @@ describe('collab server', () => {
     await until(
       () => (collab.server.hocuspocus.documents.get(DOC)?.getConnectionsCount() ?? 0) === 0,
     );
+  });
+
+  it('drops the changes not stored of a file locked by a validation, and closes its editors', async () => {
+    const owner = connect('owner');
+    await synced(owner);
+    // Typed, but not stored (the API refuses from now on).
+    api.storeCode = 'file_locked';
+    owner.text.insert(0, 'unsaved ');
+    await until(() => serverText() === 'unsaved Hello');
+    api.text = 'Validated';
+    api.key = 'validated';
+    api.state = null;
+    const stores = api.stores.length;
+    await collab.handleEvent({ type: 'file-locked', projectId: PROJECT, fileId: FILE });
+    await until(() => owner.closed() === COLLAB_CLOSE.locked.reason);
+    expect(serverText() ?? 'Validated').toBe('Validated');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(api.stores.slice(stores).some((store) => store.text.includes('unsaved'))).toBe(false);
   });
 
   it('makes an editor read-only at once when the owner changes the role, and tells the editors', async () => {

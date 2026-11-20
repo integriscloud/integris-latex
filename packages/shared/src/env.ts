@@ -112,6 +112,9 @@ export const apiEnvSchema = z
     HISTORY_SCAN_SECONDS: positiveInt(30),
     // Named versions and restorations per user per hour (each one copies files to the history).
     HISTORY_ACTIONS_PER_HOUR: positiveInt(30),
+    // Submission sendings compiled per account (project owner, who is charged) and per hour,
+    // across all projects (step 9). They never use the hourly compile quota of the plan.
+    SUBMISSION_COMPILES_PER_HOUR: positiveInt(10),
     // Sharing (step 8). Limits rest on the account and on the token first; the per-address
     // limits are only a high backstop, since many mobile users share one address (CGNAT).
     SHARE_INVITATIONS_PER_DAY: positiveInt(50), // per owner account, every project together

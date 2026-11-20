@@ -86,6 +86,8 @@ export interface ConfirmDialogProps {
   open: boolean;
   title: string;
   text: string;
+  /** Shown above the text (what the user must know before confirming). */
+  warning?: string;
   confirmLabel: string;
   /** Resolves to an error message, or null on success (the dialog then closes). */
   onConfirm: () => Promise<string | null>;
@@ -97,6 +99,7 @@ export function ConfirmDialog({
   open,
   title,
   text,
+  warning,
   confirmLabel,
   onConfirm,
   onClose,
@@ -137,6 +140,7 @@ export function ConfirmDialog({
       }
     >
       {error && <Alert tone="error">{error}</Alert>}
+      {warning && <Alert tone="warning">{warning}</Alert>}
       <p>{text}</p>
     </Dialog>
   );

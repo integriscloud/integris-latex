@@ -63,6 +63,11 @@ export const compileJobSchema = z.object({
   mainFile: z.string().min(1).max(PATH_LIMITS.maxLength),
   /** Maximum duration of the plan of the project owner. */
   timeoutSeconds: z.number().int().positive().max(3600),
+  /**
+   * Whether the intermediate files of the project are restored and kept. A submission version is
+   * compiled without them (frozen sources only) and never replaces them.
+   */
+  cache: z.boolean().default(true),
   files: z
     .array(
       z.object({

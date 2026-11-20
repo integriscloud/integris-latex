@@ -516,6 +516,7 @@ describe('sharing, public links and comments API', () => {
         logKey: null,
         errors: null,
         workerHost: null,
+        submissionVersionId: null,
       });
 
     const tokenOfLink = (url: string) => /\/p\/([\w-]{43})$/.exec(url)![1]!;

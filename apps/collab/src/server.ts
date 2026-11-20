@@ -491,6 +491,24 @@ export function createCollabServer(options: CollabServerOptions): CollabServer {
       }
       return;
     }
+    if (event.type === 'file-locked') {
+      // Nothing more is stored: the changes not stored yet are dropped (the state before the
+      // validation is a version of the history). The document takes the validated text, then
+      // its editors open it again from that text, read-only.
+      clearTimeout(state.retry);
+      state.dirty = false;
+      const connections = document.getConnections();
+      for (const connection of connections) connection.readOnly = true;
+      const loaded = await api.load(event.projectId, event.fileId);
+      if (loaded.text !== null) applyText(textOf(document), loaded.text, LOAD_ORIGIN);
+      state.baseState = Y.encodeStateAsUpdate(document);
+      state.baseKey = loaded.key;
+      state.dirty = false;
+      for (const connection of document.getConnections()) {
+        connection.close(COLLAB_CLOSE.locked);
+      }
+      return;
+    }
     const loaded = await api.load(event.projectId, event.fileId);
     if (loaded.text === null || loaded.key === state.baseKey) return;
     // Sent to everyone as a change, then stored like any edit.

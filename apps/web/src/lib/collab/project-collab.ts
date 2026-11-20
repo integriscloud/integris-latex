@@ -33,6 +33,8 @@ export interface FileSnapshot {
   writable: boolean;
   /** Local changes the server has not acknowledged yet. */
   unsynced: number;
+  /** Something was typed in this page since the file was opened. */
+  edited: boolean;
   /** Why the last write to storage was refused, if it was. */
   storeCode: StoreBlockCode | null;
   /** The connection to this file ended: right lost, or file deleted. */
@@ -68,6 +70,25 @@ export interface CollabSnapshot {
 
 const FLUSH_TIMEOUT_MS = 20_000;
 
+/**
+ * Presence after a (re)connection. When a connection closes, the server marks this page's state
+ * removed one clock step ahead, and this page does the same for the states of the others: states
+ * sent again with their old clock would be ignored on both sides until two renewals (30 s), so
+ * the others would not show. The others are taken as they come, and this state is sent ahead of
+ * the removal.
+ */
+export function rejoin(awareness: Awareness) {
+  for (const clientId of [...awareness.meta.keys()]) {
+    if (clientId !== awareness.clientID && !awareness.states.has(clientId)) {
+      awareness.meta.delete(clientId);
+    }
+  }
+  const state = awareness.getLocalState();
+  if (state === null) return;
+  awareness.setLocalState({ ...state });
+  awareness.setLocalState({ ...state });
+}
+
 function parseServerMessage(payload: string): CollabServerMessage | null {
   try {
     const message = collabServerMessageSchema.safeParse(JSON.parse(payload));
@@ -89,6 +110,7 @@ export class ProjectCollab {
   private readonly listeners = new Set<() => void>();
   private readonly textListeners = new Set<TextListener>();
   private readonly deletedListeners = new Set<(fileId: string) => void>();
+  private readonly lockedListeners = new Set<(fileId: string) => void>();
   private readonly projectListeners = new Set<(change: 'comments' | 'access') => void>();
   private readonly flushes = new Map<number, (code: StoreBlockCode | null) => void>();
   private nextFlush = 1;
@@ -107,6 +129,7 @@ export class ProjectCollab {
       // Sessions travel in the cookie; the token only starts the authentication exchange.
       token: 'session',
     });
+    this.presence.on('authenticated', () => rejoin(this.presence.awareness!));
     this.presence.attach();
     this.snapshot = { connected: false, files: new Map(), peers: [], me: null };
     this.socket.on('status', ({ status }: { status: string }) => {
@@ -162,6 +185,17 @@ export class ProjectCollab {
     this.deletedListeners.add(listener);
     return () => {
       this.deletedListeners.delete(listener);
+    };
+  }
+
+  /**
+   * A file open here was locked by a validated submission: its changes not stored are dropped
+   * and it is opened again with the validated text, read-only.
+   */
+  onLocked(listener: (fileId: string) => void) {
+    this.lockedListeners.add(listener);
+    return () => {
+      this.lockedListeners.delete(listener);
     };
   }
 
@@ -224,7 +258,14 @@ export class ProjectCollab {
       doc,
       provider,
       shared: { text, awareness: provider.awareness!, undoManager: new Y.UndoManager(text) },
-      snapshot: { synced: false, writable: false, unsynced: 0, storeCode: null, closed: null },
+      snapshot: {
+        synced: false,
+        writable: false,
+        unsynced: 0,
+        edited: false,
+        storeCode: null,
+        closed: null,
+      },
     };
     text.observe((event) => {
       const value = text.toString();
@@ -234,9 +275,14 @@ export class ProjectCollab {
       session.snapshot = { ...session.snapshot, ...patch };
       this.changed();
     };
-    provider.on('authenticated', ({ scope }: { scope: string }) =>
-      update({ writable: scope === 'read-write', closed: null }),
-    );
+    // Changes that do not come from the server were made here.
+    doc.on('update', (_update: Uint8Array, origin: unknown) => {
+      if (origin !== provider && !session.snapshot.edited) update({ edited: true });
+    });
+    provider.on('authenticated', ({ scope }: { scope: string }) => {
+      rejoin(provider.awareness!);
+      update({ writable: scope === 'read-write', closed: null });
+    });
     provider.on('authenticationFailed', () => update({ writable: false, closed: 'revoked' }));
     provider.on('synced', ({ state }: { state: boolean }) => update({ synced: state }));
     provider.on('unsyncedChanges', ({ number }: { number: number }) =>
@@ -247,6 +293,15 @@ export class ProjectCollab {
         update({ writable: false, closed: 'revoked' });
       if (event.reason === COLLAB_CLOSE.deleted.reason)
         update({ writable: false, closed: 'deleted' });
+      // Once the socket is done with this close: a new document, read from the server.
+      if (event.reason === COLLAB_CLOSE.locked.reason) {
+        setTimeout(() => {
+          if (this.sessions.get(fileId) !== session) return;
+          this.close(fileId);
+          this.open(fileId);
+          for (const listener of this.lockedListeners) listener(fileId);
+        }, 0);
+      }
     });
     provider.on('stateless', ({ payload }: { payload: string }) => {
       const message = parseServerMessage(payload);
@@ -359,6 +414,7 @@ export class ProjectCollab {
     this.listeners.clear();
     this.textListeners.clear();
     this.deletedListeners.clear();
+    this.lockedListeners.clear();
     this.projectListeners.clear();
   }
 }

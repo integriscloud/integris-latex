@@ -130,6 +130,9 @@ export const COLLAB_CLOSE = {
   revoked: { code: 4403, reason: 'revoked' },
   // The file was deleted.
   deleted: { code: 4404, reason: 'deleted' },
+  // The file was locked by a validated submission: the editor drops the changes it has not
+  // stored and opens the file again (validated text, read-only).
+  locked: { code: 4423, reason: 'locked' },
 } as const;
 
 // ───────────── Events from the API to the collaboration server (Redis) ─────────────
@@ -140,6 +143,8 @@ export const collabEventSchema = z.discriminatedUnion('type', [
   // Content replaced outside the editor (upload, restoration): applied as a diff.
   z.object({ type: z.literal('file-replaced'), projectId: z.string(), fileId: z.string() }),
   z.object({ type: z.literal('file-deleted'), projectId: z.string(), fileId: z.string() }),
+  // Locked by a validation: the document takes the validated text and its editors start again.
+  z.object({ type: z.literal('file-locked'), projectId: z.string(), fileId: z.string() }),
   // Rights, read-only state or trash changed: every connection of the project is checked again.
   z.object({ type: z.literal('project-access'), projectId: z.string() }),
   // A comment was added, answered, resolved or decided: the open editors read them again.

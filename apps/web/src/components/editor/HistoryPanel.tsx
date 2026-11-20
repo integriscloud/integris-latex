@@ -26,6 +26,8 @@ export interface HistoryPanelProps {
   flush: () => Promise<boolean>;
   /** The project files changed (restoration). */
   onRestored: () => void;
+  /** Version shown at once (a link from elsewhere in the editor). */
+  initialSelected?: string | null;
 }
 
 type Confirm = { path: string | null } | null;
@@ -35,7 +37,12 @@ type Confirm = { path: string | null } | null;
  * versions, comparison of a version with the project, preview of its text files, restoration of
  * the whole project or of one file. Every role reads; owners and editors name and restore.
  */
-export function HistoryPanel({ projectId, flush, onRestored }: HistoryPanelProps) {
+export function HistoryPanel({
+  projectId,
+  flush,
+  onRestored,
+  initialSelected = null,
+}: HistoryPanelProps) {
   const t = useTranslations('History');
   const locale = useLocale();
   const format = useFormatter();
@@ -43,7 +50,7 @@ export function HistoryPanel({ projectId, flush, onRestored }: HistoryPanelProps
   const [list, setList] = useState<VersionList | null>(null);
   const [error, setError] = useState<ClientError | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialSelected);
   const [detail, setDetail] = useState<VersionDetail | null>(null);
   const [preview, setPreview] = useState<{ path: string; text: string } | null>(null);
   const [naming, setNaming] = useState(false);

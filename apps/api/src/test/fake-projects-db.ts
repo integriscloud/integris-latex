@@ -13,7 +13,11 @@ import type {
   ProjectVersion,
   ShareLink,
   ShareLinkOpening,
+  Submission,
+  SubmissionReviewer,
+  SubmissionVersion,
   User,
+  ValidationRecord,
 } from '@integris/db';
 import { Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
@@ -84,6 +88,10 @@ export class FakeProjectsDb {
   comments: Comment[] = [];
   replies: CommentReply[] = [];
   openings: ShareLinkOpening[] = [];
+  submissions: Submission[] = [];
+  reviewers: SubmissionReviewer[] = [];
+  submissionVersions: SubmissionVersion[] = [];
+  records: ValidationRecord[] = [];
   /** Makes the next audit entry fail (tests of the transactions). */
   failNextAudit = false;
 
@@ -95,6 +103,11 @@ export class FakeProjectsDb {
       links: copy(this.links),
       openings: copy(this.openings),
       audits: copy(this.audits),
+      submissions: copy(this.submissions),
+      reviewers: copy(this.reviewers),
+      submissionVersions: copy(this.submissionVersions),
+      records: copy(this.records),
+      files: copy(this.files),
     };
   }
 
@@ -120,6 +133,10 @@ export class FakeProjectsDb {
     this.comments = [];
     this.replies = [];
     this.openings = [];
+    this.submissions = [];
+    this.reviewers = [];
+    this.submissionVersions = [];
+    this.records = [];
     this.failNextAudit = false;
   }
 
@@ -152,6 +169,29 @@ export class FakeProjectsDb {
     if (!id) return null;
     const user = this.users.find((item) => item.id === id)!;
     return { id: user.id, displayName: user.displayName };
+  }
+
+  private submissionOf(id: string): Submission | undefined {
+    return this.submissions.find((item) => item.id === id);
+  }
+
+  /** A submission with what SubmissionsService includes (author, reviewers, versions). */
+  private submissionView(row: Submission) {
+    return {
+      ...row,
+      author: this.person(row.authorId)!,
+      reviewers: this.reviewers
+        .filter((item) => item.submissionId === row.id)
+        .map((item) => ({ ...item, reviewer: this.person(item.reviewerId)! })),
+      versions: this.submissionVersions
+        .filter((item) => item.submissionId === row.id)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map((item) => ({
+          ...item,
+          sentBy: this.person(item.sentById)!,
+          compilation: this.compilations.find((c) => c.submissionVersionId === item.id) ?? null,
+        })),
+    };
   }
 
   /** A comment with what CommentsService includes (authors, replies). */
@@ -240,12 +280,28 @@ export class FakeProjectsDb {
       const { ownerId } = where.project as { ownerId: string };
       if (this.project(file.projectId).ownerId !== ownerId) return false;
     }
+    if (where.path !== undefined) {
+      const path = where.path as string | { in: string[] };
+      if (typeof path === 'string' ? file.path !== path : !path.in.includes(file.path)) {
+        return false;
+      }
+    }
+    if (
+      where.lockedBySubmissionId !== undefined &&
+      file.lockedBySubmissionId !== where.lockedBySubmissionId
+    ) {
+      return false;
+    }
     return true;
   }
 
   /** The `where` clauses used by the compile service. */
   private matchesCompilation(row: Compilation, where: Where): boolean {
-    if (where.id !== undefined && row.id !== where.id) return false;
+    if (where.id !== undefined) {
+      const id = where.id as string | { in: string[] };
+      if (typeof id === 'string' ? row.id !== id : !id.in.includes(row.id)) return false;
+    }
+    if (where.submissionVersionId === null && row.submissionVersionId !== null) return false;
     if (where.projectId !== undefined && row.projectId !== where.projectId) return false;
     const status = where.status as string | { in?: string[]; not?: string } | undefined;
     if (typeof status === 'string' && row.status !== status) return false;
@@ -467,18 +523,233 @@ export class FakeProjectsDb {
         return { count: 0 };
       },
     },
-    submissionReviewer: { deleteMany: async () => ({ count: 0 }) },
+    submissionReviewer: {
+      findMany: async ({ where }: { where: { submissionId: string } }) =>
+        this.reviewers.filter((row) => row.submissionId === where.submissionId),
+      createMany: async ({ data }: { data: { submissionId: string; reviewerId: string }[] }) => {
+        for (const row of data)
+          this.reviewers.push({ id: randomUUID(), lastReviewedAt: null, ...row });
+        return { count: data.length };
+      },
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { submissionId: string; reviewerId: string };
+        data: Partial<SubmissionReviewer>;
+      }) => {
+        const rows = this.reviewers.filter(
+          (row) => row.submissionId === where.submissionId && row.reviewerId === where.reviewerId,
+        );
+        for (const row of rows) Object.assign(row, data);
+        return { count: rows.length };
+      },
+      deleteMany: async ({ where }: { where: Where }) => {
+        const notIn = (where.reviewerId as { notIn?: string[] } | undefined)?.notIn;
+        const projectId = (where.submission as { projectId?: string } | undefined)?.projectId;
+        this.reviewers = this.reviewers.filter((row) => {
+          if (projectId !== undefined)
+            return this.submissionOf(row.submissionId)?.projectId !== projectId;
+          if (row.submissionId !== where.submissionId) return true;
+          return notIn ? notIn.includes(row.reviewerId) : false;
+        });
+        return { count: 0 };
+      },
+    },
     submission: {
-      findMany: async ({ where }: { where: { projectId: string } }) =>
-        this.validated.filter((submission) => submission.projectId === where.projectId),
-      deleteMany: async ({ where }: { where: { projectId: string } }) => {
-        this.validated = this.validated.filter((item) => item.projectId !== where.projectId);
+      findFirst: async ({ where }: { where: { id: string; projectId: string } }) => {
+        const row = this.submissions.find(
+          (item) => item.id === where.id && item.projectId === where.projectId,
+        );
+        return row ? this.submissionView(row) : null;
+      },
+      findMany: async ({ where, include }: { where: Where; include?: Where }) => {
+        // Erasing a project: its validated submissions (test rows of `validated` included).
+        if (!include) {
+          return [
+            ...this.validated.filter((item) => item.projectId === where.projectId),
+            ...this.submissions
+              .filter((item) => item.projectId === where.projectId && item.status === where.status)
+              .map((item) => ({ id: item.id })),
+          ];
+        }
+        let rows = this.submissions;
+        if (where.projectId !== undefined) {
+          rows = rows.filter((item) => item.projectId === where.projectId);
+        }
+        if (where.reviewers) {
+          // Submissions to review: SubmissionsService.toReview.
+          const userId = (where.reviewers as { some: { reviewerId: string } }).some.reviewerId;
+          const statuses = (where.status as { in: string[] }).in;
+          const roles = ['SUPERVISOR', 'REVIEWER'];
+          rows = rows.filter(
+            (item) =>
+              statuses.includes(item.status) &&
+              this.reviewers.some((r) => r.submissionId === item.id && r.reviewerId === userId) &&
+              this.project(item.projectId).deletedAt === null &&
+              this.members.some(
+                (m) =>
+                  m.projectId === item.projectId && m.userId === userId && roles.includes(m.role),
+              ),
+          );
+        }
+        return rows
+          .slice()
+          .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+          .map((row) => ({
+            ...this.submissionView(row),
+            project: { name: this.project(row.projectId).name },
+          }));
+      },
+      create: async ({
+        data,
+      }: {
+        data: Partial<Submission> & {
+          projectId: string;
+          authorId: string;
+          reviewers: { create: { reviewerId: string }[] };
+        };
+      }) => {
+        const { reviewers, ...fields } = data;
+        const now = new Date();
+        const row: Submission = {
+          id: randomUUID(),
+          title: null,
+          filePaths: [],
+          message: null,
+          dueAt: null,
+          status: 'DRAFT',
+          submittedAt: null,
+          validatedAt: null,
+          validatedById: null,
+          validatedNumber: null,
+          unlockedAt: null,
+          unlockedById: null,
+          createdAt: now,
+          updatedAt: now,
+          ...fields,
+        };
+        this.submissions.push(row);
+        for (const reviewer of reviewers.create) {
+          this.reviewers.push({
+            id: randomUUID(),
+            submissionId: row.id,
+            reviewerId: reviewer.reviewerId,
+            lastReviewedAt: null,
+          });
+        }
+        return { ...row };
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Partial<Submission> }) => {
+        const row = this.submissionOf(where.id)!;
+        Object.assign(row, data, { updatedAt: new Date() });
+        return { ...row };
+      },
+      updateMany: async ({ where, data }: { where: Where; data: Partial<Submission> }) => {
+        const rows = this.submissions.filter((row) => {
+          if (row.id !== where.id) return false;
+          const status = where.status as string | { in?: string[]; notIn?: string[] } | undefined;
+          if (typeof status === 'string' && row.status !== status) return false;
+          if (status && typeof status === 'object') {
+            if (status.in && !status.in.includes(row.status)) return false;
+            if (status.notIn?.includes(row.status)) return false;
+          }
+          if (where.unlockedAt === null && row.unlockedAt !== null) return false;
+          return true;
+        });
+        for (const row of rows) Object.assign(row, data, { updatedAt: new Date() });
+        return { count: rows.length };
+      },
+      deleteMany: async ({ where }: { where: Where }) => {
+        if (where.id === undefined) {
+          this.validated = this.validated.filter((item) => item.projectId !== where.projectId);
+        }
+        this.submissions = this.submissions.filter((item) =>
+          where.id !== undefined
+            ? !(item.id === where.id && item.status === where.status)
+            : item.projectId !== where.projectId,
+        );
+        return { count: 0 };
+      },
+    },
+    submissionVersion: {
+      create: async ({ data }: { data: Partial<SubmissionVersion> }) => {
+        const busy = this.submissionVersions.some(
+          (row) => row.submissionId === data.submissionId && row.state === 'COMPILING',
+        );
+        if (busy) throw Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+        const row: SubmissionVersion = {
+          id: randomUUID(),
+          submissionId: data.submissionId!,
+          number: null,
+          projectVersionId: data.projectVersionId!,
+          filePaths: data.filePaths ?? [],
+          message: data.message ?? null,
+          files: data.files ?? [],
+          sentById: data.sentById!,
+          sentIp: data.sentIp ?? null,
+          state: 'COMPILING',
+          // Strictly increasing, so "latest first" is well defined in tests.
+          createdAt: new Date(Date.now() + this.submissionVersions.length),
+          readyAt: null,
+        };
+        this.submissionVersions.push(row);
+        return { ...row };
+      },
+      findUnique: async ({ where, include }: { where: { id: string }; include?: Where }) => {
+        const row = this.submissionVersions.find((item) => item.id === where.id);
+        if (!row) return null;
+        return {
+          ...row,
+          ...(include?.projectVersion
+            ? { projectVersion: this.versions.find((v) => v.id === row.projectVersionId) }
+            : {}),
+          ...(include?.submission
+            ? { submission: { ...this.submissionOf(row.submissionId)! } }
+            : {}),
+        };
+      },
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { id: string; state: string };
+        data: Partial<SubmissionVersion>;
+      }) => {
+        const rows = this.submissionVersions.filter(
+          (row) => row.id === where.id && row.state === where.state,
+        );
+        for (const row of rows) Object.assign(row, data);
+        return { count: rows.length };
+      },
+      count: async ({ where }: { where: { submissionId: string; state: string } }) =>
+        this.submissionVersions.filter(
+          (row) => row.submissionId === where.submissionId && row.state === where.state,
+        ).length,
+      deleteMany: async ({ where }: { where: Where }) => {
+        const ids = (where.id as { in: string[] } | undefined)?.in;
+        const projectId = (where.submission as { projectId?: string } | undefined)?.projectId;
+        this.submissionVersions = this.submissionVersions.filter((row) =>
+          ids
+            ? !ids.includes(row.id)
+            : this.submissionOf(row.submissionId)?.projectId !== projectId,
+        );
         return { count: 0 };
       },
     },
     validationRecord: {
       count: async ({ where }: { where: { submissionId: { in: string[] } } }) =>
-        where.submissionId.in.filter((id) => this.traced.has(id)).length,
+        where.submissionId.in.filter(
+          (id) => this.traced.has(id) || this.records.some((row) => row.submissionId === id),
+        ).length,
+      create: async ({ data }: { data: Omit<ValidationRecord, 'id' | 'createdAt'> }) => {
+        if (this.records.some((row) => row.submissionId === data.submissionId)) {
+          throw Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+        }
+        const row: ValidationRecord = { id: randomUUID(), createdAt: new Date(), ...data };
+        this.records.push(row);
+        return { ...row };
+      },
     },
     projectVersion: {
       create: async ({ data }: { data: Partial<ProjectVersion> }) => {
@@ -507,6 +778,16 @@ export class FakeProjectsDb {
           .slice(0, take)
           .map((row) => ({ ...row })),
       count: async ({ where }: { where: Where }) => this.versionsWhere(where).length,
+      findUniqueOrThrow: async ({ where }: { where: { id: string } }) => {
+        const row = this.versions.find((item) => item.id === where.id);
+        if (!row) throw new Error('Not found');
+        return { ...row };
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Partial<ProjectVersion> }) => {
+        const row = this.versions.find((item) => item.id === where.id)!;
+        Object.assign(row, data);
+        return { ...row };
+      },
       deleteMany: async ({ where }: { where: { projectId: string } }) => {
         this.versions = this.versions.filter((row) => row.projectId !== where.projectId);
         return { count: 0 };
@@ -533,6 +814,15 @@ export class FakeProjectsDb {
       },
     },
     auditLog: {
+      findMany: async ({ where }: { where: { targetType: string; targetId: string } }) =>
+        this.audits
+          .filter((row) => row.targetType === where.targetType && row.targetId === where.targetId)
+          .map((row) => ({
+            createdAt: new Date(),
+            metadata: null,
+            ...row,
+            actor: this.person(row.actorId ?? null),
+          })),
       create: async ({ data }: { data: Partial<AuditLog> }) => {
         if (this.failNextAudit) {
           this.failNextAudit = false;
@@ -561,12 +851,17 @@ export class FakeProjectsDb {
           logKey: null,
           errors: null,
           workerHost: null,
+          submissionVersionId: data.submissionVersionId ?? null,
         };
         this.compilations.push(row);
         return { ...row };
       },
-      findUnique: async ({ where }: { where: { id: string } }) => {
-        const row = this.compilations.find((item) => item.id === where.id);
+      findUnique: async ({ where }: { where: { id?: string; submissionVersionId?: string } }) => {
+        const row = this.compilations.find((item) =>
+          where.id !== undefined
+            ? item.id === where.id
+            : item.submissionVersionId === where.submissionVersionId,
+        );
         return row ? { ...row } : null;
       },
       findFirst: async ({ where }: { where: Where }) => {
@@ -589,8 +884,8 @@ export class FakeProjectsDb {
         }
         return { count: rows.length };
       },
-      deleteMany: async ({ where }: { where: { projectId: string } }) => {
-        this.compilations = this.compilations.filter((row) => row.projectId !== where.projectId);
+      deleteMany: async ({ where }: { where: Where }) => {
+        this.compilations = this.compilations.filter((row) => !this.matchesCompilation(row, where));
         return { count: 0 };
       },
     },
@@ -678,10 +973,15 @@ export class FakeProjectsDb {
       },
     },
     projectMember: {
-      findMany: async ({ where }: { where: { projectId: string } }) =>
+      findMany: async ({ where }: { where: Where }) =>
         this.members
-          .filter((m) => m.projectId === where.projectId)
-          .map((m) => ({ ...m, user: { displayName: this.person(m.userId)!.displayName } })),
+          .filter(
+            (m) =>
+              m.projectId === where.projectId &&
+              (!where.userId || (where.userId as { in: string[] }).in.includes(m.userId)) &&
+              (!where.role || (where.role as { in: string[] }).in.includes(m.role)),
+          )
+          .map((m) => ({ ...m, user: this.person(m.userId)! })),
       findUnique: async ({
         where,
       }: {
@@ -794,11 +1094,23 @@ export class FakeProjectsDb {
         this.documents.delete(where.id);
         for (const comment of this.comments) if (comment.fileId === where.id) comment.fileId = null;
       },
+      count: async ({ where }: { where: Where }) =>
+        this.files.filter((file) => this.matchesFile(file, where)).length,
+      updateMany: async ({ where, data }: { where: Where; data: Partial<ProjectFile> }) => {
+        const rows = this.files.filter((file) => this.matchesFile(file, where));
+        for (const file of rows) Object.assign(file, data, { updatedAt: new Date() });
+        return { count: rows.length };
+      },
       deleteMany: async ({ where }: { where: Where }) => {
         const before = this.files.length;
         const gone = this.files.filter((file) => this.matchesFile(file, where));
         this.files = this.files.filter((file) => !this.matchesFile(file, where));
         for (const file of gone) this.documents.delete(file.id);
+        // SET NULL on comments
+        const goneIds = new Set(gone.map((file) => file.id));
+        for (const comment of this.comments) {
+          if (comment.fileId && goneIds.has(comment.fileId)) comment.fileId = null;
+        }
         return { count: before - this.files.length };
       },
       aggregate: async ({ where }: { where: Where }) => ({

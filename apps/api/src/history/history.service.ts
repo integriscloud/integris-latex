@@ -24,7 +24,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const LIST_LIMIT = 200;
 
 /** A file in a version: its content is the history object `blob` (null for an empty file). */
-interface ManifestFile {
+export interface ManifestFile {
   path: string;
   kind: ProjectFile['kind'];
   sizeBytes: number;
@@ -32,7 +32,7 @@ interface ManifestFile {
 }
 
 /** What a version holds, stored as JSON under the project prefix. */
-interface Manifest {
+export interface Manifest {
   mainFilePath: string;
   files: ManifestFile[];
 }
@@ -41,9 +41,9 @@ interface Manifest {
  * History objects are named after the storage object they copy. Every write of a file goes to a
  * new object, so an unchanged file keeps its name and is copied once for all versions.
  */
-const blobOf = (file: Pick<ProjectFile, 'storageKey'>) =>
+export const blobOf = (file: Pick<ProjectFile, 'storageKey'>) =>
   file.storageKey ? file.storageKey.slice(file.storageKey.lastIndexOf('/') + 1) : null;
-const blobKey = (projectId: string, blob: string) =>
+export const blobKey = (projectId: string, blob: string) =>
   `${projectStoragePrefix(projectId)}history/${blob}`;
 
 const sameManifest = (a: Manifest, b: Manifest) => {
@@ -105,6 +105,15 @@ export class HistoryService {
     return this.projects.runLocked(project.ownerId, () => this.snapshot(projectId, kind, options));
   }
 
+  /** Takes a version for a caller that already holds the owner lock (validation). */
+  snapshotLocked(
+    projectId: string,
+    kind: VersionKind,
+    options: VersionOptions = {},
+  ): Promise<ProjectVersion | null> {
+    return this.snapshot(projectId, kind, options);
+  }
+
   /** Copies what is missing to the history objects, then writes the manifest. Under the lock. */
   private async snapshot(
     projectId: string,
@@ -163,7 +172,7 @@ export class HistoryService {
     });
   }
 
-  private async readManifest(version: Pick<ProjectVersion, 'storageKey'>): Promise<Manifest> {
+  async readManifest(version: Pick<ProjectVersion, 'storageKey'>): Promise<Manifest> {
     const bytes = await this.storage.get(PROJECTS_BUCKET, version.storageKey);
     return JSON.parse(new TextDecoder().decode(bytes)) as Manifest;
   }

@@ -209,6 +209,8 @@ export const projectFileSchema = z.object({
   kind: z.enum(['TEXT', 'BINARY']),
   sizeBytes: z.number().int().nonnegative(),
   locked: z.boolean(),
+  /** Validated submission that locks the file. */
+  lockedBy: id.nullable(),
   updatedAt: date,
 });
 export type ProjectFileInfo = z.infer<typeof projectFileSchema>;

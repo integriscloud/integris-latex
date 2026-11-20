@@ -16,6 +16,7 @@ import { RedisModule } from './redis/redis.module.js';
 import { SharingModule } from './sharing/sharing.module.js';
 import { SmsModule } from './sms/sms.module.js';
 import { StorageModule } from './storage/storage.module.js';
+import { SubmissionsModule } from './submissions/submissions.module.js';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { StorageModule } from './storage/storage.module.js';
     HistoryModule,
     CollabModule,
     SharingModule,
+    SubmissionsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
 })

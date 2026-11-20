@@ -136,7 +136,10 @@ export async function compile(deps: CompileDependencies, data: unknown): Promise
     log.warn({ reason: error.reason, detail: error.message }, 'sources refused');
     return emptyResult(error.reason === 'invalid' ? 'internal' : 'sources_unavailable', workerName);
   }
-  const cache = await readCache(deps, job.projectId, new Set(sources.map((entry) => entry.name)));
+  // A submission version compiles its frozen sources alone and leaves the project's cache as is.
+  const cache = job.cache
+    ? await readCache(deps, job.projectId, new Set(sources.map((entry) => entry.name)))
+    : [];
 
   const run = await deps.runSandbox(env, {
     id: job.compilationId,
@@ -154,7 +157,7 @@ export async function compile(deps: CompileDependencies, data: unknown): Promise
   const cacheKey = compileCacheKey(job.projectId);
   if (run.kind !== 'finished') {
     // A cut run may leave inconsistent intermediate files: the next one starts clean.
-    await storage.delete(COMPILE_CACHE_BUCKET, cacheKey);
+    if (job.cache) await storage.delete(COMPILE_CACHE_BUCKET, cacheKey);
     if (run.kind === 'failed') {
       log.error({ detail: run.detail }, 'sandbox failed');
       return emptyResult('internal', workerName);
@@ -211,7 +214,9 @@ export async function compile(deps: CompileDependencies, data: unknown): Promise
     );
   }
 
-  if (outcome === 'success') {
+  if (!job.cache) {
+    // Frozen sources: the project's cache is neither read nor replaced.
+  } else if (outcome === 'success') {
     const cacheEntries = [...results]
       .filter(([path]) => normalizeProjectPath(path) === path && isCacheFile(path))
       .map(([name, data]) => ({ name, data }));

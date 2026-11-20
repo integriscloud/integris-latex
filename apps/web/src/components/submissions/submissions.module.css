@@ -1,0 +1,427 @@
+/* ───────────── Editor panel ───────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  align-items: stretch;
+  padding: var(--espace-4);
+}
+
+.panel > button,
+.panel > a {
+  align-self: flex-start;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  padding: var(--espace-3) 0;
+  border-bottom: 1px solid var(--bordure);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.itemButton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  min-height: var(--cible-tactile);
+  padding: 0;
+  border: 0;
+  text-align: left;
+  color: var(--texte);
+  background: none;
+  cursor: pointer;
+}
+
+.itemTitle {
+  font: var(--t-texte);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  align-items: center;
+}
+
+.meta {
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--texte-2);
+  overflow-wrap: anywhere;
+}
+
+.heading {
+  margin: 0;
+  font: var(--t-titre-4);
+  color: var(--texte);
+  overflow-wrap: anywhere;
+}
+
+.subheading {
+  margin: var(--espace-2) 0 0;
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  color: var(--texte-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+}
+
+/* ───────────── Forms ───────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+}
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  margin-bottom: var(--espace-1);
+  padding: 0;
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  color: var(--texte);
+}
+
+.help {
+  margin: 0 0 var(--espace-1);
+  font: var(--t-texte-sm);
+  color: var(--texte-2);
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-md);
+}
+
+.choices li + li {
+  border-top: 1px solid var(--bordure);
+}
+
+/* One file per line, its whole path on that line (the list scrolls sideways when needed). */
+.fileChoice {
+  display: flex;
+  gap: var(--espace-3);
+  align-items: center;
+  min-width: max-content;
+  min-height: var(--cible-tactile);
+  padding: 0 var(--espace-3);
+  cursor: pointer;
+}
+
+.fileBox {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--action);
+  cursor: pointer;
+}
+
+.filePath {
+  font: var(--t-code);
+  font-family: var(--font-code);
+  color: var(--texte);
+  white-space: nowrap;
+}
+
+.path {
+  font: var(--t-code);
+  font-family: var(--font-code);
+  overflow-wrap: anywhere;
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--texte-2);
+}
+
+.dueFields {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--espace-3);
+  align-items: start;
+}
+
+.label {
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  color: var(--texte);
+}
+
+/* ───────────── Review page ───────────── */
+
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--espace-6);
+}
+
+@media (min-width: 960px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    align-items: start;
+  }
+}
+
+.pdf {
+  display: flex;
+  flex-direction: column;
+  height: 75vh;
+  min-height: 420px;
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--surface-creuse);
+}
+
+.pdfHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2) var(--espace-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--espace-3) var(--espace-4);
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface);
+}
+
+.pdfBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The viewer takes the whole card (its zoom fits the pages to that width). */
+.pdfBody > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.placeholder {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--espace-6);
+}
+
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+}
+
+.select {
+  min-height: var(--cible-tactile);
+  padding: 0 var(--espace-3);
+  border: 1px solid var(--bordure-forte);
+  border-radius: var(--r-md);
+  font: var(--t-texte);
+  color: var(--texte);
+  background: var(--surface);
+}
+
+.select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-halo);
+}
+
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.files li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+}
+
+.summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cible-tactile);
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  color: var(--action);
+  cursor: pointer;
+}
+
+.summary:focus-visible {
+  outline: none;
+  border-radius: var(--r-sm);
+  box-shadow: 0 0 0 3px var(--focus-halo);
+}
+
+.hash {
+  font: var(--t-legende);
+  font-family: var(--font-code);
+  color: var(--texte-3);
+  overflow-wrap: anywhere;
+}
+
+.messageText {
+  margin: 0;
+  font: var(--t-texte);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  margin: 0;
+  padding: 0 0 0 var(--espace-4);
+  border-left: 2px solid var(--bordure);
+  list-style: none;
+}
+
+.thread li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.threadText {
+  font: var(--t-texte-sm);
+  color: var(--texte);
+}
+
+.threadDate {
+  font: var(--t-legende);
+  color: var(--texte-3);
+}
+
+.decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+}
+
+.decision > button {
+  align-self: stretch;
+}
+
+/* ───────────── Comparison ───────────── */
+
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+}
+
+.compareForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-3);
+  align-items: flex-end;
+}
+
+.compareForm label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+}
+
+/* ───────────── To review (projects page) ───────────── */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--t-texte-sm);
+}
+
+.table th {
+  padding: var(--espace-2) var(--espace-3);
+  border-bottom: 1px solid var(--bordure);
+  font: var(--t-legende);
+  font-weight: 600;
+  text-align: left;
+  color: var(--texte-2);
+}
+
+.table td {
+  padding: var(--espace-3);
+  border-bottom: 1px solid var(--bordure);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+@media (max-width: 599.98px) {
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .table tr {
+    display: flex;
+    flex-direction: column;
+    gap: var(--espace-1);
+    padding: var(--espace-3) 0;
+    border-bottom: 1px solid var(--bordure);
+  }
+
+  .table td {
+    padding: 0;
+    border-bottom: 0;
+  }
+}

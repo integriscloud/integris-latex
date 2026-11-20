@@ -64,6 +64,7 @@ describe('compile', () => {
     engine: 'PDFLATEX',
     mainFile: 'main.tex',
     timeoutSeconds: 20,
+    cache: true,
     files: [{ path: 'main.tex', size: 16, url: `${origin}/main` }],
     ...overrides,
   });
@@ -131,6 +132,22 @@ describe('compile', () => {
       ['main.tex', '\\begin{document}'],
       ['main.aux', 'cached'],
     ]);
+  });
+
+  it('compiles a submission version without the project cache, and leaves it as is', async () => {
+    const cache = writeTar([{ name: 'main.aux', data: Buffer.from('cached') }]);
+    stored.set('compile-cache/p1/cache.tar', cache);
+    next = finished({ 'main.pdf': '%PDF', 'main.log': '', 'main.aux': 'new' });
+    const result = await compile(deps(), job({ cache: false }));
+    expect(result.outcome).toBe('success');
+    const input = readTar(requests[0]!.input, { maxEntries: 10, maxEntryBytes: 1000 });
+    expect(input.map((entry) => entry.name)).toEqual(['main.tex']);
+    expect(stored.get('compile-cache/p1/cache.tar')).toEqual(cache);
+    expect(stored.has('compile-output/p1/c1/output.pdf')).toBe(true);
+
+    next = { kind: 'timeout', durationMs: 20_000 };
+    await compile(deps(), job({ cache: false }));
+    expect(stored.get('compile-cache/p1/cache.tar')).toEqual(cache);
   });
 
   it('reports TeX errors with their file and line, keeps the PDF and drops the cache', async () => {

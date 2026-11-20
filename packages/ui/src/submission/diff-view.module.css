@@ -1,0 +1,122 @@
+.file {
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--espace-3) var(--espace-4);
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface-creuse);
+}
+
+.path {
+  font: var(--t-code);
+  font-family: var(--font-code);
+  overflow-wrap: anywhere;
+}
+
+.counts {
+  display: flex;
+  gap: var(--espace-2);
+  font: var(--t-legende);
+}
+
+.plus {
+  color: var(--succes);
+}
+
+.minus {
+  color: var(--erreur);
+}
+
+.note {
+  margin: 0;
+  padding: var(--espace-3) var(--espace-4);
+  color: var(--texte-2);
+  font: var(--t-texte-sm);
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--t-code);
+  font-family: var(--font-code);
+}
+
+.table + .table {
+  border-top: 1px dashed var(--bordure-forte);
+}
+
+.number {
+  width: 1%;
+  padding: 0 var(--espace-2);
+  color: var(--texte-3);
+  text-align: right;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.sign {
+  width: 1%;
+  padding: 0 var(--espace-1);
+  user-select: none;
+}
+
+.text {
+  padding: 0 var(--espace-3) 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.added {
+  background: var(--succes-fond);
+}
+
+.added .sign,
+.added .text {
+  color: var(--succes);
+}
+
+.removed {
+  background: var(--erreur-fond);
+}
+
+.removed .sign,
+.removed .text {
+  color: var(--erreur);
+}
+
+/* A word changed inside a changed line: the color of the line as background. */
+.word {
+  border-radius: var(--r-sm);
+  color: var(--surface);
+}
+
+.added .word {
+  background: var(--succes);
+}
+
+.removed .word {
+  background: var(--erreur);
+  text-decoration: line-through;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

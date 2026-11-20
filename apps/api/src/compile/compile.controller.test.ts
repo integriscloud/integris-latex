@@ -353,6 +353,7 @@ describe('compile API', () => {
         projectId: other.id,
         engine: 'PDFLATEX',
         mainFile: 'secret.tex',
+        cache: true,
         timeoutSeconds: 999,
         files: [],
         signedAt: 0,

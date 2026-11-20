@@ -1,4 +1,4 @@
-import { projectListSchema } from '@integris/shared';
+import { projectListSchema, toReviewListSchema } from '@integris/shared';
 import { ButtonLink, PageHeader } from '@integris/ui';
 import { FileArchive, Plus } from 'lucide-react';
 import type { Locale } from 'next-intl';
@@ -7,6 +7,7 @@ import { AppFrame } from '../../../../components/app/AppFrame';
 import { ProjectsView } from '../../../../components/app/ProjectsView';
 import { UsageBanner } from '../../../../components/app/UsageBanner';
 import { authMetadata } from '../../../../components/auth/AuthChrome';
+import { ToReviewSection } from '../../../../components/submissions/ToReviewSection';
 import { spaceLabels } from '../../../../components/auth/space-labels';
 import { getPathname, redirect } from '../../../../i18n/navigation';
 import { serverGet } from '../../../../lib/server-api';
@@ -23,14 +24,20 @@ export async function generateMetadata({ params }: PageProps) {
   return authMetadata(t('metaTitle'));
 }
 
-/** Home of a signed-in user: their projects (mockup etudiant-01, "Mes documents"). */
+/**
+ * Home of a signed-in user: the submissions they have to review, then their projects (mockups
+ * professeur-01 "À relire" and etudiant-01 "Mes documents").
+ */
 export default async function ProjectsPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   const me = await requireMe(locale);
   const space = me.spaces.find((item) => item.id === me.currentSpaceId);
   if (!space) return redirect({ href: '/spaces', locale });
-  const list = await serverGet('projects', projectListSchema);
+  const [list, toReview] = await Promise.all([
+    serverGet('projects', projectListSchema),
+    serverGet('submissions/to-review', toReviewListSchema),
+  ]);
   if (!list) return redirect({ href: '/login', locale });
 
   const t = await getTranslations('Projects');
@@ -62,6 +69,7 @@ export default async function ProjectsPage({ params }: PageProps) {
         }
       />
       <UsageBanner usage={list.usage} />
+      {toReview && <ToReviewSection list={toReview} locale={locale} />}
       <ProjectsView list={list} now={new Date().toISOString()} />
     </AppFrame>
   );
