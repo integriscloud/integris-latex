@@ -8,6 +8,7 @@ import {
   deleteFolderSchema,
   duplicateProjectSchema,
   type ImportResult,
+  makeWritableSchema,
   MAX_PROJECT_FILE_BYTES,
   moveFileSchema,
   moveFolderSchema,
@@ -25,6 +26,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -44,7 +46,9 @@ import { ipOf } from '../common/request-ip.js';
 import { ApiZodBody, ZodBody, ZodQuery } from '../common/zod-body.js';
 import { Auth, type AuthContext, AuthGuard } from '../auth/auth.guard.js';
 import { FilesService } from './files.service.js';
-import { ProjectsService } from './projects.service.js';
+import { PlanLimitsService } from './plan-limits.service.js';
+import { fail, ProjectsService } from './projects.service.js';
+import { UsageAlertsService } from './usage-alerts.service.js';
 import { TemplatesService } from './templates.service.js';
 import { ProjectArchiveService } from './zip-export.js';
 
@@ -66,6 +70,8 @@ export class ProjectsController {
     private readonly files: FilesService,
     private readonly archives: ProjectArchiveService,
     private readonly config: ApiConfig,
+    private readonly planLimits: PlanLimitsService,
+    private readonly alerts: UsageAlertsService,
   ) {}
 
   /** Projects of the user (owned and shared), or their trash with `?view=trash`. */
@@ -168,14 +174,37 @@ export class ProjectsController {
 
   @Post(':id/trash')
   @HttpCode(204)
-  trash(@Auth() auth: AuthContext, @Param('id') id: string): Promise<void> {
-    return this.projects.moveToTrash(auth.user.id, id);
+  async trash(@Auth() auth: AuthContext, @Param('id') id: string): Promise<void> {
+    await this.projects.moveToTrash(auth.user.id, id);
+    // A writable project in the trash frees a place for a read-only one (repaired by the sweep
+    // when this fails: the project is in the trash either way).
+    await this.planLimits.reconcileQuietly(auth.user.id);
   }
 
   @Post(':id/restore')
   @HttpCode(204)
-  restore(@Auth() auth: AuthContext, @Param('id') id: string): Promise<void> {
-    return this.projects.restore(auth.user.id, id);
+  async restore(@Auth() auth: AuthContext, @Param('id') id: string): Promise<void> {
+    await this.projects.restore(auth.user.id, id);
+    await this.planLimits.reconcileQuietly(auth.user.id);
+    this.alerts.check(auth.user.id);
+  }
+
+  /**
+   * Makes a read-only project (beyond the plan's limit) writable; when every writable place is
+   * taken, `release` names the project that becomes read-only instead (owner only).
+   */
+  @Post(':id/writable')
+  @HttpCode(204)
+  @ApiZodBody(makeWritableSchema)
+  async makeWritable(
+    @Auth() auth: AuthContext,
+    @Param('id') id: string,
+    @ZodBody(makeWritableSchema) body: z.infer<typeof makeWritableSchema>,
+  ): Promise<void> {
+    await this.projects.access(auth.user.id, id).then(({ rights }) => {
+      if (!rights.manage) fail(HttpStatus.FORBIDDEN, 'forbidden');
+    });
+    await this.planLimits.makeWritable(auth.user.id, id, body.release);
   }
 
   /** Erases a project of the trash for good (owner only, after confirmation in the app). */

@@ -6,6 +6,7 @@ import {
   MAX_PROJECT_FILE_BYTES,
   parentFolder,
   type ProjectDetail,
+  usageLevel,
   type UserPreferences,
 } from '@integris/shared';
 import {
@@ -750,6 +751,27 @@ export function ProjectEditor({
     </Alert>
   );
 
+  // Alerts at 80 % and 100 % (docs/spec.md, "Alertes de consommation"); a refused compilation
+  // already says it.
+  const hourLevel =
+    compileState?.usedThisHour != null
+      ? usageLevel(compileState.usedThisHour, compileState.maxPerHour)
+      : 'ok';
+  const storageLevel = compileState?.storageLevel ?? 'ok';
+  const quotaNotice = !requestError && (hourLevel !== 'ok' || storageLevel !== 'ok') && (
+    <Alert tone="warning">
+      <p>
+        {hourLevel !== 'ok' &&
+          t(hourLevel === 'full' ? 'hourFull' : 'hourWarn', {
+            used: compileState?.usedThisHour ?? 0,
+            perHour: compileState?.maxPerHour ?? 0,
+          })}{' '}
+        {storageLevel !== 'ok' && t(storageLevel === 'full' ? 'storageFull' : 'storageWarn')}{' '}
+        <a href={`${getPathname({ href: '/', locale })}#pricing`}>{t('upgrade')}</a>
+      </p>
+    </Alert>
+  );
+
   // ───────────── Rendering ─────────────
 
   const readOnlyReason = !project.rights.edit
@@ -1219,10 +1241,11 @@ export function ProjectEditor({
           </>
         }
         notice={
-          (mobileNotice || offline || failed || readOnlyReason || compileNotice) && (
+          (mobileNotice || offline || failed || readOnlyReason || compileNotice || quotaNotice) && (
             <div className={styles.notices}>
               {notices}
               {compileNotice}
+              {quotaNotice}
               {readOnlyReason && activeSession && <Alert tone="info">{readOnlyReason}</Alert>}
             </div>
           )

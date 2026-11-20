@@ -46,6 +46,14 @@ export interface Actor {
  * when needed). Only the owner shares, changes a role or removes an access. Each step writes an
  * audit entry and asks the collaboration server to check the open connections again.
  */
+/**
+ * A read-only project (beyond the plan's limits) is shared for reading only: the Editor role is
+ * refused; roles already given do not change (docs/spec.md, "Lecture seule au-delà des limites").
+ */
+function refuseEditorWhenReadOnly(project: { readOnlyReason: string | null }, role: string): void {
+  if (project.readOnlyReason && role === 'EDITOR') fail(HttpStatus.CONFLICT, 'read_only_editor');
+}
+
 @Injectable()
 export class SharingService {
   private readonly logger = new Logger('Sharing');
@@ -105,6 +113,7 @@ export class SharingService {
       link: rights.share ? await this.links.active(projectId, locale) : null,
       collaborators: { used, max: quotas.maxCollaborators },
       canShare: rights.share,
+      readOnly: project.readOnlyReason !== null,
     };
   }
 
@@ -157,6 +166,7 @@ export class SharingService {
     ip: string | null,
   ): Promise<ProjectSharing> {
     const { project } = await this.projects.require(owner.id, projectId, 'share');
+    refuseEditorWhenReadOnly(project, body.role);
     const contact = this.contactOf(body);
     if (contact.phone ? contact.phone === owner.phone : contact.email === owner.email) {
       fail(HttpStatus.CONFLICT, 'cannot_invite_self');
@@ -308,6 +318,7 @@ export class SharingService {
     role: ShareableRole,
   ): Promise<ProjectSharing> {
     const { project } = await this.projects.require(actor.userId, projectId, 'share');
+    refuseEditorWhenReadOnly(project, role);
     const previous = await this.projects.runLocked(project.ownerId, async () => {
       const db = this.prisma.client;
       const member = await db.projectMember.findUnique({

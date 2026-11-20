@@ -1,6 +1,6 @@
 import type { MeResponse, Space } from '@integris/shared';
 import { AppShell, AppUser, Logo, type SpaceTone } from '@integris/ui';
-import { FolderOpen, LayoutTemplate, Trash2, UserRound } from 'lucide-react';
+import { FolderOpen, Gauge, LayoutTemplate, Trash2, UserRound } from 'lucide-react';
 import type { Locale } from 'next-intl';
 import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
@@ -11,7 +11,7 @@ import { spaceLabels } from '../auth/space-labels';
 
 const ICON = { size: 20, strokeWidth: 1.75, 'aria-hidden': true } as const;
 
-export type AppSection = 'projects' | 'templates' | 'trash';
+export type AppSection = 'projects' | 'templates' | 'trash' | 'usage';
 
 const toneOf = (space: Space): SpaceTone => {
   if (space.kind === 'personal') return 'personal';
@@ -72,6 +72,12 @@ export async function AppFrame({
           label: t('nav.trash'),
           icon: <Trash2 {...ICON} />,
           current: section === 'trash',
+        },
+        {
+          href: href('/app/usage'),
+          label: t('nav.usage'),
+          icon: <Gauge {...ICON} />,
+          current: section === 'usage',
         },
         { href: href('/account'), label: t('nav.account'), icon: <UserRound {...ICON} /> },
       ]}

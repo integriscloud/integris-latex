@@ -439,7 +439,8 @@
       "projects": "My projects",
       "templates": "Templates",
       "trash": "Trash",
-      "account": "My account"
+      "account": "My account",
+      "usage": "My usage"
     },
     "switchSpace": "Switch space",
     "openMenu": "Open the menu",
@@ -463,7 +464,9 @@
       "storageOf": "{used} of {max}",
       "projectLimit": "You have reached the limit of {max, plural, one {# project} other {# projects}} of the {plan} plan. Move a project to the trash or upgrade to create another one.",
       "storageLimit": "Your {plan} plan storage is full. Delete files or upgrade to add more.",
-      "upgrade": "See plans"
+      "upgrade": "See plans",
+      "projectWarn": "You are using {count} of the {max} projects of the {plan} plan. Beyond that, you will not be able to create more.",
+      "storageWarn": "You have used more than 80% of the storage of the {plan} plan."
     }
   },
   "Projects": {
@@ -576,7 +579,10 @@
     "trashTitle": "Move to the trash?",
     "trashText": "“{name}” will stay 30 days in the trash, then be erased for good. You can restore it until then.",
     "share": "Share",
-    "readOnlyCommenter": "You can comment and propose changes, without changing the files."
+    "readOnlyCommenter": "You can comment and propose changes, without changing the files.",
+    "readOnlyOverLimit": "This project is read-only: it exceeds the number of projects of your plan. Nothing is deleted; you can read it, download it, share it for reading and have its submissions validated.",
+    "seeUsage": "See my usage",
+    "makeWritable": "Make this project writable"
   },
   "FileOps": {
     "newFolder": "New folder",
@@ -693,7 +699,11 @@
     "validation_conflict": "A validated file cannot be put back: a folder now has its name. Rename that folder, then validate again.",
     "submission_compile_limit": "This account has reached its limit of submission sendings per hour (each sending compiles the version sent). Try again in {minutes, plural, one {# minute} other {# minutes}}.",
     "download_in_progress": "A download of this project is already in progress. Try again when it is over.",
-    "download_expired": "This download link has expired. Start the download again."
+    "download_expired": "This download link has expired. Start the download again.",
+    "not_read_only": "This project is already writable.",
+    "release_required": "Every writable project place of your plan is taken: choose the project that becomes read-only.",
+    "invalid_release": "The chosen project is no longer writable. Reload the page and choose another one.",
+    "read_only_editor": "This project is read-only (beyond the limits of your plan): it can only be shared for reading (Viewer, Reviewer or Supervisor)."
   },
   "Editor": {
     "metaTitle": "Editor",
@@ -876,7 +886,11 @@
     "wordCountMissing": "Included files not found: {paths}",
     "wordCountNoMain": "The main file {path} cannot be found.",
     "wordCountLoading": "Counting…",
-    "wordCountRecount": "Count again"
+    "wordCountRecount": "Count again",
+    "hourWarn": "{used} of {perHour} compilations this hour.",
+    "hourFull": "The {perHour} compilations of this hour are used.",
+    "storageWarn": "More than 80% of your plan's storage is used.",
+    "storageFull": "Your plan's storage is full: additions are blocked."
   },
   "History": {
     "title": "Version history",
@@ -1237,7 +1251,8 @@
     "revoke": "Revoke the link",
     "includeSources": "Include the source files (read only)",
     "expiry": "Expiry date",
-    "createLink": "Create the public link"
+    "createLink": "Create the public link",
+    "readOnlyRoles": "This project is read-only (beyond the limits of the plan): it can only be shared for reading."
   },
   "Comments": {
     "you": "You",
@@ -1482,5 +1497,84 @@
     "backToSubmission": "Back to the submission",
     "technicalDetails": "Technical details",
     "technicalHelp": "SHA-256 fingerprint of each file sent: it proves the file has not changed since it was sent."
+  },
+  "Usage": {
+    "metaTitle": "My usage",
+    "title": "My usage",
+    "subtitle": "The limits of your plan and how much you use. Other people's projects you edit count for their owner.",
+    "upgrade": "See plans",
+    "planTitle": "Your plan",
+    "plan": "{plan} plan",
+    "source": {
+      "free": "{plan} plan: always included",
+      "personal": "{plan} subscription: until {date}",
+      "seat": "{plan} seat in “{organization}”: until {date}"
+    },
+    "bestWins": "For each limit, the best of your plans applies (quotas are not added up).",
+    "quotasTitle": "Usage",
+    "meter": {
+      "projects": "Projects",
+      "storage": "Storage",
+      "compilesPerHour": "Compilations this hour"
+    },
+    "of": "{used} of {max}",
+    "unlimitedCount": "{count} · unlimited",
+    "unlimited": "Unlimited",
+    "yes": "Yes",
+    "no": "No",
+    "alert": {
+      "warn": {
+        "projects": "You are close to the number of projects of your plan (80% reached).",
+        "storage": "You have used more than 80% of your storage.",
+        "compilesPerHour": "You have used more than 80% of this hour's compilations."
+      },
+      "full": {
+        "projects": "You have reached the number of projects of your plan: creating projects is blocked.",
+        "storage": "Your storage is full: adding files is blocked. Delete files or empty the trash to free some space.",
+        "compilesPerHour": "You have used every compilation of this hour. Next compilation possible in {minutes, plural, one {# minute} other {# minutes}}."
+      }
+    },
+    "limitsTitle": "What your plan allows",
+    "limit": {
+      "collaborators": "Collaborators per project",
+      "collaboratorsValue": "{max}",
+      "compileSeconds": "Maximum duration of a compilation",
+      "duration": "{seconds, plural, one {# second} other {# seconds}}",
+      "history": "Version history",
+      "historyValue": "{days, plural, =1 {24 hours} other {# days}}",
+      "autoCompile": "Automatic compilation",
+      "priority": "Compilation priority",
+      "supervision": "Supervision dashboard",
+      "supervisionValue": "{max} students followed per supervisor"
+    },
+    "priority": {
+      "HIGH": "High",
+      "NORMAL": "Normal",
+      "LOW": "Low"
+    },
+    "monthTitle": "This month ({month})",
+    "month": {
+      "compilations": "Compilations",
+      "minutes": "Compilation time"
+    },
+    "projectsTitle": "My projects",
+    "readOnlyExplained": "Your plan allows {max, plural, one {# writable project} other {# writable projects}}. The others are read-only: nothing is deleted, and you can swap a writable project for a read-only one. Moving a project to the trash frees a place.",
+    "lastActivity": "Last activity on {date}",
+    "writableBadge": "Writable",
+    "readOnlyBadge": "Read-only",
+    "makeWritable": "Make writable",
+    "writable": {
+      "title": "Make “{name}” writable",
+      "free": "A writable project place is free: this project becomes writable again.",
+      "choose": "Your plan allows {max, plural, one {# writable project} other {# writable projects}}. Which one becomes read-only?",
+      "lastActivity": "Last activity on {date}",
+      "confirm": "Make writable"
+    },
+    "duration": {
+      "seconds": "{seconds} s",
+      "minutes": "{minutes} min",
+      "minutesSeconds": "{minutes} min {seconds} s",
+      "hours": "{hours} h {minutes} min"
+    }
   }
 }

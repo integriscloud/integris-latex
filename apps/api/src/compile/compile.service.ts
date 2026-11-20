@@ -12,6 +12,7 @@ import {
   type CompileState,
   PDF_LINK_SECONDS,
   PROJECTS_BUCKET,
+  usageLevel,
 } from '@integris/shared';
 import {
   HttpStatus,
@@ -26,7 +27,8 @@ import { ApiConfig } from '../config/api-config.js';
 import { downloadName, fileLinkKey, signFileLink } from '../files/file-links.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { fail, ProjectsService } from '../projects/projects.service.js';
-import { QuotaService } from '../projects/quota.service.js';
+import { compileHourKey as hourKey, QuotaService } from '../projects/quota.service.js';
+import { UsageAlertsService } from '../projects/usage-alerts.service.js';
 import { RedisService } from '../redis/redis.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import {
@@ -52,8 +54,6 @@ redis.call('ZADD', KEYS[1], ARGV[1], ARGV[4])
 redis.call('PEXPIRE', KEYS[1], ARGV[2])
 return {1, 0}
 `;
-
-const hourKey = (ownerId: string) => `compile:hour:${ownerId}`;
 
 /** Result details stored in `Compilation.errors`. */
 interface StoredResult {
@@ -121,6 +121,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly projects: ProjectsService,
     private readonly quota: QuotaService,
+    private readonly alerts: UsageAlertsService,
     private readonly storage: StorageService,
     private readonly redis: RedisService,
     private readonly queue: CompileQueueService,
@@ -224,6 +225,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
         },
         COMPILE_PRIORITY_RANK[quotas.compilePriority],
       );
+      this.alerts.check(project.ownerId);
       return this.view(row, quotas.maxCompileSeconds, project.name, rights.read);
     } catch (error) {
       await this.redis.client.zrem(hourKey(project.ownerId), id);
@@ -413,6 +415,16 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
       },
     });
     if (!updated.count) return;
+    // Every compilation that ran is counted on the owner, submission versions included.
+    await this.quota
+      .chargeCompilation(
+        row.chargedUserId,
+        result?.durationMs ?? finishedAt.getTime() - (row.startedAt ?? finishedAt).getTime(),
+        finishedAt,
+      )
+      .catch((error: unknown) =>
+        this.logger.error({ err: (error as Error).message, id }, 'Usage not counted'),
+      );
     await this.queue.forget(id);
     if (row.submissionVersionId) {
       const done = await db.compilation.findUnique({ where: { id } });
@@ -477,6 +489,14 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
       autoCompile: rights.edit && quotas.autoCompile,
       maxSeconds: shown,
       maxPerHour: rights.edit ? quotas.maxCompilesPerHour : null,
+      usedThisHour: rights.edit ? (await this.quota.compilesThisHour(project.ownerId)).used : null,
+      // The owner's storage is told to the owner only (alerts at 80 % and 100 %).
+      storageLevel: rights.manage
+        ? usageLevel(
+            Number(await this.quota.storageUsed(project.ownerId)),
+            Number(quotas.storageBytes),
+          )
+        : null,
     };
   }
 

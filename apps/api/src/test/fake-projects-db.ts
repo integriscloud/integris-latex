@@ -4,6 +4,7 @@ import type {
   CommentReply,
   Compilation,
   FileDocument,
+  Notification,
   Plan,
   Project,
   ProjectFile,
@@ -17,6 +18,8 @@ import type {
   Submission,
   SubmissionReviewer,
   SubmissionVersion,
+  SubscriptionStatus,
+  UsageCounter,
   User,
   ValidationRecord,
 } from '@integris/db';
@@ -24,6 +27,14 @@ import { Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 
 type Where = Record<string, unknown>;
+
+interface SubscriptionDates {
+  status: SubscriptionStatus;
+  currentPeriodEnd: Date;
+  graceEndsAt: Date | null;
+}
+
+const DAY_MS = 86_400_000;
 
 const MIB = 1024n * 1024n;
 
@@ -74,6 +85,12 @@ export class FakeProjectsDb {
   plans: Plan[] = defaultPlans();
   /** Plan codes of the live personal subscriptions, per user. */
   personalPlans = new Map<string, string>();
+  /** Dates of a personal subscription (default: active, period ending in 30 days). */
+  subscriptionDates = new Map<string, SubscriptionDates>();
+  /** Seats held in a TEAM or BUSINESS, per user. */
+  seatPlans = new Map<string, { code: string; organizationName: string }[]>();
+  usageCounters: UsageCounter[] = [];
+  notifications: Notification[] = [];
   projects: Project[] = [];
   files: ProjectFile[] = [];
   folders: ProjectFolder[] = [];
@@ -123,6 +140,10 @@ export class FakeProjectsDb {
     this.plans = defaultPlans();
     this.users = [];
     this.personalPlans.clear();
+    this.subscriptionDates.clear();
+    this.seatPlans.clear();
+    this.usageCounters = [];
+    this.notifications = [];
     this.projects = [];
     this.files = [];
     this.folders = [];
@@ -350,6 +371,12 @@ export class FakeProjectsDb {
       .sort((a, b) => b.queuedAt.getTime() - a.queuedAt.getTime());
   }
 
+  private counterOf(key: { userId: string; periodStart: Date }): UsageCounter | undefined {
+    return this.usageCounters.find(
+      (row) => row.userId === key.userId && row.periodStart.getTime() === key.periodStart.getTime(),
+    );
+  }
+
   private planByCode(code: string): Plan {
     return this.plans.find((plan) => plan.code === code)!;
   }
@@ -389,10 +416,96 @@ export class FakeProjectsDb {
     subscription: {
       findMany: async ({ where }: { where: { userId: string } }) => {
         const code = this.personalPlans.get(where.userId);
-        return code ? [{ plan: this.planByCode(code) }] : [];
+        const dates = this.subscriptionDates.get(where.userId) ?? {
+          status: 'ACTIVE',
+          currentPeriodEnd: new Date(Date.now() + 30 * DAY_MS),
+          graceEndsAt: null,
+        };
+        return code ? [{ plan: this.planByCode(code), ...dates }] : [];
       },
     },
-    seat: { findMany: async () => [] },
+    seat: {
+      findMany: async ({ where }: { where: { userId: string } }) =>
+        (this.seatPlans.get(where.userId) ?? []).map((seat) => ({
+          subscription: {
+            plan: this.planByCode(seat.code),
+            organization: { name: seat.organizationName },
+            status: 'ACTIVE',
+            currentPeriodEnd: new Date(Date.now() + 30 * DAY_MS),
+            graceEndsAt: null,
+          },
+        })),
+    },
+    usageCounter: {
+      findUnique: async ({
+        where,
+      }: {
+        where: { userId_periodStart: { userId: string; periodStart: Date } };
+      }) => this.counterOf(where.userId_periodStart) ?? null,
+      upsert: async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { userId_periodStart: { userId: string; periodStart: Date } };
+        create: Partial<UsageCounter>;
+        update: Record<string, unknown>;
+      }) => {
+        let row = this.counterOf(where.userId_periodStart);
+        if (!row) {
+          row = {
+            id: randomUUID(),
+            ...where.userId_periodStart,
+            compileCount: 0,
+            compileSeconds: 0,
+            storageBytes: 0n,
+            aiRequests: 0,
+            updatedAt: new Date(),
+            ...create,
+          } as UsageCounter;
+          this.usageCounters.push(row);
+          return { ...row };
+        }
+        for (const [key, value] of Object.entries(update)) {
+          const field = key as 'compileCount' | 'compileSeconds';
+          if (value && typeof value === 'object' && 'increment' in value) {
+            row[field] += (value as { increment: number }).increment;
+          } else {
+            Object.assign(row, { [key]: value });
+          }
+        }
+        return { ...row };
+      },
+    },
+    notification: {
+      createMany: async ({
+        data,
+        skipDuplicates,
+      }: {
+        data: (Partial<Notification> & { userId: string; type: string })[];
+        skipDuplicates?: boolean;
+      }) => {
+        let count = 0;
+        for (const row of data) {
+          const exists =
+            row.dedupeKey && this.notifications.some((n) => n.dedupeKey === row.dedupeKey);
+          if (exists && skipDuplicates) continue;
+          if (exists) throw Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+          this.notifications.push({
+            id: randomUUID(),
+            channel: 'IN_APP',
+            payload: {},
+            dedupeKey: null,
+            sentAt: null,
+            readAt: null,
+            createdAt: new Date(),
+            ...row,
+          } as Notification);
+          count++;
+        }
+        return { count };
+      },
+    },
     printRequest: { count: async () => 0 },
     template: { findMany: async () => [], findFirst: async () => null },
     commentReply: {
@@ -1029,12 +1142,39 @@ export class FakeProjectsDb {
         const project = this.projects.find((item) => item.id === where.id);
         return project ? this.withMembers(project, include) : null;
       },
-      findMany: async ({ where, include }: { where: Where; include?: Where }) =>
-        this.projects
-          .filter((project) => this.matchesProject(project, where))
-          .map((project) => this.withMembers(project, include)),
+      findMany: async ({
+        where,
+        include,
+        orderBy,
+      }: {
+        where: Where;
+        include?: Where;
+        orderBy?: Where | Where[];
+      }) => {
+        const rows = this.projects.filter((project) => this.matchesProject(project, where));
+        const first = Array.isArray(orderBy) ? orderBy[0] : orderBy;
+        // Most recently active first; the creation order breaks ties (newest first).
+        if (first?.lastActivityAt === 'desc') {
+          rows.sort(
+            (a, b) =>
+              b.lastActivityAt.getTime() - a.lastActivityAt.getTime() ||
+              this.projects.indexOf(b) - this.projects.indexOf(a),
+          );
+        }
+        return rows.map((project) => this.withMembers(project, include));
+      },
       count: async ({ where }: { where: Where }) =>
         this.projects.filter((project) => this.matchesProject(project, where)).length,
+      updateMany: async ({ where, data }: { where: Where; data: Partial<Project> }) => {
+        const ids = (where.id as { in?: string[] } | string | undefined) ?? undefined;
+        const rows = this.projects.filter(
+          (project) =>
+            (typeof ids === 'string' ? project.id === ids : (ids?.in ?? []).includes(project.id)) &&
+            (where.readOnlyReason === undefined || project.readOnlyReason === where.readOnlyReason),
+        );
+        for (const row of rows) Object.assign(row, data);
+        return { count: rows.length };
+      },
       create: async ({ data }: { data: Partial<Project> & { ownerId: string; name: string } }) => {
         const now = new Date();
         const project: Project = {

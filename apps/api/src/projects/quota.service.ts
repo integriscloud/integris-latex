@@ -1,10 +1,44 @@
 import type { CompilePriority, Plan, PlanCode, SubscriptionStatus } from '@integris/db';
-import { PLAN_CODES, type ProjectUsage } from '@integris/shared';
+import {
+  PLAN_CODES,
+  type ProjectUsage,
+  SUBSCRIPTION_GRACE_DAYS,
+  usagePeriodStart,
+} from '@integris/shared';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RedisService } from '../redis/redis.service.js';
 
-/** Subscriptions whose plan applies. Status changes (expiry, grace, pause) belong to step 11. */
+/** Statuses whose plan applies, within their dates. Status changes (expiry, pause) and grace
+ * reminders belong to step 11; the dates are checked here so that a lapsed subscription never
+ * gives its quotas, even before its status is changed. */
 const LIVE_STATUSES: SubscriptionStatus[] = ['TRIALING', 'ACTIVE', 'GRACE'];
+
+const DAY_MS = 86_400_000;
+const HOUR_MS = 3600_000;
+
+/** Sliding one-hour window of the compilations charged to an owner (Redis sorted set). */
+export const compileHourKey = (ownerId: string) => `compile:hour:${ownerId}`;
+
+interface SubscriptionDates {
+  status: SubscriptionStatus;
+  currentPeriodEnd: Date;
+  graceEndsAt: Date | null;
+}
+
+/** Until when a subscription applies: its grace end, else its period end plus the grace days. */
+export function subscriptionLiveUntil(subscription: SubscriptionDates): Date | null {
+  if (!LIVE_STATUSES.includes(subscription.status)) return null;
+  return (
+    subscription.graceEndsAt ??
+    new Date(subscription.currentPeriodEnd.getTime() + SUBSCRIPTION_GRACE_DAYS * DAY_MS)
+  );
+}
+
+export function isSubscriptionLive(subscription: SubscriptionDates, now = new Date()): boolean {
+  const until = subscriptionLiveUntil(subscription);
+  return until !== null && until > now;
+}
 
 /** Quotas of the plans a user holds, combined: the best value of each quota wins. */
 export interface EffectiveQuotas {
@@ -21,6 +55,17 @@ export interface EffectiveQuotas {
   compilePriority: CompilePriority;
   /** Days of version history shown and restorable; null = unlimited. */
   historyDays: number | null;
+  supervisionDashboard: boolean;
+  /** Students followed per supervisor in the dashboard; null = unlimited. */
+  maxSupervisedStudents: number | null;
+}
+
+/** A plan held by a user and where it comes from. */
+export interface QuotaSource {
+  kind: 'free' | 'personal' | 'seat';
+  plan: Plan;
+  organizationName: string | null;
+  periodEnd: Date | null;
 }
 
 /** Compilation priorities, best first. */
@@ -34,6 +79,7 @@ export function combineQuotas(plans: readonly Plan[]): EffectiveQuotas {
   const highest = plans.reduce((a, b) =>
     PLAN_CODES.indexOf(b.code) > PLAN_CODES.indexOf(a.code) ? b : a,
   );
+  const supervising = plans.filter((plan) => plan.supervisionDashboard);
   return {
     planCode: highest.code,
     planName: { fr: highest.nameFr, en: highest.nameEn },
@@ -47,6 +93,10 @@ export function combineQuotas(plans: readonly Plan[]): EffectiveQuotas {
       plans.some((plan) => plan.compilePriority === priority),
     )!,
     historyDays: best(plans.map((plan) => plan.historyDays)),
+    supervisionDashboard: supervising.length > 0,
+    maxSupervisedStudents: supervising.length
+      ? best(supervising.map((plan) => plan.maxSupervisedStudents))
+      : null,
   };
 }
 
@@ -57,9 +107,13 @@ export function combineQuotas(plans: readonly Plan[]): EffectiveQuotas {
  */
 @Injectable()
 export class QuotaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
-  async quotas(userId: string): Promise<EffectiveQuotas> {
+  /** Every plan the user holds now, the free plan first. */
+  async sources(userId: string, now = new Date()): Promise<QuotaSource[]> {
     const db = this.prisma.client;
     const [free, personal, seats] = await Promise.all([
       db.plan.findUniqueOrThrow({ where: { code: 'FREE' } }),
@@ -69,14 +123,34 @@ export class QuotaService {
       }),
       db.seat.findMany({
         where: { userId, releasedAt: null, subscription: { status: { in: LIVE_STATUSES } } },
-        include: { subscription: { include: { plan: true } } },
+        include: {
+          subscription: { include: { plan: true, organization: { select: { name: true } } } },
+        },
       }),
     ]);
-    return combineQuotas([
-      free,
-      ...personal.map((subscription) => subscription.plan),
-      ...seats.map((seat) => seat.subscription.plan),
-    ]);
+    return [
+      { kind: 'free', plan: free, organizationName: null, periodEnd: null },
+      ...personal
+        .filter((subscription) => isSubscriptionLive(subscription, now))
+        .map((subscription) => ({
+          kind: 'personal' as const,
+          plan: subscription.plan,
+          organizationName: null,
+          periodEnd: subscription.currentPeriodEnd,
+        })),
+      ...seats
+        .filter((seat) => isSubscriptionLive(seat.subscription, now))
+        .map((seat) => ({
+          kind: 'seat' as const,
+          plan: seat.subscription.plan,
+          organizationName: seat.subscription.organization?.name ?? null,
+          periodEnd: seat.subscription.currentPeriodEnd,
+        })),
+    ];
+  }
+
+  async quotas(userId: string): Promise<EffectiveQuotas> {
+    return combineQuotas((await this.sources(userId)).map((source) => source.plan));
   }
 
   /** Projects counted against the limit: owned and not in the trash. */
@@ -91,6 +165,64 @@ export class QuotaService {
       _sum: { sizeBytes: true },
     });
     return BigInt(result._sum.sizeBytes ?? 0);
+  }
+
+  /**
+   * Compilations of the last hour charged to an owner, and in how many seconds the oldest one
+   * leaves the window (null when there is none).
+   */
+  async compilesThisHour(
+    ownerId: string,
+  ): Promise<{ used: number; nextSlotSeconds: number | null }> {
+    const now = Date.now();
+    const key = compileHourKey(ownerId);
+    const [, [, used], [, oldest]] = (await this.redis.client
+      .multi()
+      .zremrangebyscore(key, '-inf', String(now - HOUR_MS))
+      .zcard(key)
+      .zrange(key, '0', '0', 'WITHSCORES')
+      .exec()) as [unknown, [unknown, number], [unknown, string[]]];
+    const first = oldest[1] === undefined ? null : Number(oldest[1]);
+    return {
+      used,
+      nextSlotSeconds:
+        first === null ? null : Math.max(1, Math.ceil((first + HOUR_MS - now) / 1000)),
+    };
+  }
+
+  /** Counts a finished compilation in the monthly counter of the owner it is charged to. */
+  async chargeCompilation(ownerId: string, durationMs: number, at = new Date()): Promise<void> {
+    // Whole seconds rounded down: the counter never holds more than the real duration.
+    const seconds = Math.floor(Math.max(0, durationMs) / 1000);
+    const periodStart = usagePeriodStart(at);
+    await this.prisma.client.usageCounter.upsert({
+      where: { userId_periodStart: { userId: ownerId, periodStart } },
+      create: { userId: ownerId, periodStart, compileCount: 1, compileSeconds: seconds },
+      update: { compileCount: { increment: 1 }, compileSeconds: { increment: seconds } },
+    });
+  }
+
+  /** Records the storage of an owner in the counter of the month (last value seen). */
+  async recordStorage(ownerId: string, bytes: bigint, at = new Date()): Promise<void> {
+    const periodStart = usagePeriodStart(at);
+    await this.prisma.client.usageCounter.upsert({
+      where: { userId_periodStart: { userId: ownerId, periodStart } },
+      create: { userId: ownerId, periodStart, storageBytes: bytes },
+      update: { storageBytes: bytes },
+    });
+  }
+
+  /** Counter of the month of a user (zeros when nothing was charged yet). */
+  async month(userId: string, at = new Date()) {
+    const periodStart = usagePeriodStart(at);
+    const row = await this.prisma.client.usageCounter.findUnique({
+      where: { userId_periodStart: { userId, periodStart } },
+    });
+    return {
+      periodStart,
+      compileCount: row?.compileCount ?? 0,
+      compileSeconds: row?.compileSeconds ?? 0,
+    };
   }
 
   async usage(userId: string): Promise<ProjectUsage> {

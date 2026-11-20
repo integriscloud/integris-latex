@@ -439,7 +439,8 @@
       "projects": "Mes projets",
       "templates": "Modèles",
       "trash": "Corbeille",
-      "account": "Mon compte"
+      "account": "Mon compte",
+      "usage": "Ma consommation"
     },
     "switchSpace": "Changer d'espace",
     "openMenu": "Ouvrir le menu",
@@ -463,7 +464,9 @@
       "storageOf": "{used} sur {max}",
       "projectLimit": "Vous avez atteint la limite de {max, plural, one {# projet} other {# projets}} de l'offre {plan}. Mettez un projet à la corbeille ou passez à une offre supérieure pour en créer un autre.",
       "storageLimit": "Votre espace de stockage de l'offre {plan} est plein. Supprimez des fichiers ou passez à une offre supérieure pour en ajouter.",
-      "upgrade": "Voir les offres"
+      "upgrade": "Voir les offres",
+      "projectWarn": "Vous utilisez {count} des {max} projets de l'offre {plan}. Au-delà, vous ne pourrez plus en créer.",
+      "storageWarn": "Vous avez utilisé plus de 80 % du stockage de l'offre {plan}."
     }
   },
   "Projects": {
@@ -576,7 +579,10 @@
     "trashTitle": "Mettre à la corbeille ?",
     "trashText": "« {name} » sera gardé 30 jours dans la corbeille, puis effacé définitivement. Vous pourrez le restaurer d'ici là.",
     "share": "Partager",
-    "readOnlyCommenter": "Vous pouvez commenter et proposer des modifications, sans modifier les fichiers."
+    "readOnlyCommenter": "Vous pouvez commenter et proposer des modifications, sans modifier les fichiers.",
+    "readOnlyOverLimit": "Ce projet est en lecture seule : il dépasse le nombre de projets de votre offre. Rien n'est supprimé ; vous pouvez le lire, le télécharger, le partager en lecture et faire valider ses soumissions.",
+    "seeUsage": "Voir ma consommation",
+    "makeWritable": "Rendre ce projet modifiable"
   },
   "FileOps": {
     "newFolder": "Nouveau dossier",
@@ -693,7 +699,11 @@
     "validation_conflict": "Un fichier validé ne peut pas être remis en place : un dossier porte maintenant son nom. Renommez ce dossier, puis validez à nouveau.",
     "submission_compile_limit": "Ce compte a atteint sa limite d'envois de soumission par heure (chaque envoi compile la version envoyée). Réessayez dans {minutes, plural, one {# minute} other {# minutes}}.",
     "download_in_progress": "Un téléchargement de ce projet est déjà en cours. Réessayez quand il sera terminé.",
-    "download_expired": "Ce lien de téléchargement a expiré. Relancez le téléchargement."
+    "download_expired": "Ce lien de téléchargement a expiré. Relancez le téléchargement.",
+    "not_read_only": "Ce projet est déjà modifiable.",
+    "release_required": "Toutes les places de projets modifiables de votre offre sont prises : choisissez le projet qui passe en lecture seule.",
+    "invalid_release": "Le projet choisi n'est plus modifiable. Rechargez la page et choisissez-en un autre.",
+    "read_only_editor": "Ce projet est en lecture seule (au-delà des limites de votre offre) : il ne se partage qu'en lecture (Lecteur, Relecteur ou Encadrant)."
   },
   "Editor": {
     "metaTitle": "Éditeur",
@@ -876,7 +886,11 @@
     "wordCountMissing": "Fichiers inclus introuvables : {paths}",
     "wordCountNoMain": "Le fichier principal {path} est introuvable.",
     "wordCountLoading": "Comptage…",
-    "wordCountRecount": "Recompter"
+    "wordCountRecount": "Recompter",
+    "hourWarn": "{used} compilations sur {perHour} cette heure-ci.",
+    "hourFull": "Les {perHour} compilations de l'heure sont utilisées.",
+    "storageWarn": "Le stockage de votre offre est utilisé à plus de 80 %.",
+    "storageFull": "Le stockage de votre offre est plein : les ajouts sont bloqués."
   },
   "History": {
     "title": "Historique des versions",
@@ -1237,7 +1251,8 @@
     "revoke": "Révoquer le lien",
     "includeSources": "Inclure les fichiers source (lecture seule)",
     "expiry": "Date d'expiration",
-    "createLink": "Créer le lien public"
+    "createLink": "Créer le lien public",
+    "readOnlyRoles": "Ce projet est en lecture seule (au-delà des limites de l'offre) : il ne se partage qu'en lecture."
   },
   "Comments": {
     "you": "Vous",
@@ -1482,5 +1497,84 @@
     "backToSubmission": "Retour à la soumission",
     "technicalDetails": "Détails techniques",
     "technicalHelp": "Empreinte SHA-256 de chaque fichier envoyé : elle prouve que le fichier n’a pas changé depuis l’envoi."
+  },
+  "Usage": {
+    "metaTitle": "Ma consommation",
+    "title": "Ma consommation",
+    "subtitle": "Les limites de votre offre et ce que vous en utilisez. Les projets des autres que vous modifiez comptent pour leur propriétaire.",
+    "upgrade": "Voir les offres",
+    "planTitle": "Votre offre",
+    "plan": "Offre {plan}",
+    "source": {
+      "free": "Offre {plan} : toujours incluse",
+      "personal": "Abonnement {plan} : jusqu'au {date}",
+      "seat": "Siège {plan} dans « {organization} » : jusqu'au {date}"
+    },
+    "bestWins": "Pour chaque limite, la meilleure de vos offres s'applique (les quotas ne s'additionnent pas).",
+    "quotasTitle": "Utilisation",
+    "meter": {
+      "projects": "Projets",
+      "storage": "Stockage",
+      "compilesPerHour": "Compilations cette heure-ci"
+    },
+    "of": "{used} sur {max}",
+    "unlimitedCount": "{count} · illimité",
+    "unlimited": "Illimité",
+    "yes": "Oui",
+    "no": "Non",
+    "alert": {
+      "warn": {
+        "projects": "Vous approchez du nombre de projets de votre offre (80 % atteints).",
+        "storage": "Vous avez utilisé plus de 80 % de votre stockage.",
+        "compilesPerHour": "Vous avez utilisé plus de 80 % des compilations de l'heure."
+      },
+      "full": {
+        "projects": "Vous avez atteint le nombre de projets de votre offre : la création de projets est bloquée.",
+        "storage": "Votre stockage est plein : les ajouts de fichiers sont bloqués. Supprimez des fichiers ou videz la corbeille pour libérer de la place.",
+        "compilesPerHour": "Vous avez utilisé toutes les compilations de l'heure. Prochaine compilation possible dans {minutes, plural, one {# minute} other {# minutes}}."
+      }
+    },
+    "limitsTitle": "Ce que permet votre offre",
+    "limit": {
+      "collaborators": "Collaborateurs par projet",
+      "collaboratorsValue": "{max}",
+      "compileSeconds": "Durée maximale d'une compilation",
+      "duration": "{seconds, plural, one {# seconde} other {# secondes}}",
+      "history": "Historique des versions",
+      "historyValue": "{days, plural, =1 {24 heures} other {# jours}}",
+      "autoCompile": "Compilation automatique",
+      "priority": "Priorité de compilation",
+      "supervision": "Tableau de bord d'encadrement",
+      "supervisionValue": "{max} étudiants suivis par encadreur"
+    },
+    "priority": {
+      "HIGH": "Haute",
+      "NORMAL": "Normale",
+      "LOW": "Basse"
+    },
+    "monthTitle": "Ce mois-ci ({month})",
+    "month": {
+      "compilations": "Compilations",
+      "minutes": "Temps de compilation"
+    },
+    "projectsTitle": "Mes projets",
+    "readOnlyExplained": "Votre offre permet {max, plural, one {# projet modifiable} other {# projets modifiables}}. Les autres sont en lecture seule : rien n'est supprimé, et vous pouvez échanger un projet modifiable contre un projet en lecture seule. Mettre un projet à la corbeille libère une place.",
+    "lastActivity": "Dernière activité le {date}",
+    "writableBadge": "Modifiable",
+    "readOnlyBadge": "Lecture seule",
+    "makeWritable": "Rendre modifiable",
+    "writable": {
+      "title": "Rendre « {name} » modifiable",
+      "free": "Une place de projet modifiable est libre : ce projet redevient modifiable.",
+      "choose": "Votre offre permet {max, plural, one {# projet modifiable} other {# projets modifiables}}. Lequel passe en lecture seule ?",
+      "lastActivity": "Dernière activité le {date}",
+      "confirm": "Rendre modifiable"
+    },
+    "duration": {
+      "seconds": "{seconds} s",
+      "minutes": "{minutes} min",
+      "minutesSeconds": "{minutes} min {seconds} s",
+      "hours": "{hours} h {minutes} min"
+    }
   }
 }

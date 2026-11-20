@@ -26,6 +26,7 @@ import { StorageService } from '../storage/storage.service.js';
 import { OwnerLockService, Slots } from './owner-lock.service.js';
 import { ProjectEventsService } from './project-events.service.js';
 import { QuotaService } from './quota.service.js';
+import { UsageAlertsService } from './usage-alerts.service.js';
 import { TemplatesService } from './templates.service.js';
 import { type ExtractedFile, guessMainFile, readProjectZip, ZipError } from './zip-import.js';
 
@@ -100,6 +101,7 @@ export class ProjectsService {
     private readonly config: ApiConfig,
     private readonly redis: RedisService,
     private readonly events: ProjectEventsService,
+    private readonly alerts: UsageAlertsService,
   ) {
     this.importSlots = new Slots(config.env.ZIP_MAX_CONCURRENT_IMPORTS);
   }
@@ -291,7 +293,7 @@ export class ProjectsService {
     if (archive.length > env.ZIP_MAX_ARCHIVE_BYTES) {
       fail(HttpStatus.PAYLOAD_TOO_LARGE, 'archive_too_large');
     }
-    return this.locks.run(owner.id, async () => {
+    return this.locked(owner.id, async () => {
       await this.checkProjectLimit(owner.id);
       const quotas = await this.quota.quotas(owner.id);
       const left = quotas.storageBytes - (await this.quota.storageUsed(owner.id));
@@ -377,6 +379,8 @@ export class ProjectsService {
   }
 
   private async checkStorage(ownerId: string, addedBytes: number): Promise<void> {
+    // Shrinking is always allowed, even above the limit (docs/spec.md, "Stockage au-delà").
+    if (addedBytes <= 0) return;
     const quotas = await this.quota.quotas(ownerId);
     const used = await this.quota.storageUsed(ownerId);
     if (used + BigInt(addedBytes) > quotas.storageBytes) {
@@ -390,7 +394,7 @@ export class ProjectsService {
     source: NewFile[] | (() => Promise<NewFile[]>),
     options: CreateOptions = {},
   ): Promise<ProjectSummary> {
-    return this.locks.run(owner.id, async () => {
+    return this.locked(owner.id, async () => {
       const files = typeof source === 'function' ? await source() : source;
       await this.checkProjectLimit(owner.id);
       await this.checkStorage(owner.id, totalSize(files));
@@ -512,7 +516,7 @@ export class ProjectsService {
   /** Restores a project from the trash; the project limit of the plan applies again. */
   async restore(userId: string, projectId: string): Promise<void> {
     await this.access(userId, projectId, true);
-    await this.locks.run(userId, async () => {
+    await this.locked(userId, async () => {
       await this.checkProjectLimit(userId);
       await this.prisma.client.project.update({
         where: { id: projectId },
@@ -604,7 +608,31 @@ export class ProjectsService {
   }
 
   runLocked<T>(ownerId: string, task: () => Promise<T>): Promise<T> {
-    return this.locks.run(ownerId, task);
+    return this.locked(ownerId, task);
+  }
+
+  /**
+   * Runs a write of a project under its owner's lock, after checking again that the project is
+   * not read-only: it may have become so (plan limits) while the lock was awaited.
+   */
+  runWritable<T>(project: { id: string; ownerId: string }, task: () => Promise<T>): Promise<T> {
+    return this.locked(project.ownerId, async () => {
+      const fresh = await this.prisma.client.project.findUnique({ where: { id: project.id } });
+      if (fresh?.readOnlyReason) fail(HttpStatus.FORBIDDEN, 'read_only');
+      return task();
+    });
+  }
+
+  /**
+   * Runs a task that may add projects or bytes to an owner under their lock, then checks their
+   * usage for the 80 % and 100 % alerts.
+   */
+  private async locked<T>(ownerId: string, task: () => Promise<T>): Promise<T> {
+    try {
+      return await this.locks.run(ownerId, task);
+    } finally {
+      this.alerts.check(ownerId);
+    }
   }
 
   touch(projectId: string): Promise<unknown> {

@@ -74,6 +74,8 @@ describe('combineQuotas', () => {
       autoCompile: false,
       compilePriority: 'LOW',
       historyDays: 1,
+      supervisionDashboard: false,
+      maxSupervisedStudents: null,
     });
   });
 

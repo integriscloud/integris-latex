@@ -107,6 +107,24 @@ export async function deleteTestUsers(phones: string[]): Promise<void> {
   await prisma().projectFolder.deleteMany({ where: { project: owner } });
   await prisma().compilation.deleteMany({ where: { project: owner } });
   await prisma().project.deleteMany({ where: owner });
+  await prisma().usageCounter.deleteMany({ where: { user: users } });
+  await prisma().notification.deleteMany({ where: { user: users } });
+  // Plans given by `pnpm dev:plan`: personal subscriptions, and seats in test organizations.
+  const devOrganizations = await prisma().organization.findMany({
+    where: {
+      name: { startsWith: '[dev:plan] ' },
+      subscription: { seats: { some: { user: users } } },
+    },
+    select: { id: true },
+  });
+  const devSubscriptions = { organizationId: { in: devOrganizations.map((org) => org.id) } };
+  await prisma().seat.deleteMany({
+    where: { OR: [{ user: users }, { subscription: devSubscriptions }] },
+  });
+  await prisma().subscription.deleteMany({ where: { OR: [{ user: users }, devSubscriptions] } });
+  await prisma().organization.deleteMany({
+    where: { id: { in: devOrganizations.map((org) => org.id) } },
+  });
   await prisma().user.deleteMany({ where: { phone: { in: phones } } });
 }
 

@@ -115,6 +115,13 @@ export function ShareDialog({ projectId, projectName, open, onClose }: ShareDial
     };
   }, [open, fetchPanel, show]);
 
+  // A project read-only beyond the plan's limits is shared for reading only (no Editor role).
+  const readOnly = sharing?.readOnly ?? false;
+  const inviteRoles = readOnly
+    ? SHAREABLE_ROLES.filter((value) => value !== 'EDITOR')
+    : SHAREABLE_ROLES;
+  const inviteRole: ShareableRole = readOnly && role === 'EDITOR' ? 'REVIEWER' : role;
+
   const roleNames: Record<ShareableRole, string> = {
     EDITOR: t('roles.EDITOR'),
     SUPERVISOR: t('roles.SUPERVISOR'),
@@ -129,8 +136,8 @@ export function ShareDialog({ projectId, projectName, open, onClose }: ShareDial
     setSent(false);
     const body =
       channel === 'phone'
-        ? { channel, phone, dialCode, role, message: message || undefined }
-        : { channel, email, role, message: message || undefined };
+        ? { channel, phone, dialCode, role: inviteRole, message: message || undefined }
+        : { channel, email, role: inviteRole, message: message || undefined };
     const result = await apiRequest<ProjectSharing>(
       'POST',
       `projects/${projectId}/invitations`,
@@ -255,11 +262,12 @@ export function ShareDialog({ projectId, projectName, open, onClose }: ShareDial
               />
             )}
           </div>
+          {readOnly && <p className={styles.muted}>{t('readOnlyRoles')}</p>}
           <ChoiceCards
             label={t('role')}
-            value={role}
+            value={inviteRole}
             onChange={setRole}
-            options={SHAREABLE_ROLES.map((value) => ({
+            options={inviteRoles.map((value) => ({
               value,
               title: roleNames[value],
               description: t(`roleHelp.${value}`),
@@ -333,7 +341,11 @@ export function ShareDialog({ projectId, projectName, open, onClose }: ShareDial
                       }
                     >
                       {SHAREABLE_ROLES.map((value) => (
-                        <option key={value} value={value}>
+                        <option
+                          key={value}
+                          value={value}
+                          disabled={readOnly && value === 'EDITOR' && member.role !== 'EDITOR'}
+                        >
                           {roleNames[value]}
                         </option>
                       ))}

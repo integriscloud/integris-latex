@@ -27,12 +27,13 @@ import {
 import { useLocale, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import { getPathname, useRouter } from '../../i18n/navigation';
-import { apiRequest, type ApiResult } from '../../lib/api-client';
+import { apiRead, apiRequest, type ApiResult } from '../../lib/api-client';
 import { formatBytes } from '../../lib/format';
 import styles from './app.module.css';
 import { ConfirmDialog, TextDialog } from './dialogs';
 import { useProjectDownload } from './file-ops';
 import { useFileTreeActions } from './file-tree-actions';
+import { MakeWritableDialog } from './MakeWritableDialog';
 import { ProjectBadges } from './ProjectBadges';
 import { ShareDialog } from '../sharing/ShareDialog';
 import { useApiErrorMessage } from './use-api-error';
@@ -54,10 +55,13 @@ export function ProjectFiles({
   const message = useApiErrorMessage(locale);
   const [project, setProject] = useState(initial);
   const [shareOpen, setShareOpen] = useState(false);
+  const [writableOpen, setWritableOpen] = useState(false);
   const [action, setAction] = useState<Action>(null);
   const download = useProjectDownload(project.id);
 
-  const { edit, manage } = project.rights;
+  const { manage } = project.rights;
+  // A read-only project (beyond the plan's limits) is not edited, even by its owner.
+  const edit = project.rights.edit && !project.readOnly;
   // Owner and editors download the project, read-only projects included (reading).
   const canDownload = project.role === 'OWNER' || project.role === 'EDITOR';
   const base = `projects/${project.id}`;
@@ -194,13 +198,36 @@ export function ProjectFiles({
 
       {!edit && (
         <Alert tone="info">
-          {project.readOnly
-            ? t('readOnlyProject')
-            : project.rights.comment
-              ? t('readOnlyCommenter')
-              : t('readOnlyRole')}
+          {project.readOnly ? (
+            <p>
+              {manage ? t('readOnlyOverLimit') : t('readOnlyProject')}{' '}
+              {manage && <a href={getPathname({ href: '/app/usage', locale })}>{t('seeUsage')}</a>}
+            </p>
+          ) : project.rights.comment ? (
+            t('readOnlyCommenter')
+          ) : (
+            t('readOnlyRole')
+          )}
         </Alert>
       )}
+      {manage && project.readOnly && (
+        <div className={styles.row}>
+          <Button variant="secondary" onClick={() => setWritableOpen(true)}>
+            {t('makeWritable')}
+          </Button>
+        </div>
+      )}
+      <MakeWritableDialog
+        open={writableOpen}
+        project={project}
+        onClose={() => setWritableOpen(false)}
+        onDone={() =>
+          void apiRead<ProjectDetail>(base).then((result) => {
+            if (result.ok) setProject(result.data);
+            router.refresh();
+          })
+        }
+      />
 
       <Panel
         title={t('files', { count: project.files.length })}

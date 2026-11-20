@@ -155,3 +155,33 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* "Ma consommation": sources of the plan and facts of the grid. */
+.plainList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--t-texte-sm);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--espace-4) var(--espace-6);
+  margin: 0;
+}
+
+.facts dt {
+  font: var(--t-legende);
+  color: var(--texte-3);
+}
+
+.facts dd {
+  margin: var(--espace-1) 0 0;
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

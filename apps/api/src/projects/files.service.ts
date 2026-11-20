@@ -121,7 +121,7 @@ export class FilesService {
     const path = normalizeFilePath(input);
     if (!path) return fail(HttpStatus.BAD_REQUEST, 'invalid_path');
     if (!isTextExtension(allowedExtensionOf(path)!)) fail(HttpStatus.BAD_REQUEST, 'type_mismatch');
-    await this.projects.runLocked(project.ownerId, async () => {
+    await this.projects.runWritable(project, async () => {
       const existing = await this.paths(projectId);
       const folders = await this.keptFolders(projectId);
       this.checkCount(existing.length + folders.length + 1);
@@ -161,7 +161,7 @@ export class FilesService {
     const { project } = await this.projects.require(userId, projectId, 'edit');
     const path = normalizeProjectPath(input);
     if (!path) return fail(HttpStatus.BAD_REQUEST, 'invalid_path');
-    await this.projects.runLocked(project.ownerId, async () => {
+    await this.projects.runWritable(project, async () => {
       const existing = await this.paths(projectId);
       const folders = await this.keptFolders(projectId);
       this.checkCount(existing.length + folders.length + 1);
@@ -209,7 +209,7 @@ export class FilesService {
 
     // Usage is charged to the owner of the project, whoever uploads.
     await this.projects
-      .runLocked(project.ownerId, async () => {
+      .runWritable(project, async () => {
         const existing = await this.paths(projectId);
         const folders = await this.keptFolders(projectId);
         const previous = existing.find((file) => file.path === path);
@@ -314,7 +314,7 @@ export class FilesService {
     const userId = actor.userId!;
     const { project } = await this.projects.require(userId, projectId, 'edit');
     // Serialized with uploads of the same owner: no file and folder of the same name.
-    const moved = await this.projects.runLocked(project.ownerId, async () => {
+    const moved = await this.projects.runWritable(project, async () => {
       const file = await this.file(projectId, fileId);
       const path = normalizeFilePath(input);
       if (!path) return fail(HttpStatus.BAD_REQUEST, 'invalid_path');
@@ -389,7 +389,7 @@ export class FilesService {
       return fail(HttpStatus.BAD_REQUEST, 'invalid_path');
     }
     const renamePath = (path: string) => `${to}${path.slice(from.length)}`;
-    await this.projects.runLocked(project.ownerId, async () => {
+    await this.projects.runWritable(project, async () => {
       const files = await this.paths(projectId);
       const folders = await this.keptFolders(projectId);
       const moved = files.filter((file) => inFolder(file.path, from));
@@ -458,7 +458,7 @@ export class FilesService {
   async remove(userId: string, projectId: string, fileId: string): Promise<ProjectDetail> {
     const { project } = await this.projects.require(userId, projectId, 'edit');
     // Under the owner lock, and only while unlocked: a validation cannot lock it meanwhile.
-    const file = await this.projects.runLocked(project.ownerId, async () => {
+    const file = await this.projects.runWritable(project, async () => {
       const found = await this.file(projectId, fileId);
       await this.prisma.client.$transaction(async (tx) => {
         const deleted = await tx.projectFile.deleteMany({
@@ -482,7 +482,7 @@ export class FilesService {
     const folder = normalizeProjectPath(input);
     if (!folder) return fail(HttpStatus.BAD_REQUEST, 'invalid_path');
     // Under the owner lock: a validation cannot lock one of these files meanwhile.
-    const files = await this.projects.runLocked(project.ownerId, async () => {
+    const files = await this.projects.runWritable(project, async () => {
       const found = (await this.paths(projectId)).filter((file) => inFolder(file.path, folder));
       const folders = (await this.keptFolders(projectId)).filter((path) => atOrIn(path, folder));
       if (!found.length && !folders.length) return fail(HttpStatus.NOT_FOUND, 'not_found');

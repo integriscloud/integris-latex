@@ -166,7 +166,13 @@ export const INTERNAL_PATHS = {
   authorize: '/internal/collab/authorize',
   load: '/internal/collab/load',
   store: '/internal/collab/store',
+  /** Development only (pnpm dev:plan): the plans of these users changed, apply their limits. */
+  planChanged: '/internal/plans/changed',
 } as const;
+
+export const planChangedRequestSchema = z.object({
+  userIds: z.array(z.string().min(1).max(64)).min(1).max(1000),
+});
 
 export const authorizeRequestSchema = z.object({
   /** Value of the session cookie sent with the WebSocket upgrade. */

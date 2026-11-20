@@ -494,7 +494,7 @@ model Project {
   engine         Engine      @default(PDFLATEX)
   mainFilePath   String      @default("main.tex")
   autoCompile    Boolean     @default(false)
-  readOnlyReason String? // e.g. OVER_FREE_LIMIT
+  readOnlyReason String? // OVER_PLAN_LIMIT (READ_ONLY_REASONS in @integris/shared)
   templateId     String?
   template       Template?   @relation(fields: [templateId], references: [id])
   lastActivityAt DateTime    @default(now())
@@ -864,8 +864,10 @@ model Notification {
   userId    String
   user      User                @relation(fields: [userId], references: [id])
   channel   NotificationChannel
-  type      String // SUBMISSION_RECEIVED, FEEDBACK_SENT, VALIDATED, DUE_SOON, RENEWAL_REMINDER...
+  type      String // SUBMISSION_RECEIVED, FEEDBACK_SENT, VALIDATED, DUE_SOON, RENEWAL_REMINDER, QUOTA_ALERT...
   payload   Json
+  // Sent at most once per key (quota alerts: quota, level and month)
+  dedupeKey String?             @unique
   sentAt    DateTime?
   readAt    DateTime?
   createdAt DateTime            @default(now())

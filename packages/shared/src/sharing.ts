@@ -7,6 +7,8 @@ import { PROJECT_ROLES, type ProjectRoleValue } from './projects.js';
 /** Error codes of the sharing, invitation, public link and comment endpoints. */
 export const SHARING_ERROR_CODES = [
   'collaborator_limit',
+  // The Editor role on a project read-only beyond the plan's limits.
+  'read_only_editor',
   'already_member',
   'already_invited',
   'cannot_invite_self',
@@ -114,6 +116,8 @@ export const projectSharingSchema = z.object({
   /** Collaborators counted (members and pending invitations) and the plan limit (null: none). */
   collaborators: z.object({ used: z.number().int(), max: z.number().int().nullable() }),
   canShare: z.boolean(),
+  /** Read-only beyond the plan's limits: shared for reading only (no Editor role). */
+  readOnly: z.boolean(),
 });
 export type ProjectSharing = z.infer<typeof projectSharingSchema>;
 

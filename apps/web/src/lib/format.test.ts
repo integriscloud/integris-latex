@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes, relativeOrNow } from './format';
+import { durationParts, formatBytes, relativeOrNow } from './format';
 
 describe('formatBytes', () => {
   it('uses binary units in the language of the page', () => {
@@ -30,5 +30,20 @@ describe('relativeOrNow', () => {
 
   it('gives the relative date from one minute on', () => {
     expect(relativeOrNow(format, at(-120), now, "à l'instant")).toBe('il y a 2 minutes');
+  });
+});
+
+describe('durationParts', () => {
+  it('splits exactly, never rounding up', () => {
+    expect(durationParts(2)).toEqual({ unit: 'seconds', seconds: 2 });
+    expect(durationParts(59.9)).toEqual({ unit: 'seconds', seconds: 59 });
+    expect(durationParts(60)).toEqual({ unit: 'minutes', minutes: 1, seconds: 0 });
+    expect(durationParts(90)).toEqual({ unit: 'minutes', minutes: 1, seconds: 30 });
+    expect(durationParts(2 * 3600 + 5 * 60 + 59)).toEqual({
+      unit: 'hours',
+      hours: 2,
+      minutes: '05',
+    });
+    expect(durationParts(-3)).toEqual({ unit: 'seconds', seconds: 0 });
   });
 });

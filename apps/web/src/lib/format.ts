@@ -31,3 +31,22 @@ export function relativeOrNow(
 ): string {
   return now.getTime() - date.getTime() < 60_000 ? justNow : format.relativeTime(date, now);
 }
+
+/** A duration split for display: "2 s", "1 min 30 s", "2 h 05 min" (keys in Usage.duration). */
+export type DurationParts =
+  | { unit: 'seconds'; seconds: number }
+  | { unit: 'minutes'; minutes: number; seconds: number }
+  | { unit: 'hours'; hours: number; minutes: string };
+
+/** Whole seconds, never rounded up: what is shown is never more than what was used. */
+export function durationParts(totalSeconds: number): DurationParts {
+  const total = Math.max(0, Math.floor(totalSeconds));
+  if (total < 60) return { unit: 'seconds', seconds: total };
+  if (total < 3600)
+    return { unit: 'minutes', minutes: Math.floor(total / 60), seconds: total % 60 };
+  return {
+    unit: 'hours',
+    hours: Math.floor(total / 3600),
+    minutes: String(Math.floor((total % 3600) / 60)).padStart(2, '0'),
+  };
+}

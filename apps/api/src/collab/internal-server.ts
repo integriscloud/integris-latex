@@ -3,6 +3,7 @@ import {
   COLLAB_SECRET_HEADER,
   INTERNAL_PATHS,
   loadRequestSchema,
+  planChangedRequestSchema,
   PORTS,
   storeRequestSchema,
 } from '@integris/shared';
@@ -11,6 +12,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { z } from 'zod';
 import { ApiConfig } from '../config/api-config.js';
+import { PlanLimitsService } from '../projects/plan-limits.service.js';
 import { CollabDocsService } from './collab-docs.service.js';
 
 // The largest state (base64) and text accepted by storeRequestSchema, with room for JSON.
@@ -23,7 +25,8 @@ class BadRequest extends Error {}
 /**
  * Internal API of the collaboration server, on its own loopback port that Nginx never proxies.
  * Every request carries COLLAB_INTERNAL_SECRET. It answers three things: may this session open
- * this document, load a document, store a document.
+ * this document, load a document, store a document. Outside production, it also applies the plan
+ * limits of users whose plan `pnpm dev:plan` changed.
  */
 @Injectable()
 export class InternalServer implements OnModuleDestroy {
@@ -31,11 +34,15 @@ export class InternalServer implements OnModuleDestroy {
   private readonly secret: Buffer;
   private server: Server | null = null;
 
+  private readonly development: boolean;
+
   constructor(
     config: ApiConfig,
     private readonly docs: CollabDocsService,
+    private readonly limits: PlanLimitsService,
   ) {
     this.secret = digest(config.env.COLLAB_INTERNAL_SECRET);
+    this.development = config.env.NODE_ENV !== 'production';
   }
 
   /** Started by main.ts only (tests call `handle` directly). */
@@ -122,6 +129,17 @@ export class InternalServer implements OnModuleDestroy {
           await this.docs.store(await this.body(request, storeRequestSchema)),
         );
         return;
+      case INTERNAL_PATHS.planChanged: {
+        if (!this.development) {
+          this.answer(response, 404, { error: 404 });
+          return;
+        }
+        const { userIds } = await this.body(request, planChangedRequestSchema);
+        const changed: Record<string, string[]> = {};
+        for (const userId of userIds) changed[userId] = await this.limits.reconcile(userId);
+        this.answer(response, 200, { changed });
+        return;
+      }
       default:
         this.answer(response, 404, { error: 404 });
     }

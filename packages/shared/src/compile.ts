@@ -184,6 +184,10 @@ export const compileStateSchema = z.object({
   autoCompile: z.boolean(),
   maxSeconds: z.number().int().positive().nullable(),
   maxPerHour: z.number().int().positive().nullable(),
+  /** Compilations of the last hour charged to the owner (owner and editors; null otherwise). */
+  usedThisHour: z.number().int().nonnegative().nullable(),
+  /** Storage of the owner against the plan (owner only; null otherwise). */
+  storageLevel: z.enum(['ok', 'warn', 'full']).nullable(),
 });
 export type CompileState = z.infer<typeof compileStateSchema>;
 

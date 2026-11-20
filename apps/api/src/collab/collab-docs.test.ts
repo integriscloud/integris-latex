@@ -98,6 +98,34 @@ describe('internal API of the collaboration server', () => {
     await call(INTERNAL_PATHS.authorize, { session: 1 }).expect(400);
   });
 
+  it('applies the plan limits of users whose plan changed (development only, pnpm dev:plan)', async () => {
+    ctx.db.personalPlans.set(owner.id, 'STANDARD');
+    for (const name of ['B', 'C', 'D']) {
+      await request(ctx.app.getHttpServer())
+        .post('/api/projects')
+        .set('Origin', ORIGIN)
+        .set(TEST_USER_HEADER, owner.id)
+        .send({ name })
+        .expect(201);
+    }
+    // 4 projects created while holding STANDARD, then back to FREE (3 projects).
+    ctx.db.personalPlans.delete(owner.id);
+    ctx.db.projects[0]!.lastActivityAt = new Date(Date.now() - 86_400_000);
+    const answer = await call(INTERNAL_PATHS.planChanged, { userIds: [owner.id] }).expect(200);
+    expect(answer.body.changed[owner.id]).toEqual([projectId]);
+    expect(ctx.db.projects[0]!.readOnlyReason).toBe('OVER_PLAN_LIMIT');
+    expect(await authorize(owner)).toMatchObject({ ok: true, writable: false });
+    await call(INTERNAL_PATHS.planChanged, { userIds: [] }).expect(400);
+
+    const server = ctx.app.get(InternalServer) as unknown as { development: boolean };
+    server.development = false;
+    try {
+      await call(INTERNAL_PATHS.planChanged, { userIds: [owner.id] }).expect(404);
+    } finally {
+      server.development = true;
+    }
+  });
+
   describe('authorize', () => {
     it('lets the owner and editors write', async () => {
       expect(await authorize(owner)).toMatchObject({

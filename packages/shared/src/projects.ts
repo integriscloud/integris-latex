@@ -41,6 +41,10 @@ export const PROJECT_ERROR_CODES = [
   // Project download (ZIP).
   'download_in_progress',
   'download_expired',
+  // Read-only projects beyond the plan's limits (step 10).
+  'not_read_only',
+  'release_required',
+  'invalid_release',
 ] as const;
 export type ProjectErrorCode = (typeof PROJECT_ERROR_CODES)[number];
 

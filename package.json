@@ -21,6 +21,7 @@
     "test:malicious": "pnpm --filter @integris/worker test:malicious",
     "dev:share": "node apps/api/scripts/dev-tools.mjs share",
     "dev:otp": "node apps/api/scripts/dev-tools.mjs otp",
+    "dev:plan": "node apps/api/scripts/dev-tools.mjs plan",
     "dev:check-env": "node scripts/check-env.mjs"
   },
   "devDependencies": {
