@@ -11,7 +11,11 @@ import { requireMe } from './session';
  */
 export async function requireOrganizationSpace(
   locale: Locale,
-  need: { manager?: boolean; business?: boolean; kind?: 'TEACHER' | 'STUDENT' } = {},
+  need: {
+    manager?: boolean;
+    business?: boolean;
+    kind?: 'TEACHER' | 'STUDENT' | 'SECRETARY';
+  } = {},
 ): Promise<{ me: MeResponse; space: Space }> {
   const me = await requireMe(locale);
   if (!me.currentSpaceId) return redirect({ href: '/spaces', locale });

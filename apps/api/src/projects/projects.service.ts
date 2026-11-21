@@ -47,7 +47,7 @@ const sizeOf = (file: NewFile) => (file.bytes ? file.bytes.length : file.sizeByt
 const totalSize = (files: NewFile[]) => files.reduce((total, file) => total + sizeOf(file), 0);
 
 /** Settings of a new project, and its empty folders. */
-type CreateOptions = Partial<Pick<Project, 'mainFilePath' | 'engine' | 'templateId'>> & {
+type CreateOptions = Partial<Pick<Project, 'mainFilePath' | 'engine' | 'templateId' | 'kind'>> & {
   folders?: string[];
 };
 
@@ -153,7 +153,7 @@ export class ProjectsService {
         inTrash ? 'not_in_trash' : 'not_found',
       );
     }
-    return { project, role, rights: projectRights(role) };
+    return { project, role, rights: projectRights(role, project.kind) };
   }
 
   /** Access with a right: editing also requires a project that is not read-only. */
@@ -173,6 +173,8 @@ export class ProjectsService {
         ? { ownerId: userId, deletedAt: { not: null } }
         : {
             deletedAt: null,
+            // Exam papers have their own list ("Mes devoirs").
+            kind: 'DOCUMENT',
             OR: [{ ownerId: userId }, { members: { some: { userId } } }],
           };
     const projects = await db.project.findMany({
@@ -245,6 +247,7 @@ export class ProjectsService {
     return {
       id: project.id,
       name: project.name,
+      kind: project.kind,
       role,
       ownerName: extra.ownerName,
       lastActivityAt: project.lastActivityAt.toISOString(),
@@ -267,6 +270,28 @@ export class ProjectsService {
   ): Promise<ProjectSummary> {
     const main = new TextEncoder().encode(blankMainTex(locale, name));
     return this.createWithFiles(owner, name, [{ path: 'main.tex', bytes: main, kind: 'TEXT' }]);
+  }
+
+  /**
+   * New exam paper (docs/spec.md, "Devoirs et secrétariat"): its subject, answer key and marking
+   * scheme as three fixed files. The caller checked that the owner is an active teacher.
+   */
+  createExamPaper(
+    owner: { id: string; displayName: string },
+    name: string,
+    files: { path: string; content: string }[],
+  ): Promise<ProjectSummary> {
+    const encoder = new TextEncoder();
+    return this.createWithFiles(
+      owner,
+      name,
+      files.map((file) => ({
+        path: file.path,
+        bytes: encoder.encode(file.content),
+        kind: 'TEXT' as const,
+      })),
+      { kind: 'ASSIGNMENT', mainFilePath: files[0]!.path },
+    );
   }
 
   async createFromTemplate(
@@ -340,6 +365,8 @@ export class ProjectsService {
           copyFrom: source.storageKey ?? undefined,
         })),
       {
+        // A copy of an exam paper stays an exam paper: its answer key never becomes shareable.
+        kind: project.kind,
         mainFilePath: project.mainFilePath,
         engine: project.engine,
         templateId: project.templateId,
@@ -414,6 +441,7 @@ export class ProjectsService {
       data: {
         ownerId: owner.id,
         name,
+        kind: options.kind ?? 'DOCUMENT',
         mainFilePath: options.mainFilePath ?? guessMainFile(files),
         engine: options.engine ?? 'PDFLATEX',
         templateId: options.templateId ?? null,
@@ -533,15 +561,11 @@ export class ProjectsService {
 
   /**
    * Erases a project for good, except the traces of its validations: its objects first (a failure leaves the rows, and the next purge
-   * tries again), then its rows. Exam papers with print requests keep their append-only journal:
-   * they are not erased here.
+   * tries again), then its rows. The print requests of an exam paper, their frozen subjects and
+   * their append-only journal are kept: the requests lose their project (SET NULL).
    */
   async erase(projectId: string): Promise<boolean> {
     const db = this.prisma.client;
-    if (await db.printRequest.count({ where: { projectId } })) {
-      this.logger.warn({ projectId }, 'Project with print requests not erased');
-      return false;
-    }
     // Validated submissions are erased with the project, but the trace of each validation
     // (ValidationRecord, metadata only) is kept. Never erase one whose trace is missing.
     const validated = await db.submission.findMany({
@@ -565,6 +589,7 @@ export class ProjectsService {
       db.commentReply.deleteMany({ where: { comment: { projectId } } }),
       db.comment.deleteMany({ where: { projectId } }),
       db.compilation.deleteMany({ where: { projectId } }),
+      db.printSend.deleteMany({ where: { projectId } }),
       db.submissionVersion.deleteMany({ where: { submission: { projectId } } }),
       db.submissionReviewer.deleteMany({ where: { submission: { projectId } } }),
       db.submission.deleteMany({ where: { projectId } }),
@@ -584,8 +609,7 @@ export class ProjectsService {
   async purgeTrash(now = new Date()): Promise<number> {
     const before = new Date(now.getTime() - TRASH_RETENTION_DAYS * DAY_MS);
     const expired = await this.prisma.client.project.findMany({
-      // Exam papers keep their print journal: never picked, so they cannot block the others.
-      where: { deletedAt: { lt: before }, printRequests: { none: {} } },
+      where: { deletedAt: { lt: before } },
       select: { id: true },
       orderBy: { deletedAt: 'asc' },
       take: 100,

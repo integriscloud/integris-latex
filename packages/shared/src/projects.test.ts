@@ -133,8 +133,25 @@ describe('projectRights', () => {
         edit,
         share,
         manage: share,
+        // ZIP download: owner and editors (step 4 bis).
+        download: edit,
       });
     }
+  });
+
+  it('keeps an exam paper with its owner: no sharing, ZIP for the owner only', () => {
+    expect(projectRights('OWNER', 'ASSIGNMENT')).toMatchObject({
+      share: false,
+      manage: true,
+      download: true,
+      edit: true,
+    });
+    expect(projectRights('EDITOR', 'ASSIGNMENT')).toMatchObject({
+      share: false,
+      download: false,
+      edit: true,
+      comment: true,
+    });
   });
 });
 

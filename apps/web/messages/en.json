@@ -449,7 +449,13 @@
       "supervision": "Supervision",
       "students": "My students",
       "supervisors": "My supervisors",
-      "join": "Join an institution"
+      "join": "Join an institution",
+      "exams": "My exam papers",
+      "printQueue": "Print queue",
+      "printHistory": "History",
+      "printJournal": "Access log",
+      "printRequests": "Exam printing",
+      "orgTemplates": "Official templates"
     },
     "switchSpace": "Switch space",
     "openMenu": "Open the menu",
@@ -899,7 +905,14 @@
     "hourWarn": "{used} of {perHour, plural, one {# compilation} other {# compilations}} this hour.",
     "hourFull": "{perHour, plural, one {The compilation of this hour is used.} other {The # compilations of this hour are used.}}",
     "storageWarn": "More than 80% of your plan's storage is used.",
-    "storageFull": "Your plan's storage is full: additions are blocked."
+    "storageFull": "Your plan's storage is full: additions are blocked.",
+    "examPrint": "Secretariat",
+    "examParts": "Parts of the exam paper",
+    "examPart": {
+      "subject": "Exam paper",
+      "answers": "Answer key",
+      "marking": "Marking scheme"
+    }
   },
   "History": {
     "title": "Version history",
@@ -946,7 +959,8 @@
     "confirmFileText": "{path} goes back to its content of {date}. The current state of the project is saved as a version first: you can go back to it.",
     "confirm": "Restore",
     "restored": "Restored: {restored, plural, =0 {no file changed} one {# file restored} other {# files restored}}{removed, plural, =0 {} one {, # file deleted} other {, # files deleted}}.",
-    "kept": "Not changed (locked by a validated submission, or where a folder now is): {paths}."
+    "kept": "Not changed (locked by a validated submission, or where a folder now is): {paths}.",
+    "print": "Version sent to the secretariat"
   },
   "CompileIssues": {
     "outside_project": {
@@ -1910,6 +1924,16 @@
       "storage": "Storage",
       "compiles": "Compilations this month",
       "compilesValue": "{count} ({minutes, plural, one {# min} other {# min}})"
+    },
+    "secretariat": {
+      "legend": "Classes and programmes served",
+      "help": "The secretariat only sees the print requests of these groups and their subgroups.",
+      "noGroups": "First create a class or programme (faculty, department).",
+      "required": "Choose at least one class or programme.",
+      "dialogTitle": "Secretariat: groups served by {name}",
+      "save": "Save",
+      "serves": "Serves: {group}",
+      "change": "Groups served"
     }
   },
   "Groups": {
@@ -2083,6 +2107,290 @@
     "supervision_limit": "This supervisor already follows the plan's maximum number of students.",
     "supervision_exists": "This supervision already exists.",
     "supervision_not_found": "This supervision no longer exists.",
-    "end_date_past": "The end date must be in the future."
+    "end_date_past": "The end date must be in the future.",
+    "secretary_admin": "The owner and the admins cannot hold the secretariat profile, which opens exam papers. Remove the admin role first, or choose another profile."
+  },
+  "ExamErrors": {
+    "exam_teacher_only": "Only for confirmed teachers of a Business institution with an active subscription.",
+    "exam_paper_only": "This action only applies to exam papers.",
+    "exam_not_allowed": "An exam paper can be neither shared by public link nor submitted: its answer key never leaves your project.",
+    "exam_part_protected": "The exam paper, answer key and marking scheme files cannot be renamed, moved or deleted.",
+    "exam_dates_invalid": "The availability date must come before the exam date, which must be in the future.",
+    "no_secretariat": "No secretariat serves this class. Ask an admin to assign one.",
+    "exam_send_pending": "A send of this exam paper is already being prepared. Wait for it to finish.",
+    "print_status": "This request changed meanwhile (for example, the secretariat opened it). Reload the page.",
+    "print_locked": "This exam paper is locked until its availability date.",
+    "print_locked_until": "This exam paper is locked: nobody can open it before {date}.",
+    "print_not_found": "This print request does not exist or is not available to you.",
+    "coeditor_invalid": "Only a confirmed teacher of one of your institutions can co-edit this exam paper.",
+    "secretary_groups_required": "A secretariat serves at least one class or programme.",
+    "group_in_use": "This group is served by a secretariat or used by a print request: it cannot be deleted.",
+    "template_empty": "This archive holds no accepted file.",
+    "template_not_found": "This template no longer exists."
+  },
+  "Print": {
+    "status": {
+      "SCHEDULED": "Scheduled (locked)",
+      "READY": "Ready to print",
+      "OPENED": "Opened",
+      "PRINTED": "Printed",
+      "HANDED_OVER": "Handed over",
+      "CANCELED": "Canceled"
+    },
+    "duplex": {
+      "SIMPLEX": "Single-sided",
+      "DUPLEX": "Double-sided"
+    },
+    "stapled": "Stapled",
+    "fields": {
+      "teacher": "Teacher",
+      "group": "Class",
+      "copies": "Copies",
+      "format": "Printing",
+      "availableFrom": "Ready on",
+      "examAt": "Exam",
+      "printed": "Printed",
+      "handedOverTo": "Handed over to"
+    },
+    "copiesValue": "{copies} + {reserve} spare ({total, plural, one {# copy} other {# copies}})",
+    "pages": "{count, plural, one {# page} other {# pages}}",
+    "printedValue": "{count, plural, one {# copy} other {# copies}}",
+    "copiesTotal": "{count, plural, one {# copy} other {# copies}}",
+    "journal": {
+      "label": "Access log",
+      "empty": "No access recorded yet.",
+      "you": "You",
+      "someone": "A deleted account",
+      "ip": "address {ip}",
+      "REQUESTED": "{who}: request sent, exam paper frozen",
+      "UPDATED": "{who}: request changed ({fields})",
+      "REPLACED": "{who}: request replaced by a new send",
+      "CANCELED": "{who}: request canceled",
+      "PREVIEWED": "{who}: preview opened",
+      "OPENED": "{who}: exam paper opened",
+      "DOWNLOADED": "{who}: print file downloaded",
+      "PRINT_CONFIRMED": "{who}: printing confirmed ({count, plural, one {# copy} other {# copies}})",
+      "HANDED_OVER": "{who}: copies handed over to {to}",
+      "COEDITOR_ADDED": "{who}: {name} added as co-editor",
+      "COEDITOR_REMOVED": "{who}: {name} removed from the co-editors"
+    },
+    "changes": {
+      "title": "title",
+      "groupId": "class",
+      "copies": "copies",
+      "reserveCopies": "spare copies",
+      "duplex": "sides",
+      "stapled": "stapling",
+      "availableFrom": "availability date",
+      "examAt": "exam date"
+    }
+  },
+  "Exams": {
+    "metaTitle": "My exam papers",
+    "metaTitlePaper": "Exam paper",
+    "title": "My exam papers",
+    "ownerSubtitle": "Exam paper, answer key and marking scheme · send to the secretariat",
+    "coeditorSubtitle": "Exam paper of {name}, which you co-edit",
+    "openPaper": "Exam paper page (co-editors, log)",
+    "journal": "Exam paper log",
+    "partsHelp": "The answer key and the marking scheme stay in this project: they are never sent to the secretariat nor to the compilation of the exam paper.",
+    "parts": {
+      "subject": "Write the exam paper",
+      "answers": "Write the answer key",
+      "marking": "Write the marking scheme"
+    },
+    "create": {
+      "title": "New exam paper",
+      "help": "An exam paper has three parts: the paper itself, sent to the secretariat, and the answer key and marking scheme, which stay private.",
+      "name": "Name of the exam paper",
+      "placeholder": "General hydrology — End of term exam",
+      "submit": "Create and write"
+    },
+    "list": {
+      "title": "{count, plural, =0 {No exam paper} one {# exam paper} other {# exam papers}}",
+      "coedited": "Co-edited with {name}",
+      "sending": "Send being prepared",
+      "current": "{group} · exam on {date}",
+      "notSent": "Not sent to the secretariat yet",
+      "activity": "changed on {date}",
+      "write": "Write",
+      "open": "Open",
+      "empty": "No exam paper yet",
+      "emptyHelp": "Create an exam paper, write it, then send it to the secretariat.",
+      "cannotCreate": "Only confirmed teachers of a Business institution create exam papers."
+    },
+    "form": {
+      "title": "Title shown to the secretariat",
+      "required": "This field is required.",
+      "group": "Class",
+      "chooseGroup": "Choose a class",
+      "groupWithoutSecretariat": "{name} (no secretariat)",
+      "noSecretariat": "No secretariat serves this class: the request would be refused.",
+      "noGroups": "Your institution has no class or programme yet.",
+      "copies": "Copies",
+      "copiesInvalid": "Between 1 and {max, plural, one {# copy} other {# copies}}.",
+      "reserve": "Spare copies",
+      "reserveInvalid": "Between 0 and {max, plural, one {# spare copy} other {# spare copies}}.",
+      "duplex": "Printing",
+      "availableFrom": "Ready on (availability)",
+      "examAt": "Exam date",
+      "datesOrder": "The availability date must come before the exam date.",
+      "confidential": {
+        "title": "Confidentiality of the exam paper",
+        "locked": "The secretariat can open the exam paper only from the availability date, like everyone.",
+        "journal": "Every opening, download and printing is logged.",
+        "private": "The answer key and marking scheme stay private (never sent).",
+        "frozen": "The PDF is frozen when sent: changing the project afterwards does not change the request."
+      },
+      "back": "Back"
+    },
+    "send": {
+      "title": "Send to the secretariat",
+      "compiling": "Preparing the PDF of the exam paper… The request is created as soon as it is ready.",
+      "failed": "The exam paper could not be compiled: nothing was sent. Fix the errors and send again.",
+      "issueAt": "{file}, line {line}: {text}",
+      "saveChanges": "Save the changes",
+      "submit": "Send the print request",
+      "open": "Send to the secretariat",
+      "ownerOnly": "Only {name}, owner of the exam paper, sends it to the secretariat."
+    },
+    "requests": {
+      "preview": "See the preview",
+      "follow": "Follow the request",
+      "modify": "Change",
+      "replace": "Send a new version",
+      "cancel": "Cancel the request",
+      "empty": "No print request",
+      "emptyHelp": "Once the exam paper is written, send it to the secretariat of the class."
+    },
+    "coeditors": {
+      "title": "Co-editors",
+      "help": "Confirmed teachers of your institutions can write the exam paper, answer key and marking scheme with you. They do not download the project and send nothing to the secretariat.",
+      "none": "No co-editor.",
+      "remove": "Remove",
+      "choose": "Teacher",
+      "chooseOne": "Choose a teacher",
+      "add": "Add as co-editor",
+      "noCandidates": "No other confirmed teacher in your institutions."
+    },
+    "cancelDialog": {
+      "title": "Cancel “{title}”?",
+      "confirm": "Cancel the request",
+      "text": "The secretariat will no longer be able to open this exam paper. You can send a new request.",
+      "afterOpening": "The secretariat already opened this exam paper: the cancellation is logged. To correct the paper, cancel and send a new request."
+    }
+  },
+  "Secretariat": {
+    "queue": {
+      "metaTitle": "Print queue",
+      "title": "Print queue",
+      "stats": {
+        "toPrint": "To print",
+        "examTomorrow": "{count, plural, =0 {no exam by tomorrow} one {# for an exam by tomorrow} other {# for exams by tomorrow}}",
+        "scheduled": "Scheduled",
+        "locked": "papers still locked",
+        "printedThisWeek": "Printed this week",
+        "toHandOver": "{count, plural, =0 {none waiting for handover} one {# waiting for handover} other {# waiting for handover}}",
+        "copiesThisMonth": "Copies this month",
+        "requestsThisMonth": "{count, plural, =0 {no exam paper} one {for # exam paper} other {for # exam papers}}"
+      },
+      "confidentialTitle": "Exam papers are confidential.",
+      "confidential": "Every opening, download, printing and handover is recorded in your name, with the date, time and IP address. A scheduled exam paper can only be opened from the date set by the teacher.",
+      "tabsLabel": "Print requests",
+      "tabs": {
+        "toPrint": "To print ({count})",
+        "scheduled": "Scheduled ({count})",
+        "toHandOver": "Printed, to hand over ({count})"
+      },
+      "empty": {
+        "toPrint": "Nothing to print right now.",
+        "scheduled": "No scheduled exam paper.",
+        "toHandOver": "No copies waiting for handover."
+      },
+      "dates": "Ready on {ready} · exam on {exam}",
+      "openableOn": "Can be opened on {date}",
+      "openAndPrint": "Open and print",
+      "see": "See"
+    },
+    "history": {
+      "metaTitle": "Printing history",
+      "title": "History",
+      "empty": "No request handed over or canceled."
+    },
+    "journal": {
+      "metaTitle": "Access log",
+      "title": "Access log",
+      "subtitle": "Every access to the exam papers of your classes, which cannot be changed"
+    },
+    "request": {
+      "metaTitle": "Print an exam paper",
+      "requestedBy": "Request from {name} · {count, plural, one {# copy} other {# copies}}",
+      "locked": "Exam paper locked until {date}",
+      "lockedHelp": "The server refuses any opening before this date, for everyone, admins included.",
+      "openTitle": "Exam paper available",
+      "openHelp": "Opening is recorded in your name. The preview carries a watermark with your name.",
+      "openHelpAuthor": "Watermarked preview of the PDF sent to the secretariat. Opening is recorded in the log.",
+      "open": "Open the exam paper",
+      "canceled": "Request canceled",
+      "noPreview": "Preview for the secretariat and the authors only",
+      "noPreviewHelp": "Admins see the request and its log, never the exam paper.",
+      "details": "The request",
+      "steps": "Steps",
+      "stepOpen": "Open the exam paper",
+      "openedAt": "Opened on {date}",
+      "notOpened": "Not opened yet",
+      "stepPrint": "Print",
+      "printHelp": "The print file, without watermark, is downloaded through a one-time link valid 10 minutes.",
+      "download": "Download the print file",
+      "downloadStarted": "Download started. For another download, ask for a new link.",
+      "stepConfirm": "Confirm the number printed",
+      "printedAt": "{count, plural, one {# copy printed} other {# copies printed}} on {date}",
+      "printedCount": "Copies printed",
+      "countInvalid": "Type a positive whole number.",
+      "confirm": "Confirm",
+      "waiting": "Waiting for the previous step.",
+      "stepHandOver": "Handover",
+      "handedOverAt": "Handed over to {to} on {date}",
+      "handedOverTo": "Handed over to",
+      "handedOverToHelp": "To the teacher or the person in charge of the exam room.",
+      "toRequired": "Say who receives the copies.",
+      "handOver": "Confirm the handover",
+      "journal": "Access log"
+    }
+  },
+  "OrgPrint": {
+    "metaTitle": "Exam printing",
+    "title": "Exam printing",
+    "help": "Print requests sent by teachers and their access log. Admins never see the exam papers.",
+    "requests": "{count, plural, =0 {No request} one {# request} other {# requests}}",
+    "empty": "No print request.",
+    "journal": "Access log"
+  },
+  "OrgTemplates": {
+    "metaTitle": "Official templates",
+    "title": "Official templates",
+    "subtitle": "Offered to the members of your institution only",
+    "add": {
+      "title": "Add a template",
+      "help": "A ZIP archive of a LaTeX project (same rules as a project import). The template stays a draft until it is published.",
+      "name": "Template name",
+      "description": "Description",
+      "choose": "Choose a ZIP file",
+      "hint": "or drop it here · {size} at most",
+      "progress": "Uploading: {percent} %",
+      "done": "Template added. Publish it to offer it to the members.",
+      "submit": "Add the template"
+    },
+    "list": {
+      "title": "{count, plural, =0 {No template} one {# template} other {# templates}}",
+      "published": "Published",
+      "draft": "Draft",
+      "added": "Added on {date}",
+      "publish": "Publish",
+      "unpublish": "Unpublish",
+      "delete": "Delete",
+      "empty": "No official template",
+      "emptyHelp": "Add for instance the thesis or exam template of your institution."
+    }
   }
 }

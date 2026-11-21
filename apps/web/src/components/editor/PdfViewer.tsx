@@ -58,7 +58,8 @@ export interface PdfViewerProps {
   /** Identifies the PDF: a new key loads a new document (a renewed link does not). */
   documentKey: string;
   url: string;
-  downloadUrl: string;
+  /** Link of the download button; none for a watermarked exam preview. */
+  downloadUrl?: string;
   labels: PdfViewerLabels;
   /** Area to show (code → PDF), highlighted briefly. */
   highlight: (PdfArea & { at: number }) | null;
@@ -303,15 +304,17 @@ export function PdfViewer({
           disabled={!doc}
           onClick={() => setZoom('fit')}
         />
-        <a
-          className={styles.download}
-          href={downloadUrl}
-          rel="noopener noreferrer"
-          aria-label={labels.download}
-          title={labels.download}
-        >
-          <Download size={20} strokeWidth={1.75} aria-hidden="true" />
-        </a>
+        {downloadUrl && (
+          <a
+            className={styles.download}
+            href={downloadUrl}
+            rel="noopener noreferrer"
+            aria-label={labels.download}
+            title={labels.download}
+          >
+            <Download size={20} strokeWidth={1.75} aria-hidden="true" />
+          </a>
+        )}
       </div>
       <div ref={scroller} className={styles.pages}>
         {failure !== null ? (

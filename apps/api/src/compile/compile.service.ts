@@ -91,18 +91,28 @@ export interface FrozenSource {
 }
 
 /**
- * What the submissions module tells the compile service about the compilation of a submission
- * version (registered at start, so neither module imports the other).
+ * What the submissions and exam papers modules tell the compile service about the compilation
+ * of a frozen version (registered at start, so neither module imports the other).
  */
 export interface FrozenHooks {
   /** Sources of a queued compilation, to sign its URLs again; null when gone. */
-  sources(submissionVersionId: string): Promise<{ mainFile: string; files: FrozenSource[] } | null>;
-  /** The compilation of a submission version finished (once). */
+  sources(frozenId: string): Promise<{ mainFile: string; files: FrozenSource[] } | null>;
+  /** The compilation of a frozen version finished (once). */
   finished(row: CompilationRow): Promise<void>;
 }
 
-/** Only the project's own compilations: never the frozen ones of submissions. */
-const PROJECT_ONLY = { submissionVersionId: null };
+/** Frozen compilations: a submission version, or an exam subject sent to the secretariat. */
+export type FrozenKind = 'submission' | 'print';
+
+/** The frozen kind and id of a compilation, or null for the project's own compilations. */
+function frozenOf(row: CompilationRow): { kind: FrozenKind; id: string } | null {
+  if (row.submissionVersionId) return { kind: 'submission', id: row.submissionVersionId };
+  if (row.printSendId) return { kind: 'print', id: row.printSendId };
+  return null;
+}
+
+/** Only the project's own compilations: never the frozen ones of submissions and print sends. */
+const PROJECT_ONLY = { submissionVersionId: null, printSendId: null };
 
 /**
  * Compilations (docs/spec.md, "Compilation"): the owner and editors start them, usage is
@@ -115,7 +125,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CompileService.name);
   private readonly linkKey: Buffer;
   private renewTimer: ReturnType<typeof setInterval> | null = null;
-  private frozenHooks: FrozenHooks | null = null;
+  private readonly frozenHooks = new Map<FrozenKind, FrozenHooks>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -148,8 +158,8 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     if (this.renewTimer) clearInterval(this.renewTimer);
   }
 
-  registerFrozen(hooks: FrozenHooks): void {
-    this.frozenHooks = hooks;
+  registerFrozen(kind: FrozenKind, hooks: FrozenHooks): void {
+    this.frozenHooks.set(kind, hooks);
   }
 
   // ───────────── Starting ─────────────
@@ -238,18 +248,19 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Queues the compilation of a submission version (docs/spec.md, "Encadrement"): its frozen
-   * sources, without the project's cache, within the duration of the owner's plan. It is charged
-   * to the owner like any compilation (counted in the statistics) but never takes a place of the
-   * hourly limit: a student is never kept from sending before a deadline. Sendings have their own
-   * limit (SUBMISSION_SENDS_PER_HOUR). The caller has checked the rights.
+   * Queues the compilation of a frozen version: a submission version (docs/spec.md,
+   * "Encadrement") or an exam subject sent to the secretariat. Its frozen sources, without the
+   * project's cache, within the duration of the owner's plan. It is charged to the owner like any
+   * compilation (counted in the statistics) but never takes a place of the hourly limit: a
+   * student is never kept from sending before a deadline. Sendings have their own limits. The
+   * caller has checked the rights.
    */
   async startFrozen(input: {
     projectId: string;
     ownerId: string;
     userId: string;
     engine: CompilationRow['engine'];
-    submissionVersionId: string;
+    frozen: { submissionVersionId: string } | { printSendId: string };
     mainFile: string;
     files: FrozenSource[];
   }): Promise<CompilationRow> {
@@ -265,7 +276,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
         engine: input.engine,
         priority: quotas.compilePriority,
         status: 'QUEUED',
-        submissionVersionId: input.submissionVersionId,
+        ...input.frozen,
       },
     });
     try {
@@ -288,7 +299,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
         .catch(() => undefined);
       this.logger.error(
         { err: (error as Error).message, projectId: input.projectId },
-        'Submission compilation not queued',
+        'Frozen compilation not queued',
       );
       throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE, 'compile_unavailable');
     }
@@ -305,7 +316,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     return this.refresh(row, quotas.maxCompileSeconds);
   }
 
-  /** What a compilation of a submission version shows: PDF links, errors (every role). */
+  /** What a compilation of a frozen version shows: PDF links, errors. */
   frozenView(row: CompilationRow, projectName: string): Promise<Compilation> {
     return this.view(row, null, projectName, true);
   }
@@ -353,11 +364,10 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
       const project = await db.project.findUnique({ where: { id: row.projectId } });
       if (!project || project.deletedAt) continue;
       const quotas = await this.quota.quotas(row.chargedUserId);
-      // A submission version compiles its frozen files, read again from the database.
-      const frozen = row.submissionVersionId
-        ? await this.frozenHooks?.sources(row.submissionVersionId)
-        : null;
-      if (row.submissionVersionId && !frozen) continue;
+      // A frozen version compiles its frozen files, read again from the database.
+      const which = frozenOf(row);
+      const frozen = which ? await this.frozenHooks.get(which.kind)?.sources(which.id) : null;
+      if (which && !frozen) continue;
       const files = frozen
         ? frozen.files
         : await db.projectFile.findMany({ where: { projectId: row.projectId } });
@@ -426,9 +436,11 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
         this.logger.error({ err: (error as Error).message, id }, 'Usage not counted'),
       );
     await this.queue.forget(id);
-    if (row.submissionVersionId) {
+    const which = frozenOf(row);
+    if (which) {
       const done = await db.compilation.findUnique({ where: { id } });
-      if (done && this.frozenHooks) await this.frozenHooks.finished(done);
+      const hooks = this.frozenHooks.get(which.kind);
+      if (done && hooks) await hooks.finished(done);
       return;
     }
     await this.dropOldOutputs(row.projectId);
@@ -503,7 +515,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
   /** One compilation, polled by the editor while it is queued or running. */
   async one(userId: string, projectId: string, id: string): Promise<Compilation> {
     const { project, rights } = await this.projects.access(userId, projectId);
-    const row = await this.row(projectId, id);
+    const row = await this.row(projectId, id, true);
     const quotas = await this.quota.quotas(project.ownerId);
     const refreshed = await this.refresh(row, quotas.maxCompileSeconds);
     return this.view(
@@ -514,8 +526,14 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  private async row(projectId: string, id: string): Promise<CompilationRow> {
-    const row = await this.prisma.client.compilation.findFirst({ where: { id, projectId } });
+  /**
+   * A compilation of the project. Read for a user (`one`, `output`), never one of a print send:
+   * the frozen exam subject is only served by the secretariat screens (step 13).
+   */
+  private async row(projectId: string, id: string, forUser = false): Promise<CompilationRow> {
+    const row = await this.prisma.client.compilation.findFirst({
+      where: { id, projectId, ...(forUser ? { printSendId: null } : {}) },
+    });
     return row ?? fail(HttpStatus.NOT_FOUND, 'not_found');
   }
 
@@ -602,7 +620,7 @@ export class CompileService implements OnModuleInit, OnModuleDestroy {
   /** Raw log or SyncTeX index of a compilation, for any role of the project. */
   async output(userId: string, projectId: string, id: string, file: 'log' | 'synctex') {
     await this.projects.access(userId, projectId);
-    const row = await this.row(projectId, id);
+    const row = await this.row(projectId, id, true);
     const stored = (row.errors ?? null) as StoredResult | null;
     const present = file === 'log' ? row.logKey : row.pdfKey && stored?.synctex;
     const object = present

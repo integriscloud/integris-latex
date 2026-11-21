@@ -269,6 +269,7 @@ export class FakeProjectsDb {
   private matchesProject(project: Project, where: Where): boolean {
     if (where.id !== undefined && project.id !== where.id) return false;
     if (where.ownerId !== undefined && project.ownerId !== where.ownerId) return false;
+    if (where.kind !== undefined && project.kind !== where.kind) return false;
     if (where.deletedAt === null && project.deletedAt !== null) return false;
     const deleted = where.deletedAt as { not?: null; lt?: Date } | undefined;
     if (deleted?.not === null && project.deletedAt === null) return false;
@@ -336,6 +337,7 @@ export class FakeProjectsDb {
       if (typeof id === 'string' ? row.id !== id : !id.in.includes(row.id)) return false;
     }
     if (where.submissionVersionId === null && row.submissionVersionId !== null) return false;
+    if (where.printSendId === null && row.printSendId !== null) return false;
     if (where.projectId !== undefined && row.projectId !== where.projectId) return false;
     const status = where.status as string | { in?: string[]; not?: string } | undefined;
     if (typeof status === 'string' && row.status !== status) return false;
@@ -355,9 +357,14 @@ export class FakeProjectsDb {
       if (typeof id === 'string' ? row.id !== id : !id.in.includes(row.id)) return false;
     }
     if (where.projectId !== undefined && row.projectId !== where.projectId) return false;
-    const kind = where.kind as string | { not: string } | undefined;
+    const kind = where.kind as
+      string | { not?: string; in?: string[]; notIn?: string[] } | undefined;
     if (typeof kind === 'string' && row.kind !== kind) return false;
-    if (kind && typeof kind === 'object' && row.kind === kind.not) return false;
+    if (kind && typeof kind === 'object') {
+      if (kind.not !== undefined && row.kind === kind.not) return false;
+      if (kind.in && !kind.in.includes(row.kind)) return false;
+      if (kind.notIn?.includes(row.kind)) return false;
+    }
     const created = where.createdAt as { gte?: Date; lt?: Date } | undefined;
     if (created?.gte && row.createdAt < created.gte) return false;
     if (created?.lt && !(row.createdAt < created.lt)) return false;
@@ -519,6 +526,7 @@ export class FakeProjectsDb {
       },
     },
     printRequest: { count: async () => 0 },
+    printSend: { deleteMany: async () => ({ count: 0 }) },
     template: { findMany: async () => [], findFirst: async () => null },
     commentReply: {
       create: async ({ data }: { data: Pick<CommentReply, 'commentId' | 'authorId' | 'body'> }) => {
@@ -989,6 +997,7 @@ export class FakeProjectsDb {
           errors: null,
           workerHost: null,
           submissionVersionId: data.submissionVersionId ?? null,
+          printSendId: data.printSendId ?? null,
         };
         this.compilations.push(row);
         return { ...row };

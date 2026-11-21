@@ -1,14 +1,19 @@
 import type { MeResponse, Space } from '@integris/shared';
 import { type AppNavItem, AppShell, AppUser, Logo, type SpaceTone } from '@integris/ui';
 import {
+  BadgeCheck,
   Building2,
+  ClipboardList,
   CreditCard,
   FolderOpen,
   Gauge,
   GraduationCap,
+  History,
   KeyRound,
   LayoutTemplate,
+  Printer,
   School,
+  ScrollText,
   Trash2,
   UserCheck,
   UserRound,
@@ -37,7 +42,13 @@ export type AppSection =
   | 'supervision'
   | 'students'
   | 'supervisors'
-  | 'join';
+  | 'join'
+  | 'exams'
+  | 'printQueue'
+  | 'printHistory'
+  | 'printJournal'
+  | 'printRequests'
+  | 'orgTemplates';
 
 const toneOf = (space: Space): SpaceTone => {
   if (space.kind === 'personal') return 'personal';
@@ -86,7 +97,22 @@ export async function AppFrame({
         organizationItems.push(
           item('supervision', '/app/org/supervision', <UserCheck {...ICON} />),
         );
+        organizationItems.push(
+          item('printRequests', '/app/org/print', <Printer {...ICON} />),
+          item('orgTemplates', '/app/org/templates', <BadgeCheck {...ICON} />),
+        );
       }
+    }
+    // Exam papers (teachers) and the print queue (secretariat), BUSINESS only (step 13).
+    if (business && space.memberKind === 'TEACHER') {
+      organizationItems.push(item('exams', '/app/exams', <ClipboardList {...ICON} />));
+    }
+    if (business && space.memberKind === 'SECRETARY') {
+      organizationItems.push(
+        item('printQueue', '/app/print', <Printer {...ICON} />),
+        item('printHistory', '/app/print/history', <History {...ICON} />),
+        item('printJournal', '/app/print/journal', <ScrollText {...ICON} />),
+      );
     }
     if (business && space.memberKind === 'TEACHER') {
       organizationItems.push(item('students', '/app/students', <GraduationCap {...ICON} />));

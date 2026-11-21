@@ -385,3 +385,98 @@ export async function createBareProject(e164: string, name: string): Promise<str
   const project = await prisma().project.create({ data: { ownerId: user.id, name } });
   return project.id;
 }
+
+/** Organizations of the exam papers tests (never touched by resetOrganizationAccounts). */
+export const E2E_EXAM_PREFIX = '[e2e exam] ';
+
+/**
+ * A live BUSINESS for the exam papers tests, written straight to the database: a group "UFR SVT"
+ * with a class "L3 Hydrologie", the owner, a teacher and a secretariat serving the UFR. Print
+ * requests and their journal are append-only: an earlier organization of the same run is emptied
+ * and renamed, never deleted; the accounts' projects (exam papers) are erased, their requests
+ * keep their journal without them.
+ */
+export async function resetExamFixture(
+  project: string,
+  accounts: { owner: string; teacher: string; secretary: string },
+): Promise<{ organizationName: string }> {
+  const db = prisma();
+  const organizationName = `${E2E_EXAM_PREFIX}Université ${project}`;
+  const users = await db.user.findMany({
+    where: { phone: { in: Object.values(accounts) } },
+  });
+  const idOf = (phone: string) => users.find((user) => user.phone === phone)!.id;
+  const userIds = users.map((user) => user.id);
+  for (const old of await db.organization.findMany({ where: { name: organizationName } })) {
+    await db.secretariatScope.deleteMany({ where: { membership: { organizationId: old.id } } });
+    await db.membership.deleteMany({ where: { organizationId: old.id } });
+    const subscription = await db.subscription.findUnique({ where: { organizationId: old.id } });
+    if (subscription) {
+      await db.seat.deleteMany({ where: { subscriptionId: subscription.id } });
+      await db.subscription.delete({ where: { id: subscription.id } });
+    }
+    await db.organization.update({
+      where: { id: old.id },
+      data: { name: `[e2e exam archived ${old.id}] ${project}` },
+    });
+  }
+  const projects = await db.project.findMany({
+    where: { ownerId: { in: userIds } },
+    select: { id: true },
+  });
+  const projectIds = projects.map((row) => row.id);
+  await db.compilation.deleteMany({ where: { projectId: { in: projectIds } } });
+  await db.printSend.deleteMany({ where: { projectId: { in: projectIds } } });
+  await db.projectVersion.deleteMany({ where: { projectId: { in: projectIds } } });
+  await db.projectMember.deleteMany({ where: { projectId: { in: projectIds } } });
+  await db.projectFile.deleteMany({ where: { projectId: { in: projectIds } } });
+  await db.projectFolder.deleteMany({ where: { projectId: { in: projectIds } } });
+  await db.project.deleteMany({ where: { id: { in: projectIds } } });
+  await db.notification.deleteMany({ where: { userId: { in: userIds } } });
+  await db.user.updateMany({ where: { id: { in: userIds } }, data: { lastSpace: null } });
+
+  const plan = await db.plan.findUniqueOrThrow({ where: { code: 'BUSINESS' } });
+  const now = new Date();
+  const organization = await db.organization.create({
+    data: { type: 'BUSINESS', name: organizationName },
+  });
+  await db.subscription.create({
+    data: {
+      planId: plan.id,
+      organizationId: organization.id,
+      status: 'ACTIVE',
+      billingPeriod: 'MONTHLY',
+      seatCount: 10,
+      currentPeriodStart: now,
+      currentPeriodEnd: new Date(now.getTime() + 30 * 86_400_000),
+    },
+  });
+  const ufr = await db.orgGroup.create({
+    data: { organizationId: organization.id, name: 'UFR SVT' },
+  });
+  await db.orgGroup.create({
+    data: { organizationId: organization.id, name: 'L3 Hydrologie', parentId: ufr.id },
+  });
+  const join = (
+    userId: string,
+    role: 'OWNER' | 'MEMBER',
+    kind: 'OTHER' | 'TEACHER' | 'SECRETARY',
+  ) =>
+    db.membership.create({
+      data: { organizationId: organization.id, userId, role, kind, status: 'ACTIVE' },
+    });
+  await join(idOf(accounts.owner), 'OWNER', 'OTHER');
+  await join(idOf(accounts.teacher), 'MEMBER', 'TEACHER');
+  const secretariat = await join(idOf(accounts.secretary), 'MEMBER', 'SECRETARY');
+  await db.secretariatScope.create({ data: { membershipId: secretariat.id, groupId: ufr.id } });
+  return { organizationName };
+}
+
+/** The availability date of a print request is reached (as if time had passed). */
+export async function reachPrintDate(title: string, teacherPhone: string): Promise<void> {
+  const teacher = await prisma().user.findUniqueOrThrow({ where: { phone: teacherPhone } });
+  await prisma().printRequest.updateMany({
+    where: { title, teacherId: teacher.id, status: 'SCHEDULED' },
+    data: { availableFrom: new Date(Date.now() - 60_000) },
+  });
+}

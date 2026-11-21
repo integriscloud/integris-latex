@@ -29,6 +29,29 @@ const RELATIONS: Record<string, Record<string, Relation>> = {
   membership: {
     user: { model: 'user', local: 'userId', foreign: 'id', many: false },
     organization: { model: 'organization', local: 'organizationId', foreign: 'id', many: false },
+    secretariatScopes: {
+      model: 'secretariatScope',
+      local: 'id',
+      foreign: 'membershipId',
+      many: true,
+    },
+  },
+  secretariatScope: {
+    membership: { model: 'membership', local: 'membershipId', foreign: 'id', many: false },
+  },
+  project: {
+    members: { model: 'projectMember', local: 'id', foreign: 'projectId', many: true },
+    owner: { model: 'user', local: 'ownerId', foreign: 'id', many: false },
+    template: { model: 'template', local: 'templateId', foreign: 'id', many: false },
+  },
+  printSend: {
+    compilation: { model: 'compilation', local: 'id', foreign: 'printSendId', many: false },
+  },
+  template: {
+    organization: { model: 'organization', local: 'organizationId', foreign: 'id', many: false },
+  },
+  organization: {
+    memberships: { model: 'membership', local: 'id', foreign: 'organizationId', many: true },
   },
   invitation: {
     organization: { model: 'organization', local: 'organizationId', foreign: 'id', many: false },
@@ -46,6 +69,7 @@ const RELATIONS: Record<string, Record<string, Relation>> = {
   },
   projectMember: {
     project: { model: 'project', local: 'projectId', foreign: 'id', many: false },
+    user: { model: 'user', local: 'userId', foreign: 'id', many: false },
   },
   projectFile: {
     project: { model: 'project', local: 'projectId', foreign: 'id', many: false },
@@ -76,6 +100,9 @@ const UNIQUE: Record<string, string[][]> = {
   invitation: [['tokenHash']],
   seat: [['invitationId']],
   projectMember: [['projectId', 'userId']],
+  projectFile: [['projectId', 'path']],
+  secretariatScope: [['membershipId', 'groupId']],
+  compilation: [['printSendId']],
 };
 
 const DEFAULTS: Record<string, () => Row> = {
@@ -102,6 +129,7 @@ const DEFAULTS: Record<string, () => Row> = {
     invitationId: null,
   }),
   invitation: () => ({
+    scopeGroupIds: [],
     phone: null,
     email: null,
     role: 'MEMBER',
@@ -134,13 +162,56 @@ const DEFAULTS: Record<string, () => Row> = {
     finishedAt: null,
   }),
   project: () => ({
+    templateId: null,
+    engine: 'PDFLATEX',
+    mainFilePath: 'main.tex',
+    autoCompile: false,
     kind: 'DOCUMENT',
     readOnlyReason: null,
     deletedAt: null,
     lastActivityAt: new Date(),
   }),
   projectMember: () => ({ viaSupervisionId: null }),
-  projectFile: () => ({ sizeBytes: 0 }),
+  projectFile: () => ({ sizeBytes: 0, lockedBySubmissionId: null, updatedAt: new Date() }),
+  projectFolder: () => ({}),
+  printRequest: () => ({
+    projectId: null,
+    reserveCopies: 0,
+    stapled: false,
+    status: 'SCHEDULED',
+    printedCount: null,
+    handedOverTo: null,
+    replacedById: null,
+    openedAt: null,
+    printedAt: null,
+    handedOverAt: null,
+    canceledAt: null,
+    updatedAt: new Date(),
+  }),
+  printSend: () => ({
+    replacesId: null,
+    versionId: null,
+    status: 'COMPILING',
+    errors: null,
+    printRequestId: null,
+    updatedAt: new Date(),
+  }),
+  printEvent: () => ({
+    printRequestId: null,
+    projectId: null,
+    organizationId: null,
+    actorId: null,
+    metadata: null,
+    ip: null,
+  }),
+  printDownloadLink: () => ({ usedAt: null }),
+  template: () => ({
+    organizationId: null,
+    description: null,
+    institution: null,
+    isPublished: false,
+    createdById: null,
+  }),
   usageCounter: () => ({ compileCount: 0, compileSeconds: 0 }),
   submission: () => ({ title: null, dueAt: null, status: 'DRAFT' }),
   payment: () => ({
@@ -205,6 +276,15 @@ const MODELS = [
   'projectFile',
   'usageCounter',
   'submission',
+  'secretariatScope',
+  'printRequest',
+  'printEvent',
+  'printSend',
+  'printDownloadLink',
+  'template',
+  'projectFolder',
+  'projectVersion',
+  'compilation',
 ] as const;
 type Model = (typeof MODELS)[number];
 
@@ -268,7 +348,18 @@ export class FakeBillingDb {
         const related = this.related(model, row, key);
         const rows = Array.isArray(related) ? related : related ? [related] : [];
         const target = RELATIONS[model]![key]!.model;
-        if (!rows.some((item) => this.matches(target, item, condition as Where))) return false;
+        const filter = condition as Where;
+        // List relations: some, none and every, as in Prisma.
+        if (isPlainObject(filter.some)) {
+          if (!rows.some((item) => this.matches(target, item, filter.some as Where))) return false;
+        } else if (isPlainObject(filter.none)) {
+          if (rows.some((item) => this.matches(target, item, filter.none as Where))) return false;
+        } else if (isPlainObject(filter.every)) {
+          if (!rows.every((item) => this.matches(target, item, filter.every as Where)))
+            return false;
+        } else if (!rows.some((item) => this.matches(target, item, filter))) {
+          return false;
+        }
       } else if (key.includes('_') && isPlainObject(condition) && !(key in row)) {
         // Compound unique key (promoCodeId_userId).
         if (!this.matches(model, row, condition)) return false;

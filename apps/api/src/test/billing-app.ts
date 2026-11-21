@@ -112,6 +112,8 @@ export interface BillingTestApp {
 export async function createBillingTestApp(
   overrides: Record<string, string> = {},
   modules: Type[] = [],
+  /** Providers replaced by test doubles (compilation, history: exam papers tests). */
+  providers: { token: unknown; value: unknown }[] = [],
 ): Promise<BillingTestApp> {
   const env = testEnv(overrides);
   const db = new FakeBillingDb();
@@ -128,7 +130,7 @@ export async function createBillingTestApp(
       return true;
     },
   };
-  const moduleRef = await Test.createTestingModule({
+  const builder = Test.createTestingModule({
     imports: [
       ConfigModule,
       PrismaModule,
@@ -165,8 +167,11 @@ export async function createBillingTestApp(
       },
     })
     .overrideGuard(AuthGuard)
-    .useValue(fakeAuth)
-    .compile();
+    .useValue(fakeAuth);
+  for (const { token, value } of providers) {
+    builder.overrideProvider(token as Type).useValue(value);
+  }
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ logger: false });
   configureApp(app);
   await app.init();

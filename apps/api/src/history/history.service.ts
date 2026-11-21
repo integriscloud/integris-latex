@@ -58,6 +58,9 @@ export function matcher<T extends Pick<ProjectFile, 'id' | 'path'>>(current: T[]
  */
 export const blobOf = (file: Pick<ProjectFile, 'storageKey'>) =>
   file.storageKey ? file.storageKey.slice(file.storageKey.lastIndexOf('/') + 1) : null;
+/** Versions frozen for a submission or a print send: kept visible whatever the plan's history. */
+const FROZEN_KINDS: ('SUBMISSION' | 'PRINT')[] = ['SUBMISSION', 'PRINT'];
+
 export const blobKey = (projectId: string, blob: string) =>
   `${projectStoragePrefix(projectId)}history/${blob}`;
 
@@ -217,10 +220,10 @@ export class HistoryService {
     return historyDays === null ? null : new Date(Date.now() - historyDays * DAY_MS);
   }
 
-  /** Versions shown: within the limit, and the frozen versions of submissions. */
+  /** Versions shown: within the limit, and the frozen versions of submissions and print sends. */
   private visible(projectId: string, since: Date | null) {
     return since
-      ? { projectId, OR: [{ createdAt: { gte: since } }, { kind: 'SUBMISSION' as const }] }
+      ? { projectId, OR: [{ createdAt: { gte: since } }, { kind: { in: FROZEN_KINDS } }] }
       : { projectId };
   }
 
@@ -236,7 +239,7 @@ export class HistoryService {
       }),
       since
         ? db.projectVersion.count({
-            where: { projectId, createdAt: { lt: since }, kind: { not: 'SUBMISSION' } },
+            where: { projectId, createdAt: { lt: since }, kind: { notIn: FROZEN_KINDS } },
           })
         : Promise.resolve(0),
       this.quota.quotas(project.ownerId),

@@ -30,6 +30,8 @@ export default async function ProjectPage({ params }: PageProps) {
     serverGet('projects/limits', projectLimitsSchema),
   ]);
   if (!project || !limits) notFound();
+  // An exam paper has its own page (parts, sends to the secretariat, co-editors, journal).
+  if (project.kind === 'ASSIGNMENT') return redirect({ href: `/app/exams/${project.id}`, locale });
 
   return (
     <AppFrame me={me} locale={locale} section="projects" path={`/app/projects/${id}`}>

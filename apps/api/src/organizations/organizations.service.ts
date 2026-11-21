@@ -1,7 +1,7 @@
 import type { Invitation, User } from '@integris/db';
 import {
+  type ChosenKind,
   formatJoinCode,
-  type InvitedKind,
   type JoinResult,
   maskContact,
   type MemberKindValue,
@@ -26,6 +26,7 @@ import { MAIL_SENDER, type MailSender } from '../mail/mail-sender.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProjectEventsService } from '../projects/project-events.service.js';
 import { isSubscriptionLive } from '../projects/quota.service.js';
+import { revokeLostCoeditors } from '../exam-papers/exam-access.js';
 import { RedisService } from '../redis/redis.service.js';
 import { consumeSmsBudget } from '../sms/sms-budget.js';
 import { SMS_SENDER, type SmsSender } from '../sms/sms-sender.js';
@@ -211,7 +212,10 @@ export class OrganizationsService {
     const [memberships, invitations, groups, seats] = await Promise.all([
       db.membership.findMany({
         where: { organizationId },
-        include: { user: { select: { displayName: true, phone: true, email: true } } },
+        include: {
+          user: { select: { displayName: true, phone: true, email: true } },
+          secretariatScopes: { select: { groupId: true } },
+        },
         orderBy: { createdAt: 'asc' },
       }),
       db.invitation.findMany({
@@ -236,6 +240,7 @@ export class OrganizationsService {
         role: row.role,
         kind: row.kind,
         groupId: row.groupId,
+        scopeGroupIds: row.secretariatScopes.map((scope) => scope.groupId),
         joinedAt: (row.approvedAt ?? row.createdAt).toISOString(),
         usage: usage.get(row.userId)!,
       })),
@@ -246,6 +251,7 @@ export class OrganizationsService {
         displayName: row.displayName,
         kind: row.kind,
         groupId: row.groupId,
+        scopeGroupIds: row.scopeGroupIds,
         createdAt: row.createdAt.toISOString(),
         expiresAt: row.expiresAt.toISOString(),
       })),
@@ -328,9 +334,41 @@ export class OrganizationsService {
     return { phone };
   }
 
-  /** Kind of a new member: STUDENT or TEACHER in a BUSINESS (student by default), none in a TEAM. */
-  private kindOf(context: OrgContext, kind: InvitedKind | undefined): MemberKindValue {
+  /**
+   * Kind of a new member: STUDENT, TEACHER or SECRETARY in a BUSINESS (student by default), none
+   * in a TEAM.
+   */
+  private kindOf(context: OrgContext, kind: ChosenKind | undefined): MemberKindValue {
+    if (kind !== undefined && kind !== 'STUDENT') this.orgs.requireBusiness(context);
     return context.organization.type === 'BUSINESS' ? (kind ?? 'STUDENT') : 'OTHER';
+  }
+
+  /**
+   * Groups served by a secretariat (docs/spec.md, "Devoirs et secrétariat"): at least one, all of
+   * this organization. Null for any other kind (the groups given are then ignored).
+   */
+  private async checkScopes(
+    context: OrgContext,
+    kind: MemberKindValue,
+    groupIds: string[] | undefined,
+  ): Promise<string[] | null> {
+    if (kind !== 'SECRETARY') return null;
+    const ids = [...new Set(groupIds ?? [])];
+    if (!ids.length) return fail(HttpStatus.BAD_REQUEST, 'secretary_groups_required');
+    const found = await this.prisma.client.orgGroup.count({
+      where: { id: { in: ids }, organizationId: context.organization.id },
+    });
+    return found === ids.length ? ids : fail(HttpStatus.NOT_FOUND, 'group_not_found');
+  }
+
+  /** Replaces the groups a secretariat membership serves. */
+  private async writeScopes(tx: Tx, membershipId: string, groupIds: string[]): Promise<void> {
+    await tx.secretariatScope.deleteMany({ where: { membershipId } });
+    if (groupIds.length) {
+      await tx.secretariatScope.createMany({
+        data: groupIds.map((groupId) => ({ membershipId, groupId })),
+      });
+    }
   }
 
   private async checkGroup(context: OrgContext, groupId: string | null | undefined) {
@@ -380,6 +418,8 @@ export class OrganizationsService {
       contact: Contact;
       kind: MemberKindValue;
       groupId: string | null;
+      /** SECRETARY: groups to serve once the invitation is accepted. */
+      scopeGroupIds?: string[];
       displayName?: string | null;
       importId?: string | null;
       locale: 'fr' | 'en';
@@ -396,6 +436,7 @@ export class OrganizationsService {
         role: 'MEMBER',
         kind: input.kind,
         groupId: input.groupId,
+        scopeGroupIds: input.scopeGroupIds ?? [],
         displayName: input.displayName ?? null,
         importId: input.importId ?? null,
         locale: input.locale,
@@ -484,6 +525,7 @@ export class OrganizationsService {
     }
     const kind = this.kindOf(context, body.kind);
     const groupId = await this.checkGroup(context, body.groupId);
+    const scopeGroupIds = (await this.checkScopes(context, kind, body.scopeGroupIds)) ?? [];
     await consumeLimit(
       this.redis.client,
       `rl:org-invite:${user.id}:${new Date().toISOString().slice(0, 10)}`,
@@ -502,7 +544,7 @@ export class OrganizationsService {
           tx,
           actor,
           context,
-          { contact, kind, groupId, locale: user.locale },
+          { contact, kind, groupId, scopeGroupIds, locale: user.locale },
           now,
         );
       });
@@ -554,9 +596,23 @@ export class OrganizationsService {
       if (!context.isOwner) fail(HttpStatus.FORBIDDEN, 'org_forbidden');
       this.orgs.requireBusiness(context);
     }
-    if (body.kind !== undefined) this.orgs.requireBusiness(context);
+    if (body.kind !== undefined || body.scopeGroupIds !== undefined) {
+      this.orgs.requireBusiness(context);
+    }
     const groupId =
       body.groupId === undefined ? undefined : await this.checkGroup(context, body.groupId);
+    const current = await this.prisma.client.membership.findFirst({
+      where: { organizationId, userId, status: 'ACTIVE' },
+      include: { secretariatScopes: { select: { groupId: true } } },
+    });
+    if (!current) return fail(HttpStatus.NOT_FOUND, 'member_not_found');
+    const nextKind = body.kind ?? current.kind;
+    // A secretariat keeps its groups unless new ones are given.
+    const scopeGroupIds =
+      body.scopeGroupIds !== undefined ||
+      (body.kind === 'SECRETARY' && current.kind !== 'SECRETARY')
+        ? await this.checkScopes(context, nextKind, body.scopeGroupIds)
+        : null;
     const projects = await this.orgs.locked(organizationId, () =>
       this.prisma.client.$transaction(async (tx) => {
         const member = await tx.membership.findFirst({
@@ -576,6 +632,26 @@ export class OrganizationsService {
           member.kind !== 'TEACHER'
         ) {
           fail(HttpStatus.FORBIDDEN, 'org_forbidden');
+        }
+        // Nobody, the owner included, gives themself the secretariat profile or its groups: it
+        // opens exam subjects, which the owner never sees (step 13 decisions).
+        if (
+          userId === actor.userId &&
+          ((body.kind === 'SECRETARY' && member.kind !== 'SECRETARY') ||
+            body.scopeGroupIds !== undefined)
+        ) {
+          fail(HttpStatus.FORBIDDEN, 'org_forbidden');
+        }
+        // The owner and the admins never hold the secretariat profile, which opens exam subjects
+        // (step 13 decisions): refused both ways, whatever is changed first.
+        const nextRole =
+          body.admin === undefined || member.role === 'OWNER'
+            ? member.role
+            : body.admin
+              ? 'ADMIN'
+              : 'MEMBER';
+        if ((body.kind ?? member.kind) === 'SECRETARY' && nextRole !== 'MEMBER') {
+          fail(HttpStatus.CONFLICT, 'secretary_admin');
         }
         const ended: string[] = [];
         if (body.admin !== undefined && (member.role === 'ADMIN') !== body.admin) {
@@ -613,6 +689,13 @@ export class OrganizationsService {
               to: body.kind,
             },
           );
+          // A former secretariat serves no group; a former teacher co-edits no exam paper.
+          if (member.kind === 'SECRETARY') await this.writeScopes(tx, member.id, []);
+          if (member.kind === 'TEACHER') {
+            ended.push(
+              ...(await revokeLostCoeditors(tx, actor, organizationId, userId, 'kind_changed')),
+            );
+          }
           // Links that no longer fit the member's kind end (a former teacher supervises no one).
           ended.push(
             ...(await this.supervision.endLinks(
@@ -625,6 +708,20 @@ export class OrganizationsService {
               'kind_changed',
             )),
           );
+        }
+        if (scopeGroupIds) {
+          const before = current.secretariatScopes.map((scope) => scope.groupId).sort();
+          if (before.join() !== [...scopeGroupIds].sort().join()) {
+            await this.writeScopes(tx, member.id, scopeGroupIds);
+            await this.orgs.audit(
+              tx,
+              actor,
+              'ORG_SECRETARY_GROUPS_CHANGED',
+              'Organization',
+              organizationId,
+              { userId, from: before, to: scopeGroupIds },
+            );
+          }
         }
         if (groupId !== undefined && groupId !== member.groupId) {
           await tx.membership.update({ where: { id: member.id }, data: { groupId } });
@@ -699,7 +796,12 @@ export class OrganizationsService {
             'member_left',
           )),
         ];
+        await tx.secretariatScope.deleteMany({ where: { membershipId: member.id } });
         await tx.membership.delete({ where: { id: member.id } });
+        // Exam papers co-edited through this organization only are closed to the co-editors.
+        ended.push(
+          ...(await revokeLostCoeditors(tx, actor, organizationId, userId, 'member_left')),
+        );
         await this.seats.release(tx, actor, context.subscription.id, userId, now, action);
         await this.orgs.audit(tx, actor, action, 'Organization', organizationId, {
           userId,
@@ -867,6 +969,7 @@ export class OrganizationsService {
         this.checkApprover(context, actor, request);
         let ended: string[] = [];
         if (request.status === 'ACTIVE') {
+          if (request.kind === 'SECRETARY') await this.writeScopes(tx, request.id, []);
           await tx.membership.update({
             where: { id: request.id },
             data: {
@@ -1122,6 +1225,15 @@ export class OrganizationsService {
         tx.orgGroup.count({ where: { parentId: groupId } }),
       ]);
       if (members || children) fail(HttpStatus.CONFLICT, 'group_not_empty');
+      // Served by a secretariat, or the class of a print request (kept with its journal).
+      const [served, requests, invited] = await Promise.all([
+        tx.secretariatScope.count({ where: { groupId } }),
+        tx.printRequest.count({ where: { groupId } }),
+        tx.invitation.count({
+          where: { organizationId, status: 'PENDING', scopeGroupIds: { has: groupId } },
+        }),
+      ]);
+      if (served || requests || invited) fail(HttpStatus.CONFLICT, 'group_in_use');
       await tx.invitation.updateMany({ where: { groupId }, data: { groupId: null } });
       const group = await tx.orgGroup.delete({ where: { id: groupId } });
       await this.orgs.audit(tx, actor, 'ORG_GROUP_DELETED', 'OrgGroup', groupId, {

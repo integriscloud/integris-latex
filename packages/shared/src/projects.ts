@@ -216,6 +216,8 @@ export interface ProjectRights {
   share: boolean;
   /** Rename, move to the trash, restore, erase, duplicate. */
   manage: boolean;
+  /** Download the whole project as a ZIP: owner and editors (owner only for an exam paper). */
+  download: boolean;
 }
 
 export const projectRightsSchema = z.object({
@@ -225,17 +227,31 @@ export const projectRightsSchema = z.object({
   edit: z.boolean(),
   share: z.boolean(),
   manage: z.boolean(),
+  download: z.boolean(),
 });
 
-export function projectRights(role: ProjectRoleValue): ProjectRights {
+export const PROJECT_KINDS = ['DOCUMENT', 'ASSIGNMENT'] as const;
+export type ProjectKindValue = (typeof PROJECT_KINDS)[number];
+
+/**
+ * Rights of a role. An exam paper (ASSIGNMENT, step 13 decisions) is never shared through the
+ * sharing panel or a public link: its co-editors are teachers of the owner's organizations, added
+ * from the exam paper, and only the owner downloads it as a ZIP.
+ */
+export function projectRights(
+  role: ProjectRoleValue,
+  kind: ProjectKindValue = 'DOCUMENT',
+): ProjectRights {
   const writer = role === 'OWNER' || role === 'EDITOR';
+  const exam = kind === 'ASSIGNMENT';
   return {
     read: true,
     comment: role !== 'VIEWER',
     applySuggestion: writer,
     edit: writer,
-    share: role === 'OWNER',
+    share: role === 'OWNER' && !exam,
     manage: role === 'OWNER',
+    download: exam ? role === 'OWNER' : writer,
   };
 }
 
@@ -299,6 +315,8 @@ export type ProjectUsage = z.infer<typeof projectUsageSchema>;
 export const projectSummarySchema = z.object({
   id,
   name: z.string(),
+  /** ASSIGNMENT: an exam paper (subject, answer key, marking scheme), listed in "Mes devoirs". */
+  kind: z.enum(PROJECT_KINDS),
   role: z.enum(PROJECT_ROLES),
   ownerName: z.string(),
   lastActivityAt: date,

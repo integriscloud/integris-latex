@@ -62,7 +62,7 @@ export class ProjectArchiveService {
   /** Owner and editors, read-only projects included (reading is not editing). */
   private async check(userId: string, projectId: string) {
     const access = await this.projects.access(userId, projectId);
-    if (!access.rights.edit) fail(HttpStatus.FORBIDDEN, 'forbidden');
+    if (!access.rights.download) fail(HttpStatus.FORBIDDEN, 'forbidden');
     return access;
   }
 

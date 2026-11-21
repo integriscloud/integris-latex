@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { CollabModule } from './collab/collab.module.js';
 import { CompileModule } from './compile/compile.module.js';
+import { ExamPapersModule } from './exam-papers/exam-papers.module.js';
 import { OriginGuard } from './common/origin.guard.js';
 import { ConfigModule } from './config/api-config.js';
 import { HealthModule } from './health/health.module.js';
@@ -51,6 +52,7 @@ import { SubmissionsModule } from './submissions/submissions.module.js';
     SubmissionsModule,
     BillingModule,
     OrganizationsModule,
+    ExamPapersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
 })

@@ -4,6 +4,7 @@ export * from './collab.js';
 export * from './compile.js';
 export * from './compile-log.js';
 export * from './env.js';
+export * from './exam-papers.js';
 export * from './errors.js';
 export * from './history.js';
 export * from './line-diff.js';

@@ -3,6 +3,9 @@
 import {
   COMMENT_LIMITS,
   type CommentInfo,
+  EXAM_PART_FILES,
+  EXAM_PARTS,
+  type ExamPart,
   MAX_PROJECT_FILE_BYTES,
   parentFolder,
   type ProjectDetail,
@@ -80,6 +83,7 @@ import { HistoryPanel } from './HistoryPanel';
 import { OutlinePanel } from './OutlinePanel';
 import { PdfViewer } from './PdfViewer';
 import { SubmissionsPanel } from '../submissions/SubmissionsPanel';
+import { ExamPrintPanel } from '../exams/ExamPrintPanel';
 import { ProjectSearch, type ReplaceReport } from './ProjectSearch';
 import { useEditorPhrases } from './phrases';
 import { useCompiler } from './use-compiler';
@@ -188,7 +192,13 @@ export function ProjectEditor({
   const activeKind = active ? textKindOf(active.path) : 'plain';
   const loading = activeId !== null && !activeSession && !activeState?.closed;
 
-  const projectHref = getPathname({ href: `/app/projects/${project.id}`, locale });
+  // An exam paper (step 13): subject, answer key and marking scheme; sent to the secretariat,
+  // never shared, submitted or downloaded by its co-editors.
+  const exam = project.kind === 'ASSIGNMENT';
+  const projectHref = getPathname({
+    href: exam ? `/app/exams/${project.id}` : `/app/projects/${project.id}`,
+    locale,
+  });
   const editorHref = getPathname({ href: `/app/projects/${project.id}/edit`, locale });
   const submissionHref = useCallback(
     (id: string) => getPathname({ href: `/app/projects/${project.id}/submissions/${id}`, locale }),
@@ -257,8 +267,9 @@ export function ProjectEditor({
 
   // The open files are written to storage first: the archive holds what was typed.
   const download = useProjectDownload(project.id, flushAll);
-  // Owner and editors download the project, read-only projects included (reading).
-  const canDownload = project.role === 'OWNER' || project.role === 'EDITOR';
+  // Owner and editors download the project, read-only projects included (reading); only the
+  // owner for an exam paper.
+  const canDownload = project.rights.download;
 
   const compiler = useCompiler(project.id, flushAll);
   const { compile, edited } = compiler;
@@ -315,6 +326,28 @@ export function ProjectEditor({
   );
 
   /** Files of the project read again (restoration, file deleted by someone else). */
+  /**
+   * Opens a part of an exam paper and makes it the file compiled (main file), so that the PDF
+   * shows the subject, the answer key or the marking scheme being written.
+   */
+  const choosePart = useCallback(
+    async (part: ExamPart) => {
+      const path = EXAM_PART_FILES[part];
+      const file = project.files.find((item) => item.path === path);
+      if (!file) return;
+      openFile(file.id);
+      if (!canEdit || project.mainFilePath === path) return;
+      const result = await apiRequest<ProjectDetail>('PATCH', `projects/${project.id}`, {
+        mainFilePath: path,
+      });
+      if (result.ok) setProject(result.data);
+    },
+    [project.files, project.id, project.mainFilePath, canEdit, openFile],
+  );
+  const activePart = exam
+    ? EXAM_PARTS.find((part) => EXAM_PART_FILES[part] === active?.path)
+    : undefined;
+
   const reloadProject = useCallback(async () => {
     const result = await apiRead<ProjectDetail>(`projects/${project.id}`);
     if (!result.ok) return;
@@ -1077,7 +1110,9 @@ export function ProjectEditor({
             onChange={setSideTab}
             items={[
               { id: 'comments', label: t('comments') },
-              { id: 'submissions', label: t('submissions') },
+              exam
+                ? { id: 'print', label: t('examPrint') }
+                : { id: 'submissions', label: t('submissions') },
               { id: 'history', label: t('history') },
             ]}
           />
@@ -1117,6 +1152,8 @@ export function ProjectEditor({
             onChanged={commentsState.update}
             onShow={showComment}
           />
+        ) : exam ? (
+          <ExamPrintPanel projectId={project.id} />
         ) : (
           <SubmissionsPanel
             projectId={project.id}
@@ -1140,7 +1177,22 @@ export function ProjectEditor({
         title={project.name}
         subtitle={
           <>
-            {active && <span className={styles.subtitlePath}>{active.path}</span>}
+            {exam && (
+              <span className={styles.examParts} role="group" aria-label={t('examParts')}>
+                {EXAM_PARTS.map((part) => (
+                  <button
+                    key={part}
+                    type="button"
+                    className={styles.examPart}
+                    aria-pressed={activePart === part}
+                    onClick={() => void choosePart(part)}
+                  >
+                    {t(`examPart.${part}`)}
+                  </button>
+                ))}
+              </span>
+            )}
+            {active && !activePart && <span className={styles.subtitlePath}>{active.path}</span>}
             {readOnlyReason && (
               <span title={readOnlyReason}>
                 <Badge icon={Lock}>{t('readOnly')}</Badge>
@@ -1165,7 +1217,9 @@ export function ProjectEditor({
               menuLabel={t('compileMenu')}
               menu={compileMenu}
             />
-            <IconButton icon={Share2} label={t('share')} onClick={() => setShareOpen(true)} />
+            {!exam && (
+              <IconButton icon={Share2} label={t('share')} onClick={() => setShareOpen(true)} />
+            )}
             <MenuButton icon={Settings} label={t('settings')} onOpen={() => void wordCount.count()}>
               <section className={styles.wordCount} aria-live="polite">
                 <h2 className={styles.menuTitle}>{t('wordCount')}</h2>

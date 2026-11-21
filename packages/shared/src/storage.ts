@@ -9,6 +9,22 @@ export function publicTemplateKey(slug: string): string {
   return `public/${slug}.zip`;
 }
 
+/** Object key of an official template ZIP of an organization (docs/spec.md, "Modèles"). */
+export function orgTemplateKey(organizationId: string, templateId: string): string {
+  return `org/${organizationId}/${templateId}.zip`;
+}
+
+/**
+ * Separate private MinIO bucket of the frozen exam subjects (docs/spec.md, "Devoirs et
+ * secrétariat"): the API key only, never a public or long-lived URL, no right for workers.
+ */
+export const EXAM_PAPERS_BUCKET = 'exam-papers';
+
+/** Object key of the frozen subject PDF of a print request. */
+export function examSubjectKey(organizationId: string, printRequestId: string): string {
+  return `${organizationId}/${printRequestId}.pdf`;
+}
+
 /**
  * Prefix of every object of a project. Objects are keyed by a random id, never by the file path,
  * so renaming or moving a file never touches the storage; purging a project deletes the prefix.

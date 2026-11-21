@@ -449,7 +449,13 @@
       "supervision": "Encadrement",
       "students": "Mes étudiants",
       "supervisors": "Mes encadreurs",
-      "join": "Rejoindre un établissement"
+      "join": "Rejoindre un établissement",
+      "exams": "Mes devoirs",
+      "printQueue": "File d'impression",
+      "printHistory": "Historique",
+      "printJournal": "Journal d'accès",
+      "printRequests": "Impressions des devoirs",
+      "orgTemplates": "Modèles officiels"
     },
     "switchSpace": "Changer d'espace",
     "openMenu": "Ouvrir le menu",
@@ -899,7 +905,14 @@
     "hourWarn": "{used, plural, one {# compilation} other {# compilations}} sur {perHour} cette heure-ci.",
     "hourFull": "{perHour, plural, one {La compilation de l'heure est utilisée.} other {Les # compilations de l'heure sont utilisées.}}",
     "storageWarn": "Le stockage de votre offre est utilisé à plus de 80 %.",
-    "storageFull": "Le stockage de votre offre est plein : les ajouts sont bloqués."
+    "storageFull": "Le stockage de votre offre est plein : les ajouts sont bloqués.",
+    "examPrint": "Secrétariat",
+    "examParts": "Parties du devoir",
+    "examPart": {
+      "subject": "Sujet",
+      "answers": "Corrigé",
+      "marking": "Barème"
+    }
   },
   "History": {
     "title": "Historique des versions",
@@ -946,7 +959,8 @@
     "confirmFileText": "{path} reprend son contenu du {date}. L'état actuel du projet est d'abord enregistré comme version : vous pourrez y revenir.",
     "confirm": "Restaurer",
     "restored": "Restauration faite : {restored, plural, =0 {aucun fichier modifié} one {# fichier restauré} other {# fichiers restaurés}}{removed, plural, =0 {} one {, # fichier supprimé} other {, # fichiers supprimés}}.",
-    "kept": "Non modifiés (verrouillés par une soumission validée, ou à la place d’un dossier) : {paths}."
+    "kept": "Non modifiés (verrouillés par une soumission validée, ou à la place d’un dossier) : {paths}.",
+    "print": "Version envoyée au secrétariat"
   },
   "CompileIssues": {
     "outside_project": {
@@ -1910,6 +1924,16 @@
       "storage": "Stockage",
       "compiles": "Compilations du mois",
       "compilesValue": "{count} ({minutes, plural, one {# min} other {# min}})"
+    },
+    "secretariat": {
+      "legend": "Classes et filières servies",
+      "help": "Le secrétariat ne voit que les demandes d'impression de ces groupes et de leurs sous-groupes.",
+      "noGroups": "Créez d'abord une classe ou filière (UFR, département).",
+      "required": "Choisissez au moins une classe ou filière.",
+      "dialogTitle": "Secrétariat : groupes servis par {name}",
+      "save": "Enregistrer",
+      "serves": "Sert : {group}",
+      "change": "Groupes servis"
     }
   },
   "Groups": {
@@ -2083,6 +2107,290 @@
     "supervision_limit": "Cet encadreur suit déjà le nombre maximal d'étudiants de l'offre.",
     "supervision_exists": "Cet encadrement existe déjà.",
     "supervision_not_found": "Cet encadrement n'existe plus.",
-    "end_date_past": "La date de fin doit être dans le futur."
+    "end_date_past": "La date de fin doit être dans le futur.",
+    "secretary_admin": "Le titulaire et les administrateurs ne peuvent pas avoir le profil Secrétariat, qui ouvre les sujets d'examen. Retirez d'abord le rôle d'administrateur, ou choisissez un autre profil."
+  },
+  "ExamErrors": {
+    "exam_teacher_only": "Réservé aux enseignants confirmés d'un établissement Business dont l'abonnement est actif.",
+    "exam_paper_only": "Cette action ne concerne que les devoirs.",
+    "exam_not_allowed": "Un devoir ne peut être ni partagé par lien public, ni soumis : son corrigé ne quitte jamais votre projet.",
+    "exam_part_protected": "Le sujet, le corrigé et le barème ne peuvent être ni renommés, ni déplacés, ni supprimés.",
+    "exam_dates_invalid": "La date de mise à disposition doit précéder la date de l'épreuve, qui doit être à venir.",
+    "no_secretariat": "Aucun secrétariat ne sert cette classe. Demandez à un administrateur d'en rattacher un.",
+    "exam_send_pending": "Un envoi de ce devoir est déjà en préparation. Attendez qu'il se termine.",
+    "print_status": "Cette demande a changé d'état entre-temps (par exemple, le secrétariat l'a ouverte). Rechargez la page.",
+    "print_locked": "Ce sujet est verrouillé jusqu'à sa date de mise à disposition.",
+    "print_locked_until": "Ce sujet est verrouillé : personne ne peut l'ouvrir avant le {date}.",
+    "print_not_found": "Cette demande d'impression n'existe pas ou ne vous est pas accessible.",
+    "coeditor_invalid": "Seul un enseignant confirmé d'un de vos établissements peut co-rédiger ce devoir.",
+    "secretary_groups_required": "Un secrétariat sert au moins une classe ou filière.",
+    "group_in_use": "Ce groupe est servi par un secrétariat ou utilisé par une demande d'impression : il ne peut pas être supprimé.",
+    "template_empty": "Cette archive ne contient aucun fichier accepté.",
+    "template_not_found": "Ce modèle n'existe plus."
+  },
+  "Print": {
+    "status": {
+      "SCHEDULED": "Programmé (verrouillé)",
+      "READY": "Prêt à imprimer",
+      "OPENED": "Ouvert",
+      "PRINTED": "Imprimé",
+      "HANDED_OVER": "Remis",
+      "CANCELED": "Annulé"
+    },
+    "duplex": {
+      "SIMPLEX": "Recto",
+      "DUPLEX": "Recto-verso"
+    },
+    "stapled": "Agrafé",
+    "fields": {
+      "teacher": "Enseignant",
+      "group": "Classe",
+      "copies": "Exemplaires",
+      "format": "Impression",
+      "availableFrom": "Prêt pour le",
+      "examAt": "Épreuve",
+      "printed": "Imprimés",
+      "handedOverTo": "Remis à"
+    },
+    "copiesValue": "{copies} + {reserve} de réserve ({total, plural, one {# exemplaire} other {# exemplaires}})",
+    "pages": "{count, plural, one {# page} other {# pages}}",
+    "printedValue": "{count, plural, one {# exemplaire} other {# exemplaires}}",
+    "copiesTotal": "{count, plural, one {# exemplaire} other {# exemplaires}}",
+    "journal": {
+      "label": "Journal d'accès",
+      "empty": "Aucun accès enregistré pour l'instant.",
+      "you": "Vous",
+      "someone": "Un compte supprimé",
+      "ip": "adresse {ip}",
+      "REQUESTED": "{who} : demande envoyée, sujet figé",
+      "UPDATED": "{who} : demande modifiée ({fields})",
+      "REPLACED": "{who} : demande remplacée par un nouvel envoi",
+      "CANCELED": "{who} : demande annulée",
+      "PREVIEWED": "{who} : aperçu du sujet ouvert",
+      "OPENED": "{who} : sujet ouvert",
+      "DOWNLOADED": "{who} : fichier d'impression téléchargé",
+      "PRINT_CONFIRMED": "{who} : impression confirmée ({count, plural, one {# exemplaire} other {# exemplaires}})",
+      "HANDED_OVER": "{who} : copies remises à {to}",
+      "COEDITOR_ADDED": "{who} : {name} ajouté comme co-éditeur",
+      "COEDITOR_REMOVED": "{who} : {name} retiré des co-éditeurs"
+    },
+    "changes": {
+      "title": "titre",
+      "groupId": "classe",
+      "copies": "exemplaires",
+      "reserveCopies": "réserve",
+      "duplex": "recto-verso",
+      "stapled": "agrafage",
+      "availableFrom": "date de mise à disposition",
+      "examAt": "date de l'épreuve"
+    }
+  },
+  "Exams": {
+    "metaTitle": "Mes devoirs",
+    "metaTitlePaper": "Devoir",
+    "title": "Mes devoirs",
+    "ownerSubtitle": "Sujet, corrigé et barème · envoi au secrétariat",
+    "coeditorSubtitle": "Devoir de {name}, que vous co-rédigez",
+    "openPaper": "Page du devoir (co-éditeurs, journal)",
+    "journal": "Journal du devoir",
+    "partsHelp": "Le corrigé et le barème restent dans ce projet : ils ne sont jamais envoyés au secrétariat ni à la compilation du sujet.",
+    "parts": {
+      "subject": "Rédiger le sujet",
+      "answers": "Rédiger le corrigé",
+      "marking": "Rédiger le barème"
+    },
+    "create": {
+      "title": "Nouveau devoir",
+      "help": "Un devoir contient trois parties : le sujet, envoyé au secrétariat, et le corrigé et le barème, qui restent privés.",
+      "name": "Nom du devoir",
+      "placeholder": "Hydrologie générale — Examen de fin de semestre",
+      "submit": "Créer et rédiger"
+    },
+    "list": {
+      "title": "{count, plural, =0 {Aucun devoir} one {# devoir} other {# devoirs}}",
+      "coedited": "Co-rédigé avec {name}",
+      "sending": "Envoi en préparation",
+      "current": "{group} · épreuve le {date}",
+      "notSent": "Pas encore envoyé au secrétariat",
+      "activity": "modifié le {date}",
+      "write": "Rédiger",
+      "open": "Ouvrir",
+      "empty": "Aucun devoir pour l'instant",
+      "emptyHelp": "Créez un devoir, rédigez le sujet, puis envoyez-le au secrétariat.",
+      "cannotCreate": "Seuls les enseignants confirmés d'un établissement Business créent des devoirs."
+    },
+    "form": {
+      "title": "Titre affiché au secrétariat",
+      "required": "Ce champ est obligatoire.",
+      "group": "Classe",
+      "chooseGroup": "Choisir une classe",
+      "groupWithoutSecretariat": "{name} (sans secrétariat)",
+      "noSecretariat": "Aucun secrétariat ne sert cette classe : la demande serait refusée.",
+      "noGroups": "Votre établissement n'a encore aucune classe ou filière.",
+      "copies": "Exemplaires",
+      "copiesInvalid": "Entre 1 et {max, plural, one {# exemplaire} other {# exemplaires}}.",
+      "reserve": "Réserve",
+      "reserveInvalid": "Entre 0 et {max, plural, one {# exemplaire} other {# exemplaires}} de réserve.",
+      "duplex": "Impression",
+      "availableFrom": "Prêt pour le (mise à disposition)",
+      "examAt": "Date de l'épreuve",
+      "datesOrder": "La date de mise à disposition doit précéder celle de l'épreuve.",
+      "confidential": {
+        "title": "Confidentialité du sujet",
+        "locked": "Le secrétariat ne peut ouvrir le sujet qu'à partir de la date de mise à disposition, comme tout le monde.",
+        "journal": "Chaque ouverture, téléchargement et impression est journalisé.",
+        "private": "Le corrigé et le barème restent privés (jamais envoyés).",
+        "frozen": "Le PDF du sujet est figé à l'envoi : modifier le projet ensuite ne change pas la demande."
+      },
+      "back": "Retour"
+    },
+    "send": {
+      "title": "Envoyer au secrétariat",
+      "compiling": "Préparation du PDF du sujet… La demande sera créée dès qu'il sera prêt.",
+      "failed": "Le sujet n'a pas pu être compilé : rien n'a été envoyé. Corrigez les erreurs puis renvoyez.",
+      "issueAt": "{file}, ligne {line} : {text}",
+      "saveChanges": "Enregistrer les modifications",
+      "submit": "Envoyer la demande d'impression",
+      "open": "Envoyer au secrétariat",
+      "ownerOnly": "Seul {name}, propriétaire du devoir, l'envoie au secrétariat."
+    },
+    "requests": {
+      "preview": "Voir l'aperçu",
+      "follow": "Suivre la demande",
+      "modify": "Modifier",
+      "replace": "Envoyer une nouvelle version",
+      "cancel": "Annuler la demande",
+      "empty": "Aucune demande d'impression",
+      "emptyHelp": "Une fois le sujet rédigé, envoyez-le au secrétariat de la classe."
+    },
+    "coeditors": {
+      "title": "Co-éditeurs",
+      "help": "Des enseignants confirmés de vos établissements peuvent rédiger avec vous le sujet, le corrigé et le barème. Ils ne téléchargent pas le projet et n'envoient rien au secrétariat.",
+      "none": "Aucun co-éditeur.",
+      "remove": "Retirer",
+      "choose": "Enseignant",
+      "chooseOne": "Choisir un enseignant",
+      "add": "Ajouter comme co-éditeur",
+      "noCandidates": "Aucun autre enseignant confirmé dans vos établissements."
+    },
+    "cancelDialog": {
+      "title": "Annuler « {title} » ?",
+      "confirm": "Annuler la demande",
+      "text": "Le secrétariat ne pourra plus ouvrir ce sujet. Vous pourrez envoyer une nouvelle demande.",
+      "afterOpening": "Le secrétariat a déjà ouvert ce sujet : l'annulation est enregistrée au journal. Pour corriger le sujet, annulez puis envoyez une nouvelle demande."
+    }
+  },
+  "Secretariat": {
+    "queue": {
+      "metaTitle": "File d'impression",
+      "title": "File d'impression",
+      "stats": {
+        "toPrint": "À imprimer",
+        "examTomorrow": "{count, plural, =0 {aucune épreuve d'ici demain} one {dont # pour une épreuve d'ici demain} other {dont # pour des épreuves d'ici demain}}",
+        "scheduled": "Programmés",
+        "locked": "sujets encore verrouillés",
+        "printedThisWeek": "Imprimés cette semaine",
+        "toHandOver": "{count, plural, =0 {aucun en attente de remise} one {# en attente de remise} other {# en attente de remise}}",
+        "copiesThisMonth": "Exemplaires ce mois",
+        "requestsThisMonth": "{count, plural, =0 {aucun devoir} one {sur # devoir} other {sur # devoirs}}"
+      },
+      "confidentialTitle": "Les sujets sont confidentiels.",
+      "confidential": "Chaque ouverture, téléchargement, impression et remise est enregistré à votre nom, avec la date, l'heure et l'adresse IP. Un sujet programmé ne peut être ouvert qu'à partir de la date fixée par l'enseignant.",
+      "tabsLabel": "Demandes d'impression",
+      "tabs": {
+        "toPrint": "À imprimer ({count})",
+        "scheduled": "Programmés ({count})",
+        "toHandOver": "Imprimés, à remettre ({count})"
+      },
+      "empty": {
+        "toPrint": "Rien à imprimer pour l'instant.",
+        "scheduled": "Aucun sujet programmé.",
+        "toHandOver": "Aucune copie en attente de remise."
+      },
+      "dates": "Prêt pour le {ready} · épreuve le {exam}",
+      "openableOn": "Ouvrable le {date}",
+      "openAndPrint": "Ouvrir et imprimer",
+      "see": "Voir"
+    },
+    "history": {
+      "metaTitle": "Historique des impressions",
+      "title": "Historique",
+      "empty": "Aucune demande remise ou annulée."
+    },
+    "journal": {
+      "metaTitle": "Journal d'accès",
+      "title": "Journal d'accès",
+      "subtitle": "Chaque accès aux sujets de vos classes, sans possibilité de modification"
+    },
+    "request": {
+      "metaTitle": "Imprimer un devoir",
+      "requestedBy": "Demande de {name} · {count, plural, one {# exemplaire} other {# exemplaires}}",
+      "locked": "Sujet verrouillé jusqu'au {date}",
+      "lockedHelp": "Le serveur refuse toute ouverture avant cette date, pour tout le monde, administrateurs compris.",
+      "openTitle": "Sujet disponible",
+      "openHelp": "L'ouverture est enregistrée à votre nom. L'aperçu porte un filigrane nominatif.",
+      "openHelpAuthor": "Aperçu filigrané du PDF envoyé au secrétariat. L'ouverture est enregistrée au journal.",
+      "open": "Ouvrir le sujet",
+      "canceled": "Demande annulée",
+      "noPreview": "Aperçu réservé au secrétariat et aux auteurs",
+      "noPreviewHelp": "Les administrateurs voient la demande et son journal, jamais le sujet.",
+      "details": "La demande",
+      "steps": "Étapes",
+      "stepOpen": "Ouvrir le sujet",
+      "openedAt": "Ouvert le {date}",
+      "notOpened": "Pas encore ouvert",
+      "stepPrint": "Imprimer",
+      "printHelp": "Le fichier à imprimer, sans filigrane, se télécharge par un lien à usage unique valable 10 minutes.",
+      "download": "Télécharger le fichier à imprimer",
+      "downloadStarted": "Téléchargement lancé. Pour un nouveau téléchargement, demandez un nouveau lien.",
+      "stepConfirm": "Confirmer le nombre imprimé",
+      "printedAt": "{count, plural, one {# exemplaire imprimé} other {# exemplaires imprimés}} le {date}",
+      "printedCount": "Exemplaires imprimés",
+      "countInvalid": "Saisissez un nombre entier positif.",
+      "confirm": "Confirmer",
+      "waiting": "En attente de l'étape précédente.",
+      "stepHandOver": "Remise",
+      "handedOverAt": "Remis à {to} le {date}",
+      "handedOverTo": "Remis à",
+      "handedOverToHelp": "À l'enseignant ou au responsable de la surveillance.",
+      "toRequired": "Indiquez à qui les copies sont remises.",
+      "handOver": "Confirmer la remise",
+      "journal": "Journal d'accès"
+    }
+  },
+  "OrgPrint": {
+    "metaTitle": "Impressions des devoirs",
+    "title": "Impressions des devoirs",
+    "help": "Demandes d'impression envoyées par les enseignants et leur journal d'accès. Les administrateurs ne voient jamais les sujets.",
+    "requests": "{count, plural, =0 {Aucune demande} one {# demande} other {# demandes}}",
+    "empty": "Aucune demande d'impression.",
+    "journal": "Journal d'accès"
+  },
+  "OrgTemplates": {
+    "metaTitle": "Modèles officiels",
+    "title": "Modèles officiels",
+    "subtitle": "Proposés aux seuls membres de votre établissement",
+    "add": {
+      "title": "Ajouter un modèle",
+      "help": "Une archive ZIP de projet LaTeX (mêmes règles que l'import d'un projet). Le modèle reste brouillon jusqu'à sa publication.",
+      "name": "Nom du modèle",
+      "description": "Description",
+      "choose": "Choisir un fichier ZIP",
+      "hint": "ou déposez-le ici · {size} au plus",
+      "progress": "Envoi : {percent} %",
+      "done": "Modèle ajouté. Publiez-le pour le proposer aux membres.",
+      "submit": "Ajouter le modèle"
+    },
+    "list": {
+      "title": "{count, plural, =0 {Aucun modèle} one {# modèle} other {# modèles}}",
+      "published": "Publié",
+      "draft": "Brouillon",
+      "added": "Ajouté le {date}",
+      "publish": "Publier",
+      "unpublish": "Dépublier",
+      "delete": "Supprimer",
+      "empty": "Aucun modèle officiel",
+      "emptyHelp": "Ajoutez par exemple le modèle de mémoire ou d'examen de votre établissement."
+    }
   }
 }

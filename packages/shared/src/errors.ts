@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AUTH_ERROR_CODES } from './auth.js';
 import { BILLING_ERROR_CODES } from './billing.js';
+import { EXAM_ERROR_CODES } from './exam-papers.js';
 import { ORG_ERROR_CODES } from './organizations.js';
 import { PROJECT_ERROR_CODES } from './projects.js';
 import { SHARING_ERROR_CODES } from './sharing.js';
@@ -14,6 +15,7 @@ export const API_ERROR_CODES = [
   ...SUBMISSION_ERROR_CODES,
   ...BILLING_ERROR_CODES,
   ...ORG_ERROR_CODES,
+  ...EXAM_ERROR_CODES,
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 

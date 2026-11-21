@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Creates the MinIO access keys of the services on latex-dev, each limited to its buckets
 # (docs/spec.md, "Réseau et pare-feu"). Safe to run several times.
-#   api:    read/write "projects", read "templates", read/delete "compile-output" and
+#   api:    read/write "projects", read "templates" (write official templates under org/),
+#           read/write "exam-papers" (frozen exam subjects), read/delete "compile-output" and
 #           delete "compile-cache" (erasing a project); presigns the GET URLs of compile jobs.
 #   worker: read/write "compile-output" and "compile-cache" only; NO right on "projects".
 # Needs the stack running (docker compose -f docker/dev.yml up -d) and the buckets created by
@@ -40,6 +41,16 @@ docker compose -f docker/dev.yml exec -T \
       "Effect": "Allow",
       "Action": ["s3:GetObject"],
       "Resource": ["arn:aws:s3:::templates/*"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::templates/org/*"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::exam-papers/*"]
     },
     {
       "Effect": "Allow",

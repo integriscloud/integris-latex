@@ -9,7 +9,7 @@ const date = z.iso.datetime();
 
 export const versionSummarySchema = z.object({
   id: z.string(),
-  kind: z.enum(['AUTO', 'NAMED', 'SUBMISSION']),
+  kind: z.enum(['AUTO', 'NAMED', 'SUBMISSION', 'PRINT']),
   label: z.string().nullable(),
   createdAt: date,
   authorName: z.string().nullable(),

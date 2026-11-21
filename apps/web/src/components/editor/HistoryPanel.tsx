@@ -108,6 +108,7 @@ export function HistoryPanel({
     }
     if (version.kind === 'NAMED') return version.label ?? t('named');
     if (version.kind === 'SUBMISSION') return t('submission');
+    if (version.kind === 'PRINT') return t('print');
     return t('auto');
   };
 

@@ -122,6 +122,18 @@ export const apiEnvSchema = z
     // Submission sendings compiled per account (project owner, who is charged) and per hour,
     // across all projects (step 9). They never use the hourly compile quota of the plan.
     SUBMISSION_COMPILES_PER_HOUR: positiveInt(10),
+    // Time zone of the date and time written in the watermark of exam subjects (step 13).
+    PRINT_TIME_ZONE: z
+      .string()
+      .default('Africa/Ouagadougou')
+      .refine((zone) => {
+        try {
+          new Intl.DateTimeFormat('en', { timeZone: zone });
+          return true;
+        } catch {
+          return false;
+        }
+      }, 'unknown time zone'),
     // Sharing (step 8). Limits rest on the account and on the token first; the per-address
     // limits are only a high backstop, since many mobile users share one address (CGNAT).
     SHARE_INVITATIONS_PER_DAY: positiveInt(50), // per owner account, every project together

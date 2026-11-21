@@ -25,6 +25,7 @@ import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { type FormEvent, useEffect, useState } from 'react';
 import { apiRead, apiRequest, apiUpload, type ClientError } from '../../lib/api-client';
 import { formatBytes } from '../../lib/format';
+import { groupLabel, ScopeGroupsDialog, ScopeGroupsField } from './ScopeGroups';
 import styles from './org.module.css';
 import { useOrgErrorMessage } from './use-org-error';
 
@@ -67,6 +68,9 @@ export function MembersView({
   const [importError, setImportError] = useState<ClientError | null>(null);
   const [removing, setRemoving] = useState<OrgMember | null>(null);
   const [approveGroups, setApproveGroups] = useState<Record<string, string>>({});
+  const [scopeIds, setScopeIds] = useState<string[]>([]);
+  const [scopeTried, setScopeTried] = useState(false);
+  const [scoping, setScoping] = useState<OrgMember | null>(null);
 
   const id = organization.id;
   const business = organization.type === 'BUSINESS';
@@ -77,7 +81,7 @@ export function MembersView({
   ];
   const groupName = (groupId: string | null) =>
     page.groups.find((group) => group.id === groupId)?.name ?? null;
-  const kindOptions = (['STUDENT', 'TEACHER'] as const).map((value) => ({
+  const kindOptions = (['STUDENT', 'TEACHER', 'SECRETARY'] as const).map((value) => ({
     value,
     label: tOrg(`kinds.${value}`),
   }));
@@ -123,13 +127,24 @@ export function MembersView({
 
   const invite = async (event: FormEvent) => {
     event.preventDefault();
+    // A secretariat serves at least one group, chosen before the invitation is sent.
+    if (business && kind === 'SECRETARY' && !scopeIds.length) {
+      setScopeTried(true);
+      return;
+    }
     setBusy('invite');
     setInviteError(null);
     setInvited(false);
     const target = channel === 'phone' ? { channel, phone, dialCode } : { channel, email };
     const result = await apiRequest<MembersPage>('POST', `organizations/${id}/invitations`, {
       ...target,
-      ...(business ? { kind, ...(groupId ? { groupId } : {}) } : {}),
+      ...(business
+        ? {
+            kind,
+            ...(groupId ? { groupId } : {}),
+            ...(kind === 'SECRETARY' ? { scopeGroupIds: scopeIds } : {}),
+          }
+        : {}),
     });
     setBusy(null);
     if (!result.ok) {
@@ -267,6 +282,14 @@ export function MembersView({
                 onChange={(event) => setGroupId(event.target.value)}
               />
             </div>
+          )}
+          {business && kind === 'SECRETARY' && (
+            <ScopeGroupsField
+              groups={page.groups}
+              value={scopeIds}
+              onChange={setScopeIds}
+              invalid={scopeTried && !scopeIds.length}
+            />
           )}
           <p className={styles.muted}>{t('invite.help')}</p>
           {inviteError && (
@@ -477,6 +500,12 @@ export function MembersView({
                     {groupName(member.groupId) && (
                       <Badge tone="neutral">{groupName(member.groupId)}</Badge>
                     )}
+                    {member.kind === 'SECRETARY' &&
+                      member.scopeGroupIds.map((scope) => (
+                        <Badge key={scope} tone="info">
+                          {t('secretariat.serves', { group: groupLabel(page.groups, scope) })}
+                        </Badge>
+                      ))}
                   </div>
                   {member.contactHint && <p className={styles.muted}>{member.contactHint}</p>}
                   {usage(member)}
@@ -488,22 +517,30 @@ export function MembersView({
                         label={t('list.kind', { name: member.name })}
                         options={[
                           ...kindOptions,
-                          ...(member.kind === 'STUDENT' || member.kind === 'TEACHER'
-                            ? []
-                            : [{ value: member.kind, label: tOrg(`kinds.${member.kind}`) }]),
+                          ...(member.kind === 'OTHER'
+                            ? [{ value: member.kind, label: tOrg(`kinds.${member.kind}`) }]
+                            : []),
                         ]}
                         value={member.kind}
                         disabled={busy !== null}
                         onChange={(event) =>
-                          void run(`kind-${member.userId}`, () =>
-                            apiRequest<MembersPage>(
-                              'PATCH',
-                              `organizations/${id}/members/${member.userId}`,
-                              { kind: event.target.value },
-                            ),
-                          )
+                          // A new secretariat chooses its groups first.
+                          event.target.value === 'SECRETARY'
+                            ? setScoping(member)
+                            : void run(`kind-${member.userId}`, () =>
+                                apiRequest<MembersPage>(
+                                  'PATCH',
+                                  `organizations/${id}/members/${member.userId}`,
+                                  { kind: event.target.value },
+                                ),
+                              )
                         }
                       />
+                      {member.kind === 'SECRETARY' && (
+                        <Button variant="secondary" onClick={() => setScoping(member)}>
+                          {t('secretariat.change')}
+                        </Button>
+                      )}
                       <SelectField
                         label={t('list.group', { name: member.name })}
                         options={groupOptions}
@@ -549,6 +586,25 @@ export function MembersView({
           })}
         </ul>
       </Panel>
+
+      <ScopeGroupsDialog
+        open={scoping !== null}
+        name={scoping?.name ?? ''}
+        groups={page.groups}
+        initial={scoping?.scopeGroupIds ?? []}
+        busy={busy === 'scopes'}
+        onClose={() => setScoping(null)}
+        onSave={(groupIds) =>
+          void run('scopes', () =>
+            apiRequest<MembersPage>('PATCH', `organizations/${id}/members/${scoping!.userId}`, {
+              kind: 'SECRETARY',
+              scopeGroupIds: groupIds,
+            }),
+          ).then((saved) => {
+            if (saved) setScoping(null);
+          })
+        }
+      />
 
       <Dialog
         open={removing !== null}

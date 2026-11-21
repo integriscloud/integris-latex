@@ -35,6 +35,8 @@ export const ORG_ERROR_CODES = [
   'supervision_exists',
   'supervision_not_found',
   'end_date_past',
+  // The owner and the admins never hold the secretariat profile (step 13 decisions).
+  'secretary_admin',
 ] as const;
 export type OrgErrorCode = (typeof ORG_ERROR_CODES)[number];
 
@@ -63,9 +65,17 @@ export function formatJoinCode(code: string): string {
   return `${code.slice(0, 5)}-${code.slice(5)}`;
 }
 
-/** Member kinds chosen when inviting into a BUSINESS (SECRETARY comes with step 13). */
+/** Member kinds of the CSV import (docs/spec.md, "Import CSV": etudiant or enseignant). */
 export const INVITED_KINDS = ['STUDENT', 'TEACHER'] as const;
 export type InvitedKind = (typeof INVITED_KINDS)[number];
+/**
+ * Member kinds chosen when inviting one person into a BUSINESS or changing a member's profile.
+ * A secretariat (step 13) serves one or more groups (`scopeGroupIds`).
+ */
+export const CHOSEN_KINDS = ['STUDENT', 'TEACHER', 'SECRETARY'] as const;
+export type ChosenKind = (typeof CHOSEN_KINDS)[number];
+/** Groups a secretariat serves, at most. */
+export const SECRETARY_GROUPS_MAX = 20;
 
 export const ORG_ROLES = ['OWNER', 'ADMIN', 'MEMBER'] as const;
 export type OrgRoleValue = (typeof ORG_ROLES)[number];
@@ -74,7 +84,8 @@ export type MemberKindValue = (typeof MEMBER_KINDS)[number];
 
 const date = z.iso.datetime();
 const id = z.string().min(1).max(64);
-const kind = z.enum(INVITED_KINDS);
+const kind = z.enum(CHOSEN_KINDS);
+const scopeGroupIds = z.array(id).min(1).max(SECRETARY_GROUPS_MAX);
 
 // ───────────── Requests ─────────────
 
@@ -86,12 +97,14 @@ export const orgInviteSchema = z.discriminatedUnion('channel', [
     dialCode: z.string().regex(/^\d{1,4}$/),
     kind: kind.optional(),
     groupId: id.optional(),
+    scopeGroupIds: scopeGroupIds.optional(),
   }),
   z.object({
     channel: z.literal('email'),
     email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
     kind: kind.optional(),
     groupId: id.optional(),
+    scopeGroupIds: scopeGroupIds.optional(),
   }),
 ]);
 export type OrgInviteRequest = z.input<typeof orgInviteSchema>;
@@ -102,6 +115,8 @@ export const updateMemberSchema = z
     kind: kind.optional(),
     groupId: id.nullable().optional(),
     admin: z.boolean().optional(),
+    /** Groups served by a secretariat member (with `kind: 'SECRETARY'`, or for one already). */
+    scopeGroupIds: scopeGroupIds.optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, { message: 'empty' });
@@ -170,6 +185,8 @@ export const orgMemberSchema = z.object({
   role: z.enum(ORG_ROLES),
   kind: z.enum(MEMBER_KINDS),
   groupId: z.string().nullable(),
+  /** SECRETARY: the groups served. */
+  scopeGroupIds: z.array(z.string()),
   joinedAt: date,
   /** Consumption of the month: counts only, never the projects themselves. */
   usage: memberUsageSchema,
@@ -184,6 +201,7 @@ export const orgInvitationSchema = z.object({
   displayName: z.string().nullable(),
   kind: z.enum(MEMBER_KINDS),
   groupId: z.string().nullable(),
+  scopeGroupIds: z.array(z.string()),
   createdAt: date,
   expiresAt: date,
 });

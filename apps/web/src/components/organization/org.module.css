@@ -195,3 +195,18 @@
   border-radius: var(--r-full);
   font: var(--t-texte-sm);
 }
+
+.scopes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fieldError {
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--erreur);
+}

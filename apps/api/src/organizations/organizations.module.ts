@@ -27,6 +27,6 @@ import { SupervisionService } from './supervision.service.js';
     SeatsService,
     SupervisionService,
   ],
-  exports: [SeatsService],
+  exports: [SeatsService, OrgContextService],
 })
 export class OrganizationsModule {}

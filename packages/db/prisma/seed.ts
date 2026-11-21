@@ -7,6 +7,7 @@ import {
 import {
   COMPILE_CACHE_BUCKET,
   COMPILE_OUTPUT_BUCKET,
+  EXAM_PAPERS_BUCKET,
   parseEnv,
   PROJECTS_BUCKET,
   publicTemplateKey,
@@ -101,6 +102,7 @@ try {
     COMPILE_OUTPUT_BUCKET,
     COMPILE_CACHE_BUCKET,
     RECEIPTS_BUCKET,
+    EXAM_PAPERS_BUCKET,
   ]) {
     await ensureBucket(bucket);
     console.log(`Bucket "${bucket}" ensured.`);

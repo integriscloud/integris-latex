@@ -25,6 +25,38 @@
   white-space: nowrap;
 }
 
+/* Parts of an exam paper: subject, answer key, marking scheme (mockup professeur-03). */
+.examParts {
+  display: inline-flex;
+  gap: var(--espace-1);
+  padding: 2px;
+  background: var(--surface-creuse);
+  border-radius: var(--r-md);
+}
+
+.examPart {
+  min-height: 36px;
+  padding: 0 var(--espace-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--texte-2);
+  font: var(--t-texte-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.examPart[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--action);
+  box-shadow: var(--ombre-1);
+}
+
+.examPart:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
 .wideOnly {
   display: none;
 }

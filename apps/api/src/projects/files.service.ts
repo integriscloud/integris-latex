@@ -1,6 +1,7 @@
 import type { Prisma, ProjectFile } from '@integris/db';
 import {
   allowedExtensionOf,
+  isExamPartFile,
   isTextExtension,
   MAX_PROJECT_FILE_BYTES,
   normalizeFilePath,
@@ -106,12 +107,22 @@ export class FilesService {
     return this.events.publish({ type: 'files-changed', projectId });
   }
 
-  private async file(projectId: string, fileId: string): Promise<ProjectFile> {
+  /**
+   * A file that may be moved or deleted: not locked by a validation, and not one of the three
+   * parts of an exam paper (subject, answer key, marking scheme), whose paths are fixed.
+   */
+  private async file(
+    project: { id: string; kind: 'DOCUMENT' | 'ASSIGNMENT' },
+    fileId: string,
+  ): Promise<ProjectFile> {
     const file = await this.prisma.client.projectFile.findFirst({
-      where: { id: fileId, projectId },
+      where: { id: fileId, projectId: project.id },
     });
     if (!file) return fail(HttpStatus.NOT_FOUND, 'not_found');
     if (file.lockedBySubmissionId) fail(HttpStatus.CONFLICT, 'file_locked');
+    if (project.kind === 'ASSIGNMENT' && isExamPartFile(file.path)) {
+      fail(HttpStatus.CONFLICT, 'exam_part_protected');
+    }
     return file;
   }
 
@@ -315,7 +326,7 @@ export class FilesService {
     const { project } = await this.projects.require(userId, projectId, 'edit');
     // Serialized with uploads of the same owner: no file and folder of the same name.
     const moved = await this.projects.runWritable(project, async () => {
-      const file = await this.file(projectId, fileId);
+      const file = await this.file(project, fileId);
       const path = normalizeFilePath(input);
       if (!path) return fail(HttpStatus.BAD_REQUEST, 'invalid_path');
       const from = allowedExtensionOf(file.path);
@@ -459,7 +470,7 @@ export class FilesService {
     const { project } = await this.projects.require(userId, projectId, 'edit');
     // Under the owner lock, and only while unlocked: a validation cannot lock it meanwhile.
     const file = await this.projects.runWritable(project, async () => {
-      const found = await this.file(projectId, fileId);
+      const found = await this.file(project, fileId);
       await this.prisma.client.$transaction(async (tx) => {
         const deleted = await tx.projectFile.deleteMany({
           where: { id: found.id, lockedBySubmissionId: null },

@@ -17,10 +17,12 @@
 // outcome the simulated status API answers, then calls the API callback like LigdiCash (JSON then
 // form); --twice sends them twice (idempotency). Without argument: the pending payments. The API
 // still checks the status itself before activating, as with LigdiCash.
-// dev:org creates a test BUSINESS of 10 seats, without payment, with fixed test accounts
-// (+226 79 98 00 00 to 09): the owner, an admin, two teachers, five students in two groups, one
-// free seat, a teacher's join request waiting for an admin, two assigned supervision links and a
-// student's request. --reset deletes it first (and its seats, links and invitations).
+// dev:org creates a test BUSINESS of 11 seats, without payment, with fixed test accounts
+// (+226 79 98 00 00 to 10): the owner, an admin, two teachers, five students in two groups, a
+// secretariat serving the UFR SVT (step 13), one free seat, a teacher's join request waiting for
+// an admin, two assigned supervision links and a student's request. --reset deletes it first (and
+// its seats, links and invitations); an organization with print requests, whose journal is
+// append-only, is renamed "[dev:org archived]" and emptied instead.
 import { createPrismaClient } from '@integris/db';
 import {
   COLLAB_EVENTS_CHANNEL,
@@ -441,12 +443,22 @@ const DEV_ORG_ACCOUNTS = [
   { name: 'Étudiant Quatre', role: 'MEMBER', kind: 'STUDENT', group: 'Licence 3 Hydrologie' },
   { name: 'Étudiante Cinq', role: 'MEMBER', kind: 'STUDENT', group: 'Licence 3 Hydrologie' },
   { name: 'Enseignant En Attente', role: 'MEMBER', kind: 'TEACHER', pending: true },
+  { name: 'Secrétariat SVT', role: 'MEMBER', kind: 'SECRETARY', serves: ['UFR SVT'] },
 ];
-const devOrgPhone = (index) => `+2267998000${index}`;
+const devOrgPhone = (index) => `+226799800${String(index).padStart(2, '0')}`;
 
-/** Deletes the test organization and what hangs on it (audit entries stay, append-only). */
+/**
+ * Deletes the test organization and what hangs on it (audit entries stay, append-only). Print
+ * requests and their journal cannot be deleted: such an organization is emptied and renamed.
+ */
 async function deleteDevOrg(prisma, organization) {
+  const archived = (await prisma.printRequest.count({ where: { organizationId: organization.id } }))
+    ? `[dev:org archived ${new Date().toISOString().slice(0, 16)}] Université de test`
+    : null;
   await prisma.$transaction(async (tx) => {
+    await tx.secretariatScope.deleteMany({
+      where: { membership: { organizationId: organization.id } },
+    });
     const links = await tx.supervision.findMany({ where: { organizationId: organization.id } });
     const linkIds = links.map((link) => link.id);
     await tx.projectMember.deleteMany({ where: { viaSupervisionId: { in: linkIds } } });
@@ -465,6 +477,18 @@ async function deleteDevOrg(prisma, organization) {
     await tx.invitation.deleteMany({ where: { organizationId: organization.id } });
     await tx.userImport.deleteMany({ where: { organizationId: organization.id } });
     await tx.membership.deleteMany({ where: { organizationId: organization.id } });
+    await tx.project.updateMany({
+      where: { template: { organizationId: organization.id } },
+      data: { templateId: null },
+    });
+    await tx.template.deleteMany({ where: { organizationId: organization.id } });
+    if (archived) {
+      await tx.organization.update({
+        where: { id: organization.id },
+        data: { name: archived, joinCode: null },
+      });
+      return;
+    }
     await tx.orgGroup.deleteMany({
       where: { organizationId: organization.id, parentId: { not: null } },
     });
@@ -497,7 +521,7 @@ async function devOrg() {
       );
     }
     const plan = await prisma.plan.findUniqueOrThrow({ where: { code: 'BUSINESS' } });
-    const seatCount = 10;
+    const seatCount = 11;
     let joinCode = '';
     await prisma.$transaction(async (tx) => {
       const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -521,7 +545,7 @@ async function devOrg() {
       const ufr = await tx.orgGroup.create({
         data: { organizationId: organization.id, name: 'UFR SVT' },
       });
-      const groups = {};
+      const groups = { 'UFR SVT': ufr };
       for (const name of ['Master 2 Environnement', 'Licence 3 Hydrologie']) {
         groups[name] = await tx.orgGroup.create({
           data: { organizationId: organization.id, name, parentId: ufr.id },
@@ -529,7 +553,7 @@ async function devOrg() {
       }
       for (const [index, account] of DEV_ORG_ACCOUNTS.entries()) {
         const user = users[index];
-        await tx.membership.create({
+        const membership = await tx.membership.create({
           data: {
             organizationId: organization.id,
             userId: user.id,
@@ -540,6 +564,11 @@ async function devOrg() {
             groupId: account.group ? groups[account.group].id : null,
           },
         });
+        for (const name of account.serves ?? []) {
+          await tx.secretariatScope.create({
+            data: { membershipId: membership.id, groupId: groups[name].id },
+          });
+        }
         if (account.pending) continue;
         const seat = await tx.seat.create({
           data: { subscriptionId: subscription.id, userId: user.id, assignedAt: now },
@@ -595,12 +624,15 @@ async function devOrg() {
       });
     });
     for (const user of users) await applyLimits(user.id);
-    console.log(`"${DEV_ORG_NAME}": BUSINESS, ${seatCount} seats (9 held, 1 free), 30 days.`);
+    const held = DEV_ORG_ACCOUNTS.filter((account) => !account.pending).length;
+    console.log(
+      `"${DEV_ORG_NAME}": BUSINESS, ${seatCount} seats (${held} held, ${seatCount - held} free), 30 days.`,
+    );
     console.log(`Teachers' join code: ${joinCode.slice(0, 5)}-${joinCode.slice(5)}\n`);
     for (const [index, account] of DEV_ORG_ACCOUNTS.entries()) {
       const what = account.pending
         ? 'join request waiting for an admin (no seat)'
-        : `${account.role.toLowerCase()}, ${account.kind.toLowerCase()}${account.group ? `, ${account.group}` : ''}`;
+        : `${account.role.toLowerCase()}, ${account.kind.toLowerCase()}${account.group ? `, ${account.group}` : ''}${account.serves ? `, serves ${account.serves.join(', ')}` : ''}`;
       console.log(`  ${devOrgPhone(index)}  ${account.name.padEnd(24)} ${what}`);
     }
     console.log(

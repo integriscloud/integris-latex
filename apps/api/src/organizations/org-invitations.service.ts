@@ -137,10 +137,21 @@ export class OrgInvitationsService {
           approvedAt: now,
           groupId: group?.id ?? null,
         };
-        if (existing) {
-          await tx.membership.update({ where: { id: existing.id }, data });
-        } else {
-          await tx.membership.create({ data: { organizationId, userId: user.id, ...data } });
+        const membership = existing
+          ? await tx.membership.update({ where: { id: existing.id }, data })
+          : await tx.membership.create({ data: { organizationId, userId: user.id, ...data } });
+        if (invitation.kind === 'SECRETARY') {
+          // Groups deleted since the invitation are dropped (a group in use cannot be deleted).
+          const groups = await tx.orgGroup.findMany({
+            where: { id: { in: invitation.scopeGroupIds }, organizationId },
+            select: { id: true },
+          });
+          await tx.secretariatScope.deleteMany({ where: { membershipId: membership.id } });
+          if (groups.length) {
+            await tx.secretariatScope.createMany({
+              data: groups.map((group) => ({ membershipId: membership.id, groupId: group.id })),
+            });
+          }
         }
         await this.orgs.audit(tx, actor, 'ORG_MEMBER_JOINED', 'Organization', organizationId, {
           userId: user.id,

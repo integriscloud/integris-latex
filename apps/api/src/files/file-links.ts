@@ -57,3 +57,70 @@ export function downloadName(projectName: string): string {
     .slice(0, 80);
   return `${base || 'document'}.pdf`;
 }
+
+/**
+ * A link of the files domain to an exam subject (docs/spec.md, "Devoirs et secrétariat"): the
+ * watermarked preview of one reader (`preview`), or the clean print file through a one-time
+ * link (`print`, `linkId` of a PrintDownloadLink row). Signed with its own key: a link to a
+ * compiled PDF can never be turned into one to a subject.
+ */
+export interface ExamLink {
+  kind: 'preview' | 'print';
+  requestId: string;
+  userId: string;
+  /**
+   * PrintDownloadLink of a print link; for a preview, the opening it belongs to (random, not
+   * stored): every fetch of one preview link is the same opening, journaled once.
+   */
+  linkId: string | null;
+  /** Unix time in seconds: when the preview was opened (shown in the watermark). */
+  issued: number;
+  /** Unix time in seconds. */
+  expires: number;
+}
+
+export function examLinkKey(authSecret: string): Buffer {
+  return createHmac('sha256', authSecret).update('integris:exam-link:v1').digest();
+}
+
+export function signExamLink(key: Buffer, link: ExamLink): string {
+  const payload = encode(
+    JSON.stringify({
+      k: link.kind === 'preview' ? 'p' : 'd',
+      r: link.requestId,
+      u: link.userId,
+      l: link.linkId,
+      i: link.issued,
+      e: link.expires,
+    }),
+  );
+  return `${payload}.${signature(key, payload)}`;
+}
+
+/** The exam link of a token, or null when it is forged, malformed or expired. */
+export function verifyExamLink(key: Buffer, token: string, now = Date.now()): ExamLink | null {
+  const [payload, sent, extra] = token.split('.');
+  if (!payload || !sent || extra !== undefined || payload.length > 1024) return null;
+  const expected = Buffer.from(signature(key, payload));
+  const given = Buffer.from(sent);
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+  let data: unknown;
+  try {
+    data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+  const { k, r, u, l, i, e } = (data ?? {}) as Record<string, unknown>;
+  if ((k !== 'p' && k !== 'd') || typeof r !== 'string' || typeof u !== 'string') return null;
+  if (typeof i !== 'number' || typeof e !== 'number') return null;
+  if (typeof l !== 'string' || !l) return null;
+  if (e * 1000 <= now) return null;
+  return {
+    kind: k === 'p' ? 'preview' : 'print',
+    requestId: r,
+    userId: u,
+    linkId: l,
+    issued: i,
+    expires: e,
+  };
+}

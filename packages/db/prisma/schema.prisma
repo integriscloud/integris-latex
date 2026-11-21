@@ -86,6 +86,14 @@ enum PrintEventType {
   DOWNLOADED
   PRINT_CONFIRMED
   HANDED_OVER
+  COEDITOR_ADDED // exam paper journal: a teacher of the organization co-edits it
+  COEDITOR_REMOVED
+}
+
+enum PrintSendStatus {
+  COMPILING // the frozen subject is being compiled
+  FAILED // no PDF: nothing was sent
+  DONE // the print request exists
 }
 
 enum InvitationStatus {
@@ -137,6 +145,7 @@ enum VersionKind {
   AUTO
   NAMED
   SUBMISSION
+  PRINT // frozen when an exam subject is sent to the secretariat
 }
 
 enum CommentStatus {
@@ -465,13 +474,14 @@ model Organization {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  subscription Subscription?
-  memberships  Membership[]
-  groups       OrgGroup[]
-  invitations  Invitation[]
-  templates    Template[]
-  supervisions Supervision[]
-  userImports  UserImport[]
+  subscription  Subscription?
+  memberships   Membership[]
+  groups        OrgGroup[]
+  invitations   Invitation[]
+  templates     Template[]
+  supervisions  Supervision[]
+  userImports   UserImport[]
+  printRequests PrintRequest[]
 }
 
 // CSV import of members (V1: CSV only, Excel in V2)
@@ -562,6 +572,8 @@ model Invitation {
   displayName    String?
   groupId        String?
   group          OrgGroup?        @relation(fields: [groupId], references: [id])
+  // SECRETARY: groups ("Classes et filières") whose print requests the secretariat will serve.
+  scopeGroupIds  String[]         @default([])
   importId       String?
   userImport     UserImport?      @relation(fields: [importId], references: [id])
   locale         Locale           @default(fr)
@@ -604,6 +616,7 @@ model Project {
   submissions   Submission[]
   compilations  Compilation[]
   printRequests PrintRequest[]
+  printSends    PrintSend[]
 
   @@index([ownerId, deletedAt])
 }
@@ -739,6 +752,8 @@ model Template {
   institution    String?
   storageKey     String        @unique // ZIP of template files
   isPublished    Boolean       @default(false)
+  // Official template (ORGANIZATION): the owner or admin who added it.
+  createdById    String?
   createdAt      DateTime      @default(now())
 
   projects Project[]
@@ -943,6 +958,10 @@ model Compilation {
   // the project's last PDF.
   submissionVersionId String?            @unique
   submissionVersion   SubmissionVersion? @relation(fields: [submissionVersionId], references: [id])
+  // Compilation of an exam subject sent to the secretariat: its PDF moves to the exam bucket, and
+  // it is never the project's last PDF either.
+  printSendId         String?            @unique
+  printSend           PrintSend?         @relation(fields: [printSendId], references: [id])
 
   @@index([projectId, queuedAt])
   @@index([chargedUserId, queuedAt])
@@ -999,46 +1018,100 @@ model AuditLog {
 // ───────────── Exam papers & secretariat (BUSINESS) ─────────────
 
 model PrintRequest {
-  id            String      @id @default(cuid())
-  projectId     String // ASSIGNMENT project of the teacher
-  project       Project     @relation(fields: [projectId], references: [id])
-  teacherId     String
-  groupId       String // class / programme the paper is for; routes to its secretariat
-  group         OrgGroup    @relation(fields: [groupId], references: [id])
-  title         String
-  subjectPdfKey String // frozen compiled subject PDF, private bucket, API access only
-  subjectSha256 String
-  pages         Int
-  copies        Int
-  reserveCopies Int         @default(0)
-  duplex        PrintDuplex
-  stapled       Boolean     @default(false)
-  availableFrom DateTime // server refuses any opening before this instant
-  examAt        DateTime
-  status        PrintStatus @default(SCHEDULED)
-  printedCount  Int?
-  handedOverTo  String?
-  replacedById  String? // a new send replaces a request not yet opened
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  // ASSIGNMENT project of the teacher; null once the project is erased (the journal stays).
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  teacherId      String
+  groupId        String // class / programme the paper is for; routes to its secretariat
+  group          OrgGroup     @relation(fields: [groupId], references: [id])
+  title          String
+  subjectPdfKey  String // frozen compiled subject PDF, private bucket, API access only
+  subjectSha256  String
+  pages          Int
+  copies         Int
+  reserveCopies  Int          @default(0)
+  duplex         PrintDuplex
+  stapled        Boolean      @default(false)
+  availableFrom  DateTime // server refuses any opening before this instant
+  examAt         DateTime
+  status         PrintStatus  @default(SCHEDULED)
+  printedCount   Int?
+  handedOverTo   String?
+  replacedById   String? // a new send replaces a request not yet opened
+  openedAt       DateTime?
+  printedAt      DateTime?
+  handedOverAt   DateTime?
+  canceledAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  events PrintEvent[]
+  events        PrintEvent[]
+  downloadLinks PrintDownloadLink[]
+  send          PrintSend?
 
   @@index([groupId, status, availableFrom])
   @@index([teacherId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([projectId])
+}
+
+// A send to the secretariat waiting for the compilation of its frozen subject: the print request
+// is created only when the PDF exists.
+model PrintSend {
+  id             String          @id @default(cuid())
+  projectId      String
+  project        Project         @relation(fields: [projectId], references: [id])
+  teacherId      String
+  organizationId String
+  groupId        String
+  details        Json // title, copies, reserve, duplex, stapled, availableFrom, examAt
+  replacesId     String? // request not yet opened that this send replaces
+  versionId      String? // frozen ProjectVersion (kind PRINT)
+  status         PrintSendStatus @default(COMPILING)
+  errors         Json?
+  printRequestId String?         @unique
+  printRequest   PrintRequest?   @relation(fields: [printRequestId], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  compilation Compilation?
+
+  @@index([projectId, createdAt])
+}
+
+// One-time link to the clean print file: valid 10 minutes, used once (docs/spec.md, "Fichier à
+// imprimer").
+model PrintDownloadLink {
+  id             String       @id // random, carried by the signed link
+  printRequestId String
+  printRequest   PrintRequest @relation(fields: [printRequestId], references: [id])
+  userId         String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([printRequestId])
 }
 
 // Append-only access journal: UPDATE, DELETE and TRUNCATE are refused by a trigger (migration
-// integrity_constraints).
+// integrity_constraints). Project and organization are plain columns (no foreign key): the
+// journal outlives the project, and no cascade may ever touch a row.
 model PrintEvent {
   id             String         @id @default(cuid())
-  printRequestId String
-  printRequest   PrintRequest   @relation(fields: [printRequestId], references: [id], onUpdate: Restrict)
-  actorId        String
+  printRequestId String? // null for the events of the exam paper itself (co-editors)
+  printRequest   PrintRequest?  @relation(fields: [printRequestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  projectId      String?
+  organizationId String?
+  actorId        String?
   type           PrintEventType
   metadata       Json? // e.g. printed count, handed over to, one-time link id
   ip             String?
   createdAt      DateTime       @default(now())
 
   @@index([printRequestId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([organizationId, createdAt])
 }

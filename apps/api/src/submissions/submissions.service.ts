@@ -127,7 +127,7 @@ export class SubmissionsService implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.compile.registerFrozen({
+    this.compile.registerFrozen('submission', {
       sources: (id) => this.frozenSources(id),
       finished: (row) => this.compiled(row),
     });
@@ -227,6 +227,8 @@ export class SubmissionsService implements OnModuleInit {
     body: z.output<typeof createSubmissionSchema>,
   ): Promise<SubmissionDetail> {
     const { project } = await this.projects.require(userId, projectId, 'edit');
+    // An exam paper is never submitted: its answer key never leaves the teacher.
+    if (project.kind === 'ASSIGNMENT') fail(HttpStatus.FORBIDDEN, 'exam_not_allowed');
     const reviewerIds = await this.checkReviewers(project, body.reviewerIds);
     const filePaths = await this.checkFiles(projectId, body.filePaths);
     const created = await this.prisma.client.submission.create({
@@ -331,6 +333,7 @@ export class SubmissionsService implements OnModuleInit {
     body: z.output<typeof sendSubmissionSchema>,
   ): Promise<SubmissionDetail> {
     const { project } = await this.projects.require(actor.userId, projectId, 'edit');
+    if (project.kind === 'ASSIGNMENT') fail(HttpStatus.FORBIDDEN, 'exam_not_allowed');
     let { submission } = await this.load(actor.userId, projectId, submissionId);
     if (await this.reconcile(submission, project.ownerId)) {
       ({ submission } = await this.load(actor.userId, projectId, submissionId));
@@ -428,7 +431,7 @@ export class SubmissionsService implements OnModuleInit {
         ownerId: project.ownerId,
         userId: actor.userId,
         engine: project.engine,
-        submissionVersionId: versionId,
+        frozen: { submissionVersionId: versionId },
         mainFile: manifest.mainFilePath,
         files: this.sourcesOf(projectId, manifest),
       });
@@ -907,7 +910,7 @@ export class SubmissionsService implements OnModuleInit {
     ]);
     return {
       submissions: rows.map((row) => this.summary(row)),
-      canCreate: rights.edit && !project.readOnlyReason,
+      canCreate: rights.edit && !project.readOnlyReason && project.kind === 'DOCUMENT',
       candidates: members.map((member) => ({
         ...personOf(member.user),
         role: member.role as (typeof REVIEWER_ROLES)[number],

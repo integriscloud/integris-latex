@@ -110,6 +110,11 @@ export {
   type PlanPrice,
   type PricingProps,
 } from './pricing/Pricing';
+export {
+  PrintStatusBadge,
+  type PrintStatusBadgeProps,
+  type PrintStatusName,
+} from './print/PrintStatusBadge';
 export { ProjectList, ProjectRow, type ProjectRowProps } from './project-row/ProjectRow';
 export { Section, type SectionProps } from './section/Section';
 export { SiteFooter, type FooterColumn, type SiteFooterProps } from './site-footer/SiteFooter';
