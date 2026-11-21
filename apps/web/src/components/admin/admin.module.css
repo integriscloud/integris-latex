@@ -1,0 +1,225 @@
+/* Back-office of Integris (step 14): screens without mockup, built from the tokens. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-6);
+}
+
+.muted {
+  margin: 0;
+  font: var(--t-texte-sm);
+  color: var(--texte-2);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-4);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--espace-3) var(--espace-4);
+}
+
+@media (min-width: 600px) {
+  .fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  align-items: center;
+}
+
+.search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-3);
+  align-items: flex-end;
+}
+
+.search > :first-child {
+  flex: 1 1 240px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-lg);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--t-texte-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--espace-3) var(--espace-4);
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--bordure);
+}
+
+.table thead th {
+  border-top: 0;
+  font: var(--t-legende);
+  color: var(--texte-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.table .number {
+  text-align: right;
+}
+
+.link {
+  color: var(--action);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: var(--espace-2) var(--espace-4);
+  margin: 0;
+  font: var(--t-texte-sm);
+}
+
+.facts dt {
+  color: var(--texte-2);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--espace-3);
+  margin: 0;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--espace-1);
+  padding: var(--espace-4);
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-lg);
+}
+
+.tile dt {
+  font: var(--t-texte-sm);
+  color: var(--texte-2);
+}
+
+.tile dd {
+  margin: 0;
+  font: var(--t-titre-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--espace-4);
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--r-lg);
+}
+
+.cardBody {
+  display: flex;
+  flex: 1 1 260px;
+  flex-direction: column;
+  gap: var(--espace-1);
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font: var(--t-texte);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-1);
+  align-items: center;
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--t-texte-sm);
+}
+
+.history li {
+  padding: var(--espace-3);
+  background: var(--surface-creuse);
+  border-radius: var(--r-md);
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2) var(--espace-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  margin-bottom: var(--espace-2);
+  font: var(--t-texte-sm);
+  font-weight: 600;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+}

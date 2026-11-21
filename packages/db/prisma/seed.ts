@@ -9,6 +9,7 @@ import {
   COMPILE_OUTPUT_BUCKET,
   EXAM_PAPERS_BUCKET,
   parseEnv,
+  planTermsOf,
   PROJECTS_BUCKET,
   publicTemplateKey,
   RECEIPTS_BUCKET,
@@ -33,7 +34,21 @@ const s3 = new S3Client({
 async function seedPlans(): Promise<void> {
   for (const plan of PLANS) {
     // Create missing plans only: values edited in the back-office are never overwritten.
-    await prisma.plan.upsert({ where: { code: plan.code }, create: plan, update: {} });
+    const row = await prisma.plan.upsert({ where: { code: plan.code }, create: plan, update: {} });
+    // Version 1 of a new plan (step 14): the history of the back-office changes starts here.
+    // Checked first: the table is append-only, so even an empty upsert update is refused.
+    const first = { planId_version: { planId: row.id, version: 1 } };
+    if (!(await prisma.planRevision.findUnique({ where: first }))) {
+      await prisma.planRevision.create({
+        data: {
+          id: `rev1_${row.id}`,
+          planId: row.id,
+          version: 1,
+          terms: planTermsOf(row),
+          reason: 'initial',
+        },
+      });
+    }
   }
   console.log(`Plans: ${PLANS.length} ensured.`);
 }

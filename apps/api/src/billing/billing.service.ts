@@ -16,6 +16,7 @@ import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ApiError } from '../common/api-error.js';
 import { consumeLimit } from '../common/rate-limit.js';
 import { ApiConfig } from '../config/api-config.js';
+import { latestRevisionId } from '../plans/plan-terms.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { OwnerLockService } from '../projects/owner-lock.service.js';
 import { PlanLimitsService } from '../projects/plan-limits.service.js';
@@ -244,6 +245,7 @@ export class BillingService {
             currentPeriodStart: now,
             currentPeriodEnd: end,
             trialEndsAt: end,
+            planRevisionId: await latestRevisionId(tx, plan.id),
           },
         });
         await tx.user.update({ where: { id: user.id }, data: { trialUsedAt: now } });

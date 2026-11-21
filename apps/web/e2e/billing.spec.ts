@@ -51,7 +51,13 @@ test('Standard yearly paid on the simulated LigdiCash: active plan and receipt b
   await expect(page.getByText('À payer (TTC)')).toBeVisible();
   const pay = page.getByRole('button', { name: /^Payer / });
   await expect(pay).toBeEnabled();
+  // A promo code typed but not applied is pointed out, never dropped silently.
+  await page.getByLabel('Code promo').fill('pas-applique');
   await pay.click();
+  const unapplied = page.getByText("Ce code (PAS-APPLIQUE) n'a pas été appliqué.");
+  await expect(unapplied).toBeVisible();
+  await expect(page).toHaveURL(/\/fr\/app\/billing\/checkout/);
+  await page.getByRole('button', { name: 'Continuer sans le code' }).click();
 
   await expect(page).toHaveURL(/\/fr\/dev\/pay\/sim_/);
   await expect(page.getByText('aucun paiement réel', { exact: false })).toBeVisible();

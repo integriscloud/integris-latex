@@ -2,6 +2,7 @@ import { addPeriod } from '@integris/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { type BillingTestApp, createBillingTestApp } from '../test/billing-app.js';
+import { NotificationQueue } from '../notifications/notification-queue.service.js';
 import { TEST_USER_HEADER } from '../test/projects-app.js';
 import { BillingScheduler } from './billing-scheduler.service.js';
 import { paymentIdOf } from './ligdicash-callback.controller.js';
@@ -13,6 +14,9 @@ const DAY_MS = 86_400_000;
 const CALLBACK = '/api/payments/ligdicash/callback';
 
 let t: BillingTestApp;
+
+/** SMS and e-mails of the notifications leave through the queue (sent at once in tests). */
+const flushNotifications = () => t.app.get(NotificationQueue).flush();
 let user: Record<string, unknown>;
 
 const standardYearly = { kind: 'NEW', plan: 'STANDARD', period: 'YEARLY', seats: 1 };
@@ -649,9 +653,11 @@ describe('scheduler', () => {
     const scheduler = t.app.get(BillingScheduler);
     await scheduler.renewalReminders(new Date());
     await scheduler.renewalReminders(new Date());
+    await flushNotifications();
     expect(t.outbox.sms).toHaveLength(1);
     expect(t.outbox.sms[0]!.text).toContain(`/fr/app/billing/checkout?renew=${subscription.id}`);
     await scheduler.renewalReminders(new Date(Date.now() + 3.5 * DAY_MS));
+    await flushNotifications();
     expect(t.outbox.sms).toHaveLength(2);
 
     await scheduler.startGrace(new Date(Date.now() + 5 * DAY_MS));
@@ -669,6 +675,7 @@ describe('scheduler', () => {
     expect(t.outbox.sms).toHaveLength(0);
     await scheduler.trialReminders(new Date(Date.now() + 12 * DAY_MS));
     await scheduler.trialReminders(new Date(Date.now() + 12.5 * DAY_MS));
+    await flushNotifications();
     expect(t.outbox.sms).toHaveLength(1);
     expect(t.outbox.sms[0]!.text).toContain('essai Standard');
   });

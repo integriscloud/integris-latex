@@ -8,6 +8,7 @@ import { PlanLimitsService } from '../projects/plan-limits.service.js';
 import { BillingNotifier } from './billing-notifier.service.js';
 import { expectedState, payerOf, sameState, type StoredOrder } from './billing-orders.js';
 import { PAYMENT_PROVIDER, type PaymentProvider } from './payment-provider.js';
+import { latestRevisionId } from '../plans/plan-terms.js';
 import { type BilledTo, ReceiptsService } from './receipts.service.js';
 import { resizeSeats } from './seat-resize.js';
 import { SubscriptionPauseService } from './subscription-pause.service.js';
@@ -328,6 +329,9 @@ export class PaymentProcessor {
     organization: { name: string; ifu: string | null } | null;
   }> {
     const plan = await tx.plan.findUniqueOrThrow({ where: { code: order.planCode } });
+    // Each paid period freezes the version of its plan the order was priced on (step 14); orders
+    // stored before step 14 freeze the current one.
+    const planRevisionId = order.planRevisionId ?? (await latestRevisionId(tx, plan.id));
     if (order.kind === 'NEW') {
       if (!isOrganizationPlan(plan.code)) {
         const trial = (
@@ -347,6 +351,7 @@ export class PaymentProcessor {
           graceEndsAt: null,
           paidValueXof: order.value,
           paidFromAt: start,
+          planRevisionId,
         };
         const subscription = trial
           ? await tx.subscription.update({ where: { id: trial.id }, data })
@@ -386,6 +391,7 @@ export class PaymentProcessor {
           currentPeriodEnd: addPeriod(now, order.period),
           paidValueXof: order.value,
           paidFromAt: now,
+          planRevisionId,
         },
       });
       // The owner occupies a seat; the others wait for their member (step 12).
@@ -465,6 +471,7 @@ export class PaymentProcessor {
           graceEndsAt: null,
           paidValueXof: order.value,
           paidFromAt: now,
+          planRevisionId,
         },
       });
       if (current.organization && plan.code !== current.plan.code) {
@@ -490,7 +497,10 @@ export class PaymentProcessor {
         plan.id !== current.planId ||
         order.period !== current.billingPeriod ||
         order.seats !== current.seatCount;
-      if (changed && start > now) {
+      // A BUSINESS pilot trial paid before its end: the paid period starts at the end of the
+      // trial, with what was bought (step 14 decision).
+      const fromTrial = current.status === 'TRIALING';
+      if (changed && start > now && !fromTrial) {
         // A lower plan, another period or fewer seats: paid now, applied at the period end.
         subscription = await tx.subscription.update({
           where: { id: current.id },
@@ -499,10 +509,11 @@ export class PaymentProcessor {
             pendingBillingPeriod: order.period,
             pendingSeatCount: order.seats,
             pendingValueXof: order.value,
+            pendingPlanRevisionId: planRevisionId,
           },
         });
       } else {
-        const extension = start >= now;
+        const extension = start >= now && !fromTrial;
         subscription = await tx.subscription.update({
           where: { id: current.id },
           data: {
@@ -526,6 +537,7 @@ export class PaymentProcessor {
                 ) + order.value
               : order.value,
             paidFromAt: extension ? now : start,
+            planRevisionId,
           },
         });
         if (current.organization && plan.code !== current.plan.code) {

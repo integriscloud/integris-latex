@@ -8,6 +8,7 @@ import { OriginGuard } from '../common/origin.guard.js';
 import { ApiConfig, ConfigModule } from '../config/api-config.js';
 import { configureApp } from '../configure-app.js';
 import { MailModule } from '../mail/mail.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProjectsModule } from '../projects/projects.module.js';
@@ -53,6 +54,7 @@ export async function createProjectsTestApp(
       StorageModule,
       SmsModule,
       MailModule,
+      NotificationsModule,
       ProjectsModule,
       ...modules,
     ],

@@ -3,6 +3,7 @@ import type {
   Prisma,
   Project,
   ProjectRole,
+  Submission,
   SubmissionStatus,
 } from '@integris/db';
 import {
@@ -43,6 +44,7 @@ import {
   type ManifestFile,
   matcher,
 } from '../history/history.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProjectEventsService } from '../projects/project-events.service.js';
 import { fail, type ProjectAccess, ProjectsService } from '../projects/projects.service.js';
@@ -124,6 +126,7 @@ export class SubmissionsService implements OnModuleInit {
     private readonly redis: RedisService,
     private readonly events: ProjectEventsService,
     private readonly config: ApiConfig,
+    private readonly notifications: NotificationsService,
   ) {}
 
   onModuleInit(): void {
@@ -529,7 +532,33 @@ export class SubmissionsService implements OnModuleInit {
         'SUBMISSION_SENT',
         { number, files: version.files as Prisma.InputJsonArray },
       );
+      // In the application and by SMS to the reviewers (the SMS never names the submission).
+      const reviewers = await tx.submissionReviewer.findMany({
+        where: { submissionId: submission.id },
+      });
+      await this.notifications.notify(
+        tx,
+        reviewers.map((row) => row.reviewerId),
+        {
+          type: 'SUBMISSION_RECEIVED',
+          payload: this.noticePayload(submission, number),
+          key: `submission-received:${version.id}`,
+        },
+      );
     });
+  }
+
+  /** What the notification centre shows about a submission (never sent by SMS). */
+  private noticePayload(
+    submission: Pick<Submission, 'id' | 'projectId' | 'title'>,
+    number: number | null,
+  ) {
+    return {
+      submissionId: submission.id,
+      projectId: submission.projectId,
+      title: submission.title,
+      number,
+    };
   }
 
   // ───────────── Reviewing ─────────────
@@ -609,17 +638,24 @@ export class SubmissionsService implements OnModuleInit {
     const { access, submission } = await this.load(actor.userId, projectId, submissionId);
     if (!this.roleAsReviewer(actor.userId, access, submission))
       fail(HttpStatus.FORBIDDEN, 'forbidden');
-    await this.prisma.client.$transaction((tx) =>
-      this.move(
+    const number = this.lastReady(submission)?.number ?? null;
+    await this.prisma.client.$transaction(async (tx) => {
+      await this.move(
         tx,
         actor,
         submission,
         ['IN_REVIEW'],
         { status: 'FEEDBACK_SENT' },
         'SUBMISSION_FEEDBACK_SENT',
-        { number: this.lastReady(submission)?.number ?? null },
-      ),
-    );
+        { number },
+      );
+      await this.notifications.notify(tx, [submission.authorId], {
+        type: 'SUBMISSION_FEEDBACK',
+        payload: this.noticePayload(submission, number),
+        key: `submission-feedback:${submission.id}:${number}`,
+        perUser: false,
+      });
+    });
     return this.detail(actor.userId, projectId, submissionId);
   }
 
@@ -748,6 +784,12 @@ export class SubmissionsService implements OnModuleInit {
                 beforeVersionLabel: before ? beforeLabel : null,
               },
             );
+            await this.notifications.notify(tx, [submission.authorId], {
+              type: 'SUBMISSION_VALIDATED',
+              payload: this.noticePayload(submission, number),
+              key: `submission-validated:${submission.id}`,
+              perUser: false,
+            });
             // The validated content goes back into the file itself, wherever it is now.
             const ids = [...sent.values()].flatMap((now) => (now ? [now.id] : []));
             for (const { path, storageKey } of writes) {

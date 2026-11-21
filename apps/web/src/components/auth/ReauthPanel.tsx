@@ -16,11 +16,21 @@ export interface ReauthPanelProps {
   otpLength: number;
   /** Called with the Unix time (seconds) until which changes are allowed. */
   onConfirmed: (reauthUntil: number) => void;
+  /** `admin`: the back-office code, which unlocks its sensitive actions (step 14). */
+  scope?: 'account' | 'admin';
 }
 
 /** Confirms the identity with a code sent to the account phone before a sensitive change. */
-export function ReauthPanel({ phone, locale, otpLength, onConfirmed }: ReauthPanelProps) {
-  const t = useTranslations('Account');
+export function ReauthPanel({
+  phone,
+  locale,
+  otpLength,
+  onConfirmed,
+  scope = 'account',
+}: ReauthPanelProps) {
+  // Both namespaces hold the same reauth* keys.
+  const t = useTranslations((scope === 'admin' ? 'Admin.reauth' : 'Account') as 'Account');
+  const base = scope === 'admin' ? 'admin' : 'auth';
   const ta = useTranslations('Auth');
   const message = useErrorMessage();
   const { send, captchaRequired, captchaState } = useAuthRequest();
@@ -33,7 +43,11 @@ export function ReauthPanel({ phone, locale, otpLength, onConfirmed }: ReauthPan
   const requestCode = async () => {
     setBusy(true);
     setError(null);
-    const result = await send<{ resendAfter: number }>('auth/reauth/otp', { locale }, 'reauth_otp');
+    const result = await send<{ resendAfter: number }>(
+      `${base}/reauth/otp`,
+      { locale },
+      'reauth_otp',
+    );
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
@@ -48,7 +62,7 @@ export function ReauthPanel({ phone, locale, otpLength, onConfirmed }: ReauthPan
     setBusy(true);
     setError(null);
     setResent(false);
-    const result = await send<{ reauthUntil: number }>('auth/reauth', { code }, 'reauth');
+    const result = await send<{ reauthUntil: number }>(`${base}/reauth`, { code }, 'reauth');
     setBusy(false);
     if (!result.ok) return setError(result.error);
     onConfirmed(result.data.reauthUntil);

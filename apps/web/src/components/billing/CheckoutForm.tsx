@@ -92,6 +92,8 @@ export function CheckoutForm({
   const [ifu, setIfu] = useState('');
   const [promoInput, setPromoInput] = useState('');
   const [promo, setPromo] = useState<string | undefined>(undefined);
+  // A code typed but never applied is pointed out at payment, never dropped silently.
+  const [promoWarning, setPromoWarning] = useState(false);
   const [quote, setQuote] = useState<BillingQuote | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
@@ -187,9 +189,16 @@ export function CheckoutForm({
   };
 
   const standardNew = mode.kind === 'NEW' && planCode === 'STANDARD';
+  const promoAllowed = mode.kind === 'NEW' || mode.kind === 'UPGRADE';
+  const typedPromo = promoInput.trim().toUpperCase();
+  const promoUnapplied = promoAllowed && typedPromo !== '' && typedPromo !== promo;
 
-  const pay = async () => {
+  const pay = async (withoutTypedPromo = false) => {
     if (!order) return;
+    if (promoUnapplied && !withoutTypedPromo) {
+      setPromoWarning(true);
+      return;
+    }
     setPaying(true);
     setPayError(null);
     const result = await apiPost<CheckoutResponse>('billing/checkout', { order, locale });
@@ -333,7 +342,7 @@ export function CheckoutForm({
             </div>
           </Panel>
         )}
-        {(mode.kind === 'NEW' || mode.kind === 'UPGRADE') && (
+        {promoAllowed && (
           <div className={styles.promo}>
             <TextField
               label={t('form.promo')}
@@ -342,12 +351,18 @@ export function CheckoutForm({
               maxLength={40}
               autoCapitalize="characters"
               help={t('form.promoHelp')}
-              onChange={(event) => setPromoInput(event.target.value)}
+              onChange={(event) => {
+                setPromoInput(event.target.value);
+                setPromoWarning(false);
+              }}
             />
             <Button
               variant="secondary"
-              disabled={!promoInput.trim()}
-              onClick={() => setPromo(promoInput.trim().toUpperCase())}
+              disabled={!typedPromo}
+              onClick={() => {
+                setPromo(typedPromo);
+                setPromoWarning(false);
+              }}
             >
               {t('form.applyPromo')}
             </Button>
@@ -439,6 +454,32 @@ export function CheckoutForm({
               {payError && (
                 <Alert tone="error">
                   <p>{payError}</p>
+                </Alert>
+              )}
+              {promoWarning && promoUnapplied && (
+                <Alert tone="warning">
+                  <p>{t('form.promoUnapplied', { code: typedPromo })}</p>
+                  <div className={styles.actions}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setPromo(typedPromo);
+                        setPromoWarning(false);
+                      }}
+                    >
+                      {t('form.applyPromo')}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setPromoInput(promo ?? '');
+                        setPromoWarning(false);
+                        void pay(true);
+                      }}
+                    >
+                      {t('form.promoSkip')}
+                    </Button>
+                  </div>
                 </Alert>
               )}
               <Button

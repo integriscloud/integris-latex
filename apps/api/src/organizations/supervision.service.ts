@@ -1,6 +1,7 @@
 import type { Prisma } from '@integris/db';
 import {
   compareDashboardRows,
+  type NotificationType,
   type DashboardRow,
   type MySupervisors,
   type SupervisionAdmin,
@@ -16,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { consumeLimit } from '../common/rate-limit.js';
 import { ApiConfig } from '../config/api-config.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProjectEventsService } from '../projects/project-events.service.js';
 import { RedisService } from '../redis/redis.service.js';
@@ -56,6 +58,7 @@ export class SupervisionService implements OnApplicationBootstrap, OnModuleDestr
     private readonly events: ProjectEventsService,
     private readonly redis: RedisService,
     private readonly config: ApiConfig,
+    private readonly notifications: NotificationsService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -205,10 +208,13 @@ export class SupervisionService implements OnApplicationBootstrap, OnModuleDestr
     return date;
   }
 
-  private notify(tx: Tx, userIds: string[], type: string, payload: Prisma.InputJsonObject) {
-    return tx.notification.createMany({
-      data: userIds.map((userId) => ({ userId, channel: 'IN_APP' as const, type, payload })),
-    });
+  private notify(
+    tx: Tx,
+    userIds: string[],
+    type: Extract<NotificationType, `SUPERVISION_${string}`>,
+    payload: Record<string, string | null>,
+  ) {
+    return this.notifications.notify(tx, userIds, { type, payload });
   }
 
   // ───────────── Admins ─────────────

@@ -177,6 +177,43 @@ describe('apiEnvSchema', () => {
     }
   });
 
+  it('needs the SMTP and sms.ligdicash.io settings in production only (step 14)', () => {
+    const issues = (env: Record<string, string | undefined>) => {
+      try {
+        parseEnv(apiEnvSchema, env);
+        return '';
+      } catch (error) {
+        return String(error);
+      }
+    };
+    const settings = [
+      'SMTP_HOST',
+      'SMTP_FROM',
+      'LIGDICASH_SMS_USER',
+      'LIGDICASH_SMS_API_KEY',
+      'LIGDICASH_SMS_TOKEN',
+    ];
+    // Development: optional, the log providers stand in for them.
+    expect(() => parseEnv(apiEnvSchema, base)).not.toThrow();
+    const production = {
+      ...base,
+      NODE_ENV: 'production',
+      SMS_PROVIDER: 'ligdicash',
+      MAIL_PROVIDER: 'smtp',
+    };
+    const missing = issues(production);
+    for (const name of settings) expect(missing).toContain(name);
+    const filled = issues({
+      ...production,
+      SMTP_HOST: 'smtp.integriscloud.com',
+      SMTP_FROM: 'Integris LaTeX <no-reply@integriscloud.com>',
+      LIGDICASH_SMS_USER: 'integris',
+      LIGDICASH_SMS_API_KEY: 'key',
+      LIGDICASH_SMS_TOKEN: 'token',
+    });
+    for (const name of settings) expect(filled).not.toContain(name);
+  });
+
   it('serves files from a sibling domain, never from the app or one of its subdomains', () => {
     const production = {
       ...base,

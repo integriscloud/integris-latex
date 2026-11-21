@@ -5,6 +5,12 @@ import { chromium as chromium120 } from 'playwright-chromium-120';
 const rootEnv = new URL('../../.env', import.meta.url);
 if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
+// The e2e suites create accounts, payments and receipts in the database of the app they test:
+// latex-dev only, never a production server (same guard as apps/api/scripts/dev-tools.mjs).
+if (process.env.NODE_ENV === 'production' || process.env.SMS_PROVIDER !== 'log') {
+  throw new Error('e2e tests: refused outside latex-dev (NODE_ENV, SMS_PROVIDER=log).');
+}
+
 // e2e/https-front.mjs serves the public HTTPS URLs of the app and the files domain locally
 // (latex-dev cannot reach its own public IP). Browsers use it as their proxy; Chrome never
 // proxies 127.0.0.1, so the app itself is still reached directly by desktop and mobile.

@@ -1,4 +1,4 @@
-import { formatPhone } from '@integris/shared';
+import { formatPhone, notificationPreferencesSchema } from '@integris/shared';
 import { AuthCard, AuthHeading, AuthPageLayout, ButtonLink } from '@integris/ui';
 import type { Locale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -7,8 +7,10 @@ import styles from '../../../../components/auth/auth-forms.module.css';
 import { ApiUnavailable, AuthBrand, authMetadata } from '../../../../components/auth/AuthChrome';
 import { LogoutButton } from '../../../../components/auth/LogoutButton';
 import { SignedInBar } from '../../../../components/auth/SignedInBar';
+import { NotificationPreferences } from '../../../../components/notifications/NotificationPreferences';
 import { getPathname } from '../../../../i18n/navigation';
 import { fetchAuthConfig } from '../../../../lib/auth-config';
+import { serverGet } from '../../../../lib/server-api';
 import { homePath, requireMe } from '../../../../lib/session';
 
 interface PageProps {
@@ -21,13 +23,17 @@ export async function generateMetadata({ params }: PageProps) {
   return authMetadata(t('metaTitle'));
 }
 
-/** Account security: e-mail, password, sessions (screen without mockup). */
+/** Account security: e-mail, password, notifications by e-mail, sessions (screen without mockup). */
 export default async function AccountPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   const me = await requireMe(locale);
-  const config = await fetchAuthConfig();
+  const [config, preferences] = await Promise.all([
+    fetchAuthConfig(),
+    serverGet('notifications/preferences', notificationPreferencesSchema),
+  ]);
   const t = await getTranslations('Account');
+  const tn = await getTranslations('Notifications.preferences');
 
   return (
     <AuthPageLayout
@@ -50,6 +56,16 @@ export default async function AccountPage({ params }: PageProps) {
         </section>
       </AuthCard>
       {config ? <AccountSecurity me={me} config={config} locale={locale} /> : <ApiUnavailable />}
+      {preferences && (
+        <AuthCard>
+          <section className={styles.section} aria-labelledby="account-notifications">
+            <h2 className={styles.sectionTitle} id="account-notifications">
+              {tn('title')}
+            </h2>
+            <NotificationPreferences initial={preferences} />
+          </section>
+        </AuthCard>
+      )}
       <AuthCard>
         <section className={styles.section} aria-labelledby="account-sessions">
           <h2 className={styles.sectionTitle} id="account-sessions">

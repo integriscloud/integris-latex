@@ -12,7 +12,7 @@ export interface Mail {
   attachments?: MailAttachment[];
 }
 
-/** Sends one e-mail. The Integris SMTP transport will implement this interface later. */
+/** Sends one e-mail: the SMTP server of Integris, or the log in development. */
 export interface MailSender {
   send(mail: Mail): Promise<void>;
 }

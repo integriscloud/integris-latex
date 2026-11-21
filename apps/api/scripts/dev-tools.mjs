@@ -4,6 +4,7 @@
 //   pnpm dev:plan <phone> [FREE|STANDARD|TEAM|BUSINESS] [--lapsed]
 //   pnpm dev:pay [<payment id or phone>] [completed|notcompleted|pending] [--twice]
 //   pnpm dev:org [--reset]
+//   pnpm dev:superadmin [revoke]
 // Sharing is done in the app since step 8 (invitation accepted by the invitee). This tool stays
 // for tests: it gives an account a role at once, without invitation nor audit entry. The account
 // is created when the phone number has none (sign-in by SMS code, the code being read with
@@ -23,6 +24,9 @@
 // an admin, two assigned supervision links and a student's request. --reset deletes it first (and
 // its seats, links and invitations); an organization with print requests, whose journal is
 // append-only, is renamed "[dev:org archived]" and emptied instead.
+// dev:superadmin gives the back-office role (step 14) to the test account +226 79 97 00 00
+// ("Super-admin de test", created if needed), on latex-dev only; `revoke` takes it back. Anywhere
+// else the role is only given by `pnpm superadmin` (scripts/superadmin.mjs).
 import { createPrismaClient } from '@integris/db';
 import {
   COLLAB_EVENTS_CHANNEL,
@@ -34,6 +38,7 @@ import {
 } from '@integris/shared';
 import { Redis } from 'ioredis';
 import { existsSync } from 'node:fs';
+import { hostname } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const rootEnv = fileURLToPath(new URL('../../../.env', import.meta.url));
@@ -644,12 +649,50 @@ async function devOrg() {
   }
 }
 
+const DEV_SUPERADMIN_PHONE = '+22679970000';
+
+async function devSuperAdmin() {
+  if (hostname() !== 'latex-dev') {
+    console.error('dev:superadmin only runs on latex-dev: use pnpm superadmin elsewhere.');
+    process.exitCode = 1;
+    return;
+  }
+  const { setSuperAdmin } = await import('./superadmin.mjs');
+  const grant = args[0] !== 'revoke';
+  const prisma = createPrismaClient(process.env.DATABASE_URL);
+  try {
+    let user = await prisma.user.findUnique({ where: { phone: DEV_SUPERADMIN_PHONE } });
+    if (!user && grant) {
+      user = await prisma.user.create({
+        data: {
+          phone: DEV_SUPERADMIN_PHONE,
+          phoneVerifiedAt: new Date(),
+          displayName: 'Super-admin de test',
+        },
+      });
+    }
+    if (!user) {
+      console.log('No test super-administrator.');
+      return;
+    }
+    await setSuperAdmin(prisma, user, grant, 'test account on latex-dev', 'dev-tools');
+    console.log(
+      grant
+        ? `${DEV_SUPERADMIN_PHONE} (${user.displayName}) is super-administrator: sign in, then open /fr/admin.\nCodes (sign-in and back-office): pnpm dev:otp ${DEV_SUPERADMIN_PHONE}`
+        : `${DEV_SUPERADMIN_PHONE} is no longer super-administrator.`,
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 if (command === 'share') await share();
 else if (command === 'otp') await otp();
 else if (command === 'plan') await plan();
 else if (command === 'pay') await pay();
 else if (command === 'org') await devOrg();
+else if (command === 'superadmin') await devSuperAdmin();
 else {
-  console.error('Commands: share, otp, plan, pay, org');
+  console.error('Commands: share, otp, plan, pay, org, superadmin');
   process.exitCode = 1;
 }

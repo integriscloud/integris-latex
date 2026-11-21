@@ -1,4 +1,4 @@
-import type { MeResponse, Space } from '@integris/shared';
+import { type MeResponse, type Space, unreadCountSchema } from '@integris/shared';
 import { type AppNavItem, AppShell, AppUser, Logo, type SpaceTone } from '@integris/ui';
 import {
   BadgeCheck,
@@ -12,6 +12,7 @@ import {
   KeyRound,
   LayoutTemplate,
   Printer,
+  ShieldCheck,
   School,
   ScrollText,
   Trash2,
@@ -24,9 +25,11 @@ import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { getPathname } from '../../i18n/navigation';
 import { managesOrganization } from '../../lib/organization';
+import { serverGet } from '../../lib/server-api';
 import { AuthLanguages } from '../auth/AuthChrome';
 import { LogoutButton } from '../auth/LogoutButton';
 import { spaceLabels } from '../auth/space-labels';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 const ICON = { size: 20, strokeWidth: 1.75, 'aria-hidden': true } as const;
 
@@ -48,7 +51,8 @@ export type AppSection =
   | 'printHistory'
   | 'printJournal'
   | 'printRequests'
-  | 'orgTemplates';
+  | 'orgTemplates'
+  | 'notifications';
 
 const toneOf = (space: Space): SpaceTone => {
   if (space.kind === 'personal') return 'personal';
@@ -78,6 +82,7 @@ export async function AppFrame({
   const ts = await getTranslations('Spaces');
   const href = (target: string) => getPathname({ href: target, locale });
   const space = me.spaces.find((item) => item.id === me.currentSpaceId) ?? me.spaces[0]!;
+  const unread = (await serverGet('notifications/unread', unreadCountSchema))?.unread ?? 0;
   const labels = spaceLabels(space, ts);
   const item = (target: AppSection, path: string, icon: ReactNode): AppNavItem => ({
     href: href(path),
@@ -169,9 +174,18 @@ export async function AppFrame({
           ? [item('join', '/app/join-organization', <KeyRound {...ICON} />)]
           : []),
         { href: href('/account'), label: t('nav.account'), icon: <UserRound {...ICON} /> },
+        // The back-office checks the role itself; this is only the way in.
+        ...(me.user.superAdmin
+          ? [{ href: href('/admin'), label: t('nav.admin'), icon: <ShieldCheck {...ICON} /> }]
+          : []),
       ]}
       footer={<AppUser name={me.user.displayName} action={<LogoutButton inverse />} />}
-      topBar={<AuthLanguages locale={locale} path={path} />}
+      topBar={
+        <>
+          <NotificationBell href={href('/app/notifications')} initial={unread} />
+          <AuthLanguages locale={locale} path={path} />
+        </>
+      }
       openMenuLabel={t('openMenu')}
       closeMenuLabel={t('closeMenu')}
     >

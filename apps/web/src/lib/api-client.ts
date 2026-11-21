@@ -20,7 +20,7 @@ async function parseError(response: Response): Promise<ClientError> {
  * always carry a JSON body (the API refuses them otherwise).
  */
 export async function apiRequest<T = void>(
-  method: 'POST' | 'PATCH' | 'DELETE',
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body: object = {},
 ): Promise<ApiResult<T>> {

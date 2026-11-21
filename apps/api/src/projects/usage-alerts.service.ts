@@ -1,7 +1,7 @@
 import { type AlertQuota, usageLevel, usagePeriodStart } from '@integris/shared';
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { ApiConfig } from '../config/api-config.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { QuotaService } from './quota.service.js';
 
 /** Actions in a burst (an editor storing every few seconds) are checked once, after it. */
@@ -9,8 +9,9 @@ const DEBOUNCE_MS = 2000;
 
 /**
  * Alerts at 80 % and 100 % of the projects, the storage and the compilations per hour
- * (docs/spec.md, "Alertes de consommation"): an in-app notification, once per quota, level and
- * month (`Notification.dedupeKey`, so several API processes never send it twice). The banners
+ * (docs/spec.md, "Alertes de consommation"): an in-app notification (and its e-mail copy if
+ * chosen), once per quota, level and month (`Notification.dedupeKey`, so several API processes
+ * never send it twice). The banners
  * are computed from the usage on each page. Also records the storage in the monthly counter.
  */
 @Injectable()
@@ -22,8 +23,8 @@ export class UsageAlertsService implements OnModuleDestroy {
   private readonly delay: number;
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly quota: QuotaService,
+    private readonly notifications: NotificationsService,
     config: ApiConfig,
   ) {
     this.delay = config.env.NODE_ENV === 'test' ? 0 : DEBOUNCE_MS;
@@ -72,23 +73,19 @@ export class UsageAlertsService implements OnModuleDestroy {
       compilesPerHour: { used: hour.used, max: quotas.maxCompilesPerHour },
     };
     const month = usagePeriodStart(new Date()).toISOString().slice(0, 7);
-    const rows = [];
     for (const [quota, meter] of Object.entries(meters) as [AlertQuota, typeof meters.projects][]) {
       const level = usageLevel(meter.used, meter.max);
       // Reaching 100 % at once also counts as having passed 80 %.
       const levels = level === 'full' ? ['warn', 'full'] : level === 'warn' ? ['warn'] : [];
       for (const reached of levels) {
-        rows.push({
-          userId: ownerId,
-          channel: 'IN_APP' as const,
+        // In the application, and by e-mail if the user chose it (no SMS for quotas).
+        await this.notifications.notify(null, [ownerId], {
           type: 'QUOTA_ALERT',
           payload: { quota, level: reached, used: meter.used, max: meter.max, month },
-          dedupeKey: `quota:${ownerId}:${quota}:${reached}:${month}`,
+          key: `quota:${ownerId}:${quota}:${reached}:${month}`,
+          perUser: false,
         });
       }
-    }
-    if (rows.length) {
-      await this.prisma.client.notification.createMany({ data: rows, skipDuplicates: true });
     }
   }
 }

@@ -3,6 +3,7 @@ import type {
   Organization,
   PaymentPurpose,
   Plan,
+  PlanRevision,
   Prisma,
   PromoCode,
   Subscription,
@@ -20,10 +21,15 @@ import {
 } from '@integris/shared';
 import { HttpStatus } from '@nestjs/common';
 import { ApiError } from '../common/api-error.js';
+import { effectivePlan, latestRevisionId } from '../plans/plan-terms.js';
 
 type Db = Prisma.TransactionClient;
 
-export type OrderSubscription = Subscription & { plan: Plan; organization: Organization | null };
+export type OrderSubscription = Subscription & {
+  plan: Plan;
+  organization: Organization | null;
+  planRevision: PlanRevision | null;
+};
 
 /** State of the subscription an order was priced on: a payment applies only to that state. */
 export interface ExpectedState {
@@ -51,6 +57,8 @@ export interface StoredOrder {
   value: number;
   minimumTopUp: number;
   prorationSurplus: number;
+  /** Version of the plan the order was priced on, frozen by the period it pays (step 14). */
+  planRevisionId?: string | null;
 }
 
 export interface PreparedOrder {
@@ -97,7 +105,7 @@ export async function payerSubscription(
 ): Promise<OrderSubscription> {
   const subscription = await db.subscription.findUnique({
     where: { id: subscriptionId },
-    include: { plan: true, organization: true },
+    include: { plan: true, organization: true, planRevision: true },
   });
   if (!subscription) throw new ApiError(HttpStatus.NOT_FOUND, 'subscription_not_found');
   if (subscription.userId === userId) return subscription;
@@ -226,7 +234,12 @@ export async function prepareOrder(
     subscription = await payerSubscription(db, userId, order.subscriptionId);
     const current = subscription;
     if (current.status === 'PAUSED') throw new ApiError(HttpStatus.CONFLICT, 'subscription_paused');
-    if (current.status === 'CANCELED' || current.status === 'TRIALING') {
+    // A BUSINESS pilot trial (step 14) is only renewed: the paid period starts at its end.
+    const pilotTrial = current.status === 'TRIALING' && current.organizationId !== null;
+    if (
+      current.status === 'CANCELED' ||
+      (current.status === 'TRIALING' && !(pilotTrial && order.kind === 'RENEW'))
+    ) {
       throw new ApiError(HttpStatus.CONFLICT, 'subscription_not_found');
     }
     const used = await seatsUsedOf(db, current.id);
@@ -235,7 +248,8 @@ export async function prepareOrder(
       if (!organization || current.status !== 'ACTIVE' || current.currentPeriodEnd <= now) {
         throw new ApiError(HttpStatus.CONFLICT, 'plan_unavailable');
       }
-      plan = current.plan;
+      // Seats added during a period are paid at the price of that period (step 14).
+      plan = effectivePlan(current.plan, current.planRevision);
       period = current.billingPeriod;
       seats = order.seats;
       if (!seatsAllowed(plan, current.seatCount + seats) || current.seatCount + seats > maxSeats) {
@@ -326,6 +340,7 @@ export async function prepareOrder(
       value: quote.value,
       minimumTopUp: quote.minimumTopUp,
       prorationSurplus: quote.prorationSurplus,
+      planRevisionId: order.kind === 'SEATS' ? null : await latestRevisionId(db, plan.id),
     },
     plan,
     subscription,

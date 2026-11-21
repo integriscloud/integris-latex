@@ -1,4 +1,4 @@
-import type { User } from '@integris/db';
+import type { Prisma, User } from '@integris/db';
 import {
   type AuthConfig,
   type CaptchaAction,
@@ -255,6 +255,7 @@ export class AuthService {
         hasPassword: user.passwordHash !== null,
         locale: user.locale,
         preferences: { editorSpellcheck: user.editorSpellcheck },
+        superAdmin: user.isSuperAdmin,
       },
       spaces,
       currentSpaceId: current,
@@ -350,6 +351,59 @@ export class AuthService {
     const reauthUntil = now() + this.config.env.AUTH_REAUTH_SECONDS;
     await this.sessions.update(session, { reauthUntil });
     return { reauthUntil };
+  }
+
+  /**
+   * Back-office (step 14): a code sent to the super-administrator's phone unlocks the sensitive
+   * actions for ADMIN_REAUTH_SECONDS. Its own purpose: an account reauthentication never counts.
+   */
+  async requestAdminReauth(
+    { user }: AuthContext,
+    locale: Locale,
+    captcha: string | undefined,
+    ip: string,
+  ): Promise<{ resendAfter: number }> {
+    const phone = this.accountPhone(user);
+    const state = await this.limits.checkAttempt(phone, ip);
+    await this.captcha.enforce(state, captcha, 'reauth_otp', phone);
+    const resendAfter = await this.otp.send(phone, 'admin_reauth', locale, ip);
+    await this.adminAudit(user, 'ADMIN_REAUTH_REQUESTED', ip, {});
+    return { resendAfter };
+  }
+
+  async verifyAdminReauth(
+    { user, session }: AuthContext,
+    code: string,
+    captcha: string | undefined,
+    ip: string,
+  ): Promise<{ reauthUntil: number }> {
+    const phone = this.accountPhone(user);
+    await this.verifyCode(phone, 'admin_reauth', code, { action: 'reauth', payload: captcha }, ip);
+    const adminReauthUntil = now() + this.config.env.ADMIN_REAUTH_SECONDS;
+    await this.sessions.update(session, { adminReauthUntil });
+    await this.adminAudit(user, 'ADMIN_REAUTH_CONFIRMED', ip, {
+      until: new Date(adminReauthUntil * 1000).toISOString(),
+    });
+    return { reauthUntil: adminReauthUntil };
+  }
+
+  /** Back-office entries of the audit log (who, when, from which address). */
+  private async adminAudit(
+    user: User,
+    action: string,
+    ip: string,
+    metadata: Prisma.InputJsonObject,
+  ) {
+    await this.prisma.client.auditLog.create({
+      data: {
+        actorId: user.id,
+        action,
+        targetType: 'BackOffice',
+        targetId: 'reauth',
+        metadata,
+        ip,
+      },
+    });
   }
 
   private requireReauth(session: Session): void {

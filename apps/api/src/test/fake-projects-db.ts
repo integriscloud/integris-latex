@@ -179,6 +179,8 @@ export class FakeProjectsDb {
       editorSpellcheck: false,
       lastSpace: null,
       trialUsedAt: null,
+      businessTrialUsedAt: null,
+      emailNotifications: [],
       isSuperAdmin: false,
       disabledAt: null,
       createdAt: new Date(),
@@ -497,6 +499,8 @@ export class FakeProjectsDb {
       },
     },
     notification: {
+      findMany: async ({ where }: { where: { dedupeKey: { in: string[] } } }) =>
+        this.notifications.filter((n) => n.dedupeKey && where.dedupeKey.in.includes(n.dedupeKey)),
       createMany: async ({
         data,
         skipDuplicates,
@@ -516,6 +520,8 @@ export class FakeProjectsDb {
             payload: {},
             dedupeKey: null,
             sentAt: null,
+            failedAt: null,
+            skipped: null,
             readAt: null,
             createdAt: new Date(),
             ...row,

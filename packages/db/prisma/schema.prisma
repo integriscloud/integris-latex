@@ -213,12 +213,22 @@ enum CreditReason {
   USED // deducted from a payment (reserved at checkout)
   RELEASED // reservation given back: the payment failed or expired
   REFUNDED // paid back from the back-office (step 14)
+  ADMIN_CREDIT // added by a super-administrator from the back-office (step 14)
 }
 
 enum NotificationChannel {
   IN_APP
   SMS
   EMAIL
+}
+
+// E-mail copies a user chose to receive (step 14): off by default, per category.
+enum NotificationCategory {
+  SUPERVISION
+  BILLING
+  QUOTA
+  ORGANIZATION
+  PRINT
 }
 
 enum Locale {
@@ -229,23 +239,28 @@ enum Locale {
 // ───────────── Users ─────────────
 
 model User {
-  id               String    @id @default(cuid())
-  phone            String?   @unique
-  phoneVerifiedAt  DateTime?
-  email            String?   @unique
-  emailVerifiedAt  DateTime?
-  passwordHash     String?
-  displayName      String
-  locale           Locale    @default(fr)
+  id                  String                 @id @default(cuid())
+  phone               String?                @unique
+  phoneVerifiedAt     DateTime?
+  email               String?                @unique
+  emailVerifiedAt     DateTime?
+  passwordHash        String?
+  displayName         String
+  locale              Locale                 @default(fr)
   // Browser spell checker in the editor's code (off by default; comments and fields keep it).
-  editorSpellcheck Boolean   @default(false)
-  lastSpace        String? // last chosen space: "personal" or an organization id
+  editorSpellcheck    Boolean                @default(false)
+  lastSpace           String? // last chosen space: "personal" or an organization id
   // The STANDARD trial is given once per account (step 11 decision)
-  trialUsedAt      DateTime?
-  isSuperAdmin     Boolean   @default(false)
-  disabledAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  trialUsedAt         DateTime?
+  // The 30-day BUSINESS pilot trial is given once per owner (step 14 decision)
+  businessTrialUsedAt DateTime?
+  // E-mail copies of the notifications of these categories (step 14); SMS are not optional.
+  emailNotifications  NotificationCategory[] @default([])
+  // Only granted or revoked by the command-line script (step 14), never through the API.
+  isSuperAdmin        Boolean                @default(false)
+  disabledAt          DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
   personalSubscriptions Subscription[]       @relation("PersonalSubscription")
   seats                 Seat[]
@@ -264,6 +279,8 @@ model User {
   credits               CreditEntry[]
   promoRedemptions      PromoRedemption[]
   notifications         Notification[]
+  planRevisions         PlanRevision[]
+  creditsGranted        CreditEntry[]        @relation("CreditGrantedBy")
   usage                 UsageCounter[]
   auditLogs             AuditLog[]
   validationRecords     ValidationRecord[]
@@ -305,38 +322,67 @@ model Plan {
   isActive                   Boolean         @default(true)
   updatedAt                  DateTime        @updatedAt
 
-  subscriptions Subscription[]
+  subscriptions        Subscription[]
+  pendingSubscriptions Subscription[] @relation("PendingPlan")
+  revisions            PlanRevision[]
+}
+
+// Every version of the prices and quotas of a plan (step 14): the history of the back-office
+// changes. A paid period (or a trial) freezes the version it was bought at: its prices stay, and
+// quota by quota the best of that version and the current one applies. Append-only (trigger).
+model PlanRevision {
+  id          String   @id @default(cuid())
+  planId      String
+  plan        Plan     @relation(fields: [planId], references: [id])
+  version     Int
+  // Prices and quotas of the plan at this version (PlanTerms in @integris/shared)
+  terms       Json
+  reason      String
+  changedById String?
+  changedBy   User?    @relation(fields: [changedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  subscriptions        Subscription[] @relation("FrozenRevision")
+  pendingSubscriptions Subscription[] @relation("PendingRevision")
+
+  @@unique([planId, version])
 }
 
 model Subscription {
-  id                   String             @id @default(cuid())
-  planId               String
-  plan                 Plan               @relation(fields: [planId], references: [id])
+  id                    String             @id @default(cuid())
+  planId                String
+  plan                  Plan               @relation(fields: [planId], references: [id])
   // exactly one of userId (FREE/STANDARD) or organizationId (TEAM/BUSINESS), enforced by a CHECK
-  userId               String?
-  user                 User?              @relation("PersonalSubscription", fields: [userId], references: [id])
-  organizationId       String?            @unique
-  organization         Organization?      @relation(fields: [organizationId], references: [id])
-  status               SubscriptionStatus
-  billingPeriod        BillingPeriod
-  seatCount            Int                @default(1)
-  currentPeriodStart   DateTime
-  currentPeriodEnd     DateTime
-  graceEndsAt          DateTime?
-  pausedAt             DateTime? // STANDARD paused while holding a TEAM/BUSINESS seat
-  pausedRemainingDays  Int?
+  userId                String?
+  user                  User?              @relation("PersonalSubscription", fields: [userId], references: [id])
+  organizationId        String?            @unique
+  organization          Organization?      @relation(fields: [organizationId], references: [id])
+  status                SubscriptionStatus
+  billingPeriod         BillingPeriod
+  seatCount             Int                @default(1)
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  graceEndsAt           DateTime?
+  pausedAt              DateTime? // STANDARD paused while holding a TEAM/BUSINESS seat
+  pausedRemainingDays   Int?
   // Lower plan, period or seat count paid in advance, applied at period end (renewal)
-  pendingPlanId        String?
-  pendingBillingPeriod BillingPeriod?
-  pendingSeatCount     Int?
-  pendingValueXof      Int? // value of the pending period (after promo)
+  pendingPlanId         String?
+  pendingPlan           Plan?              @relation("PendingPlan", fields: [pendingPlanId], references: [id])
+  // Version of the plan frozen by the current paid period (or trial), and by the pending one
+  planRevisionId        String?
+  planRevision          PlanRevision?      @relation("FrozenRevision", fields: [planRevisionId], references: [id])
+  pendingPlanRevisionId String?
+  pendingPlanRevision   PlanRevision?      @relation("PendingRevision", fields: [pendingPlanRevisionId], references: [id])
+  pendingBillingPeriod  BillingPeriod?
+  pendingSeatCount      Int?
+  pendingValueXof       Int? // value of the pending period (after promo)
   // Value (FCFA, after promo) of the paid time [paidFromAt, currentPeriodEnd]: base of the
   // upgrade proration credit
-  paidValueXof         Int                @default(0)
-  paidFromAt           DateTime?
-  trialEndsAt          DateTime?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  paidValueXof          Int                @default(0)
+  paidFromAt            DateTime?
+  trialEndsAt           DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   seats    Seat[]
   payments Payment[]
@@ -418,6 +464,8 @@ model Payment {
   providerTransactionId String?        @unique // idempotency key
   providerRaw           Json?
   verifiedAt            DateTime?
+  // Credited duplicate paid back from the back-office (step 14)
+  refundedAt            DateTime?
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
@@ -430,14 +478,19 @@ model Payment {
 }
 
 model CreditEntry {
-  id        String       @id @default(cuid())
-  userId    String
-  user      User         @relation(fields: [userId], references: [id])
-  amountXof Int // positive: credit added; negative: credit used
-  reason    CreditReason
-  paymentId String?
-  payment   Payment?     @relation(fields: [paymentId], references: [id])
-  createdAt DateTime     @default(now())
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  amountXof   Int // positive: credit added; negative: credit used
+  reason      CreditReason
+  paymentId   String?
+  payment     Payment?     @relation(fields: [paymentId], references: [id])
+  // Back-office entries (step 14): who added or refunded it, why, and the external transfer
+  createdById String?
+  createdBy   User?        @relation("CreditGrantedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  note        String?
+  reference   String?
+  createdAt   DateTime     @default(now())
 
   @@index([userId])
   @@index([paymentId])
@@ -463,16 +516,18 @@ model Receipt {
 // ───────────── Organizations (TEAM / BUSINESS) ─────────────
 
 model Organization {
-  id                 String   @id @default(cuid())
-  type               OrgType
-  name               String
-  ifu                String?
+  id                  String    @id @default(cuid())
+  type                OrgType
+  name                String
+  ifu                 String?
   // BUSINESS: code a teacher types to ask to join (confirmed by an admin); null = none yet.
-  joinCode           String?  @unique
+  joinCode            String?   @unique
   // BUSINESS: members may choose their own group ("Classes et filières"), set by the admins.
-  membersChooseGroup Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  membersChooseGroup  Boolean   @default(false)
+  // 30-day BUSINESS pilot trial given from the back-office (once per organization, step 14)
+  pilotTrialStartedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   subscription  Subscription?
   memberships   Membership[]
@@ -993,10 +1048,14 @@ model Notification {
   // Sent at most once per key (quota alerts: quota, level and month)
   dedupeKey String?             @unique
   sentAt    DateTime?
+  // SMS and e-mail (step 14): given up after the last attempt, or not sent (limit, no contact)
+  failedAt  DateTime?
+  skipped   String?
   readAt    DateTime?
   createdAt DateTime            @default(now())
 
   @@index([userId, readAt])
+  @@index([userId, channel, createdAt])
 }
 
 // Append-only: UPDATE, DELETE and TRUNCATE are refused by a trigger (migration integrity_constraints).

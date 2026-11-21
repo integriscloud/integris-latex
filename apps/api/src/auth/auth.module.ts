@@ -21,6 +21,6 @@ import { SpacesService } from './spaces.service.js';
     SessionService,
     SpacesService,
   ],
-  exports: [AuthGuard, SessionService],
+  exports: [AuthGuard, SessionService, AuthService],
 })
 export class AuthModule {}

@@ -14,6 +14,7 @@ import { CompileModule } from '../compile/compile.module.js';
 import { ApiConfig, ConfigModule } from '../config/api-config.js';
 import { configureApp } from '../configure-app.js';
 import { MailModule } from '../mail/mail.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisModule } from '../redis/redis.module.js';
@@ -110,6 +111,7 @@ export async function createCompileTestApp(
       StorageModule,
       SmsModule,
       MailModule,
+      NotificationsModule,
       CompileModule,
       ...modules,
     ],

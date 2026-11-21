@@ -99,7 +99,7 @@ const name = z.string().trim().min(1).max(60);
 /** Purposes of a code requested through POST /auth/otp. */
 export const OTP_PURPOSES = ['signup', 'login'] as const;
 /** `reauth` codes confirm the identity of a signed-in user before a sensitive change. */
-export type OtpPurpose = (typeof OTP_PURPOSES)[number] | 'reauth';
+export type OtpPurpose = (typeof OTP_PURPOSES)[number] | 'reauth' | 'admin_reauth';
 
 /**
  * Actions protected by the CAPTCHA. A challenge is signed for one action and one target (phone
@@ -211,6 +211,8 @@ export const sessionUserSchema = z.object({
   hasPassword: z.boolean(),
   locale: z.enum(LOCALES),
   preferences: userPreferencesSchema,
+  // Shows the back-office link (the back-office checks the role itself on every request).
+  superAdmin: z.boolean(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 

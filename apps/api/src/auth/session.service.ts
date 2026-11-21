@@ -16,6 +16,8 @@ export interface SessionData {
   absoluteExpiresAt: number;
   // Unix seconds until which the e-mail and the password can be changed (recent SMS code).
   reauthUntil?: number;
+  // Unix seconds until which the back-office allows sensitive actions (super-administrators).
+  adminReauthUntil?: number;
 }
 
 export interface Session extends SessionData {
@@ -100,7 +102,7 @@ export class SessionService {
   /** Changes the open space or the reauthentication time, keeping the remaining lifetime. */
   async update(
     session: Session,
-    patch: Partial<Pick<SessionData, 'spaceId' | 'reauthUntil'>>,
+    patch: Partial<Pick<SessionData, 'spaceId' | 'reauthUntil' | 'adminReauthUntil'>>,
   ): Promise<void> {
     const data: SessionData = {
       userId: session.userId,
@@ -108,6 +110,7 @@ export class SessionService {
       createdAt: session.createdAt,
       absoluteExpiresAt: session.absoluteExpiresAt,
       reauthUntil: session.reauthUntil,
+      adminReauthUntil: session.adminReauthUntil,
       ...patch,
     };
     await this.redis.client.set(sessionKey(session.key), JSON.stringify(data), 'KEEPTTL', 'XX');

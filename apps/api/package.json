@@ -28,6 +28,7 @@
     "fflate": "0.8.3",
     "ioredis": "6.0.0",
     "nestjs-pino": "5.3.2",
+    "nodemailer": "10.3.1",
     "pdf-lib": "1.17.1",
     "pdfkit": "0.19.1",
     "pino": "10.4.0",

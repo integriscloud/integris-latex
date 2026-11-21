@@ -23,6 +23,7 @@ import { sha256 } from '../auth/keys.js';
 import { consumeLimit } from '../common/rate-limit.js';
 import { ApiConfig } from '../config/api-config.js';
 import { MAIL_SENDER, type MailSender } from '../mail/mail-sender.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProjectEventsService } from '../projects/project-events.service.js';
 import { isSubscriptionLive } from '../projects/quota.service.js';
@@ -93,6 +94,7 @@ export class OrganizationsService {
     private readonly config: ApiConfig,
     @Inject(SMS_SENDER) private readonly sms: SmsSender,
     @Inject(MAIL_SENDER) private readonly mail: MailSender,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ───────────── Reading ─────────────
@@ -890,18 +892,20 @@ export class OrganizationsService {
     return { organizationName: organization.name, status: 'PENDING_APPROVAL' };
   }
 
-  private async notifyManagers(tx: Tx, organizationId: string, type: string, user: User) {
+  private async notifyManagers(
+    tx: Tx,
+    organizationId: string,
+    type: 'ORG_JOIN_REQUESTED' | 'ORG_TEACHER_REQUESTED',
+    user: User,
+  ) {
     const managers = await tx.membership.findMany({
       where: { organizationId, status: 'ACTIVE', role: { in: ['OWNER', 'ADMIN'] } },
     });
-    await tx.notification.createMany({
-      data: managers.map((manager) => ({
-        userId: manager.userId,
-        channel: 'IN_APP' as const,
-        type,
-        payload: { organizationId, userId: user.id, name: user.displayName },
-      })),
-    });
+    await this.notifications.notify(
+      tx,
+      managers.map((manager) => manager.userId),
+      { type, payload: { organizationId, userId: user.id, name: user.displayName } },
+    );
   }
 
   async myJoinRequests(userId: string): Promise<MyJoinRequest[]> {
@@ -1010,13 +1014,9 @@ export class OrganizationsService {
           type: request.status === 'ACTIVE' ? 'teacher' : 'join',
           ...(groupId ? { groupId } : {}),
         });
-        await tx.notification.create({
-          data: {
-            userId,
-            channel: 'IN_APP',
-            type: 'ORG_JOIN_APPROVED',
-            payload: { organizationId, name: context.organization.name },
-          },
+        await this.notifications.notify(tx, [userId], {
+          type: 'ORG_JOIN_APPROVED',
+          payload: { organizationId, name: context.organization.name },
         });
         return ended;
       }),
@@ -1057,13 +1057,9 @@ export class OrganizationsService {
         userId,
         type: request.status === 'ACTIVE' ? 'teacher' : 'join',
       });
-      await tx.notification.create({
-        data: {
-          userId,
-          channel: 'IN_APP',
-          type: 'ORG_JOIN_REJECTED',
-          payload: { organizationId, name: context.organization.name },
-        },
+      await this.notifications.notify(tx, [userId], {
+        type: 'ORG_JOIN_REJECTED',
+        payload: { organizationId, name: context.organization.name },
       });
     });
     return this.members(actor.userId, organizationId);

@@ -50,8 +50,31 @@ export const apiEnvSchema = z
     // Secret for HMAC of OTP codes, tokens and rate-limit keys.
     AUTH_SECRET: z.string().min(32),
     // `log` writes messages to the API logs instead of sending them (development only).
-    SMS_PROVIDER: z.enum(['log']).default('log'),
-    MAIL_PROVIDER: z.enum(['log']).default('log'),
+    // `ligdicash`: API SMS of sms.ligdicash.io (sender set on the LigdiCash account: INTEGRIS);
+    // `smtp`: the SMTP server of Integris.
+    SMS_PROVIDER: z.enum(['log', 'ligdicash']).default('log'),
+    MAIL_PROVIDER: z.enum(['log', 'smtp']).default('log'),
+    LIGDICASH_SMS_API_URL: z.url().default('https://sms.ligdicash.io'),
+    LIGDICASH_SMS_USER: optionalText(),
+    LIGDICASH_SMS_API_KEY: optionalText(),
+    LIGDICASH_SMS_TOKEN: optionalText(),
+    SMTP_HOST: optionalText(),
+    SMTP_PORT: positiveInt(587),
+    // true: TLS from the first byte (port 465); false: STARTTLS, required (port 587).
+    SMTP_SECURE: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    SMTP_USER: optionalText(),
+    SMTP_PASSWORD: optionalText(),
+    // Sender of every e-mail, e.g. "Integris LaTeX <no-reply@integriscloud.com>".
+    SMTP_FROM: optionalText(),
+    // Notifications (step 14): SMS per user and per UTC day; beyond it, only the in-app one stays.
+    NOTIFY_SMS_PER_USER_PER_DAY: positiveInt(10),
+    // Attempts of one SMS or e-mail of the notification queue before it is given up.
+    NOTIFY_ATTEMPTS: positiveInt(5),
+    // Back-office (step 14): validity of the SMS code that unlocks its sensitive actions.
+    ADMIN_REAUTH_SECONDS: positiveInt(300),
     // Self-hosted ALTCHA proof-of-work CAPTCHA.
     ALTCHA_HMAC_KEY: z.string().min(32),
     ALTCHA_KEY_PREFIX: z
@@ -178,6 +201,28 @@ export const apiEnvSchema = z
     VAT_RATE_PERCENT: z.coerce.number().min(0).max(100).default(0),
   })
   .superRefine((env, ctx) => {
+    // A real provider needs its credentials (filled in .env by the operator).
+    if (env.SMS_PROVIDER === 'ligdicash') {
+      for (const name of [
+        'LIGDICASH_SMS_USER',
+        'LIGDICASH_SMS_API_KEY',
+        'LIGDICASH_SMS_TOKEN',
+      ] as const) {
+        if (!env[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'Required' });
+      }
+      if (!env.LIGDICASH_SMS_API_URL.startsWith('https://')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['LIGDICASH_SMS_API_URL'],
+          message: 'HTTPS required',
+        });
+      }
+    }
+    if (env.MAIL_PROVIDER === 'smtp') {
+      for (const name of ['SMTP_HOST', 'SMTP_FROM'] as const) {
+        if (!env[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'Required' });
+      }
+    }
     if (env.NODE_ENV !== 'production') return;
     // Development fakes and placeholders are refused on a production server.
     if (env.SMS_PROVIDER === 'log' || env.MAIL_PROVIDER === 'log') {
@@ -189,12 +234,19 @@ export const apiEnvSchema = z
     if (!env.LIGDICASH_API_URL.startsWith('https://')) {
       ctx.addIssue({ code: 'custom', path: ['LIGDICASH_API_URL'], message: 'HTTPS required' });
     }
+    // Like the legal mentions of the receipts: real SMS and e-mails need their settings
+    // (optional in development, where the `log` providers stand in for them).
     for (const name of [
       'BILLING_SUPPORT_EMAIL',
       'BILLING_COMPANY_NAME',
       'BILLING_RCCM',
       'BILLING_IFU',
       'BILLING_ADDRESS',
+      'SMTP_HOST',
+      'SMTP_FROM',
+      'LIGDICASH_SMS_USER',
+      'LIGDICASH_SMS_API_KEY',
+      'LIGDICASH_SMS_TOKEN',
     ] as const) {
       if (!env[name])
         ctx.addIssue({ code: 'custom', path: [name], message: 'Required in production' });

@@ -24,6 +24,8 @@
     "dev:plan": "node apps/api/scripts/dev-tools.mjs plan",
     "dev:pay": "node apps/api/scripts/dev-tools.mjs pay",
     "dev:org": "node apps/api/scripts/dev-tools.mjs org",
+    "dev:superadmin": "node apps/api/scripts/dev-tools.mjs superadmin",
+    "superadmin": "node apps/api/scripts/superadmin.mjs",
     "dev:check-env": "node scripts/check-env.mjs"
   },
   "devDependencies": {

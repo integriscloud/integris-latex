@@ -7,6 +7,7 @@ import {
 } from '@integris/shared';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ApiError } from '../common/api-error.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { fail } from '../projects/projects.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -52,7 +53,10 @@ type Db = Tx | PrismaService['client'];
 export class PrintAccessService {
   private readonly logger = new Logger(PrintAccessService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   get db() {
     return this.prisma.client;
@@ -199,28 +203,14 @@ export class PrintAccessService {
     return promoted;
   }
 
-  /** In-app notice to the secretariat of a request that is ready (SMS and e-mail: step 14). */
+  /** In-app notice to the secretariat of a request that is ready (e-mail if chosen, no SMS). */
   async notifyReady(db: Db, request: PrintRequest): Promise<void> {
     const userIds = await this.secretariesOf(db, request.organizationId, request.groupId);
-    const keys = userIds.map((userId) => `print-ready:${request.id}:${userId}`);
-    const existing = new Set(
-      (
-        await db.notification.findMany({
-          where: { dedupeKey: { in: keys } },
-          select: { dedupeKey: true },
-        })
-      ).map((row) => row.dedupeKey),
-    );
-    const data = userIds
-      .filter((userId) => !existing.has(`print-ready:${request.id}:${userId}`))
-      .map((userId) => ({
-        userId,
-        channel: 'IN_APP' as const,
-        type: 'PRINT_READY',
-        payload: { printRequestId: request.id, title: request.title },
-        dedupeKey: `print-ready:${request.id}:${userId}`,
-      }));
-    if (data.length) await db.notification.createMany({ data });
+    await this.notifications.notify(db, userIds, {
+      type: 'PRINT_READY',
+      payload: { printRequestId: request.id, title: request.title },
+      key: `print-ready:${request.id}`,
+    });
   }
 
   // ───────────── Views ─────────────

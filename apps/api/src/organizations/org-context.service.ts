@@ -2,6 +2,7 @@ import type { Membership, Organization, Plan, Prisma, Subscription } from '@inte
 import { type ApiErrorCode } from '@integris/shared';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ApiError } from '../common/api-error.js';
+import { withEffectivePlan } from '../plans/plan-terms.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { OwnerLockService } from '../projects/owner-lock.service.js';
 import { isSubscriptionLive } from '../projects/quota.service.js';
@@ -52,13 +53,17 @@ export class OrgContextService {
     if (!membership) return fail(HttpStatus.NOT_FOUND, 'org_not_found');
     const [organization, subscription] = await Promise.all([
       db.organization.findUniqueOrThrow({ where: { id: organizationId } }),
-      db.subscription.findFirst({ where: { organizationId }, include: { plan: true } }),
+      db.subscription.findFirst({
+        where: { organizationId },
+        include: { plan: true, planRevision: true },
+      }),
     ]);
     if (!subscription) return fail(HttpStatus.NOT_FOUND, 'org_not_found');
     const isOwner = membership.role === 'OWNER';
     return {
       organization,
-      subscription,
+      // Quotas of the version frozen by the paid period, a higher current quota winning.
+      subscription: withEffectivePlan(subscription),
       membership,
       isOwner,
       manages: isOwner || (membership.role === 'ADMIN' && organization.type === 'BUSINESS'),

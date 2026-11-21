@@ -4,11 +4,12 @@ import { CompileModule } from '../compile/compile.module.js';
 import { HistoryModule } from '../history/history.module.js';
 import { ProjectsModule } from '../projects/projects.module.js';
 import { SubmissionsController, ToReviewController } from './submissions.controller.js';
+import { SubmissionRemindersService } from './submission-reminders.service.js';
 import { SubmissionsService } from './submissions.service.js';
 
 @Module({
   imports: [AuthModule, ProjectsModule, HistoryModule, CompileModule],
   controllers: [SubmissionsController, ToReviewController],
-  providers: [SubmissionsService],
+  providers: [SubmissionsService, SubmissionRemindersService],
 })
 export class SubmissionsModule {}

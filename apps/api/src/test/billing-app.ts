@@ -18,6 +18,7 @@ import { configureApp } from '../configure-app.js';
 import type { Mail, MailSender } from '../mail/mail-sender.js';
 import { MAIL_SENDER } from '../mail/mail-sender.js';
 import { MailModule } from '../mail/mail.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PlanLimitsService } from '../projects/plan-limits.service.js';
@@ -32,6 +33,9 @@ import { testEnv } from './auth-app.js';
 import { FakeBillingDb } from './fake-billing-db.js';
 import { FakeStorage } from './fake-projects-db.js';
 import { TEST_USER_HEADER } from './projects-app.js';
+
+/** Header of the tests: the back-office SMS code was confirmed a moment ago. */
+export const TEST_ADMIN_REAUTH_HEADER = 'x-test-admin-reauth';
 
 /** LigdiCash as the tests script it: invoices created, statuses set per token. */
 export class FakeProvider implements PaymentProvider {
@@ -126,7 +130,19 @@ export async function createBillingTestApp(
       const request = context.switchToHttp().getRequest();
       const user = db.tables.user.find((item) => item.id === request.get(TEST_USER_HEADER));
       if (!user) return false;
-      request.auth = { user };
+      // A session of its own per user; `x-test-admin-reauth` stands for a recent back-office code.
+      const now = Math.floor(Date.now() / 1000);
+      request.auth = {
+        user,
+        session: {
+          key: `test-${user.id as string}`,
+          userId: user.id,
+          spaceId: null,
+          createdAt: now,
+          absoluteExpiresAt: now + 3600,
+          adminReauthUntil: request.get(TEST_ADMIN_REAUTH_HEADER) ? now + 300 : undefined,
+        },
+      };
       return true;
     },
   };
@@ -138,6 +154,7 @@ export async function createBillingTestApp(
       StorageModule,
       SmsModule,
       MailModule,
+      NotificationsModule,
       BillingModule,
       ...modules,
     ],

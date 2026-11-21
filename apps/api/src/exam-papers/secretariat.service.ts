@@ -22,6 +22,7 @@ import { ApiConfig } from '../config/api-config.js';
 import { downloadName, type ExamLink, examLinkKey, signExamLink } from '../files/file-links.js';
 import { FilesServer } from '../files/files-server.js';
 import { OrgContextService } from '../organizations/org-context.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.service.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -61,6 +62,7 @@ export class SecretariatService implements OnApplicationBootstrap, OnModuleDestr
     private readonly storage: StorageService,
     private readonly redis: RedisService,
     private readonly config: ApiConfig,
+    private readonly notifications: NotificationsService,
     files: FilesServer,
   ) {
     this.linkKey = examLinkKey(config.env.AUTH_SECRET);
@@ -346,27 +348,20 @@ export class SecretariatService implements OnApplicationBootstrap, OnModuleDestr
   }
 
   /**
-   * The teacher is told by SMS when the subject is printed and handed over (docs/spec.md,
-   * "Notifications"). Step 13 writes the notices; step 14 sends them.
+   * The teacher is told in the application and by SMS when the subject is printed and handed
+   * over (docs/spec.md, "Notifications"); the SMS never names the subject.
    */
   private async notifyTeacher(
     tx: Prisma.TransactionClient,
     request: PrintRequest,
     type: 'PRINT_PRINTED' | 'PRINT_HANDED_OVER',
-    extra: Prisma.InputJsonObject,
+    extra: Record<string, string | number>,
   ): Promise<void> {
-    const payload = { printRequestId: request.id, title: request.title, ...extra };
-    await tx.notification.createMany({
-      data: [
-        { userId: request.teacherId, channel: 'IN_APP', type, payload },
-        {
-          userId: request.teacherId,
-          channel: 'SMS',
-          type,
-          payload,
-          dedupeKey: `${type.toLowerCase()}:sms:${request.id}`,
-        },
-      ],
+    await this.notifications.notify(tx, [request.teacherId], {
+      type,
+      payload: { printRequestId: request.id, title: request.title, ...extra },
+      key: `${type.toLowerCase()}:${request.id}`,
+      perUser: false,
     });
   }
 

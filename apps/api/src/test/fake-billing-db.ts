@@ -1,3 +1,4 @@
+import { planTermsOf } from '@integris/shared';
 import { randomUUID } from 'node:crypto';
 
 // In-memory stand-in for the Prisma calls of the billing and organization modules. Unlike FakeProjectsDb, whose
@@ -19,6 +20,13 @@ interface Relation {
 const RELATIONS: Record<string, Record<string, Relation>> = {
   subscription: {
     plan: { model: 'plan', local: 'planId', foreign: 'id', many: false },
+    planRevision: { model: 'planRevision', local: 'planRevisionId', foreign: 'id', many: false },
+    pendingPlanRevision: {
+      model: 'planRevision',
+      local: 'pendingPlanRevisionId',
+      foreign: 'id',
+      many: false,
+    },
     organization: { model: 'organization', local: 'organizationId', foreign: 'id', many: false },
     user: { model: 'user', local: 'userId', foreign: 'id', many: false },
     seats: { model: 'seat', local: 'id', foreign: 'subscriptionId', many: true },
@@ -52,6 +60,16 @@ const RELATIONS: Record<string, Record<string, Relation>> = {
   },
   organization: {
     memberships: { model: 'membership', local: 'id', foreign: 'organizationId', many: true },
+    subscription: { model: 'subscription', local: 'id', foreign: 'organizationId', many: false },
+  },
+  planRevision: {
+    changedBy: { model: 'user', local: 'changedById', foreign: 'id', many: false },
+  },
+  creditEntry: {
+    createdBy: { model: 'user', local: 'createdById', foreign: 'id', many: false },
+  },
+  notification: {
+    user: { model: 'user', local: 'userId', foreign: 'id', many: false },
   },
   invitation: {
     organization: { model: 'organization', local: 'organizationId', foreign: 'id', many: false },
@@ -74,6 +92,10 @@ const RELATIONS: Record<string, Record<string, Relation>> = {
   projectFile: {
     project: { model: 'project', local: 'projectId', foreign: 'id', many: false },
   },
+  submission: {
+    project: { model: 'project', local: 'projectId', foreign: 'id', many: false },
+    reviewers: { model: 'submissionReviewer', local: 'id', foreign: 'submissionId', many: true },
+  },
   payment: {
     receipt: { model: 'receipt', local: 'id', foreign: 'paymentId', many: false },
     credits: { model: 'creditEntry', local: 'id', foreign: 'paymentId', many: true },
@@ -94,6 +116,7 @@ const UNIQUE: Record<string, string[][]> = {
   receipt: [['number'], ['paymentId']],
   promoCode: [['code']],
   promoRedemption: [['paymentId'], ['promoCodeId', 'userId']],
+  planRevision: [['planId', 'version']],
   notification: [['dedupeKey']],
   membership: [['organizationId', 'userId']],
   organization: [['joinCode']],
@@ -120,6 +143,8 @@ const DEFAULTS: Record<string, () => Row> = {
     paidValueXof: 0,
     paidFromAt: null,
     trialEndsAt: null,
+    planRevisionId: null,
+    pendingPlanRevisionId: null,
   }),
   seat: () => ({
     userId: null,
@@ -229,10 +254,16 @@ const DEFAULTS: Record<string, () => Row> = {
     checkoutUrl: null,
     duplicateReason: null,
     lastCheckedAt: null,
+    refundedAt: null,
   }),
   receipt: () => ({ emailedAt: null }),
-  creditEntry: () => ({ paymentId: null }),
-  organization: () => ({ ifu: null, joinCode: null, membersChooseGroup: false }),
+  creditEntry: () => ({ paymentId: null, createdById: null, note: null, reference: null }),
+  organization: () => ({
+    ifu: null,
+    joinCode: null,
+    membersChooseGroup: false,
+    pilotTrialStartedAt: null,
+  }),
   membership: () => ({
     kind: 'OTHER',
     status: 'ACTIVE',
@@ -241,7 +272,15 @@ const DEFAULTS: Record<string, () => Row> = {
     groupId: null,
     teacherRequestedAt: null,
   }),
-  notification: () => ({ channel: 'IN_APP', dedupeKey: null, sentAt: null, readAt: null }),
+  notification: () => ({
+    channel: 'IN_APP',
+    dedupeKey: null,
+    sentAt: null,
+    failedAt: null,
+    skipped: null,
+    readAt: null,
+  }),
+  planRevision: () => ({ changedById: null }),
   promoCode: () => ({
     planCodes: [],
     validUntil: null,
@@ -255,6 +294,7 @@ const DEFAULTS: Record<string, () => Row> = {
 const MODELS = [
   'user',
   'plan',
+  'planRevision',
   'subscription',
   'seat',
   'organization',
@@ -276,6 +316,7 @@ const MODELS = [
   'projectFile',
   'usageCounter',
   'submission',
+  'submissionReviewer',
   'secretariatScope',
   'printRequest',
   'printEvent',
@@ -301,7 +342,19 @@ function compare(a: unknown, b: unknown): number {
   return value(a) - value(b);
 }
 
-const OPERATORS = new Set(['in', 'notIn', 'not', 'lt', 'lte', 'gt', 'gte', 'equals', 'has']);
+const OPERATORS = new Set([
+  'in',
+  'notIn',
+  'not',
+  'lt',
+  'lte',
+  'gt',
+  'gte',
+  'equals',
+  'has',
+  'contains',
+  'mode',
+]);
 
 function matchesField(value: unknown, condition: unknown): boolean {
   if (!isPlainObject(condition) || !Object.keys(condition).every((key) => OPERATORS.has(key))) {
@@ -313,6 +366,11 @@ function matchesField(value: unknown, condition: unknown): boolean {
     if (op === 'notIn' && (operand as unknown[]).some((item) => same(value, item))) return false;
     if (op === 'not' && matchesField(value, operand)) return false;
     if (op === 'has' && !(value as unknown[]).includes(operand)) return false;
+    if (op === 'contains') {
+      const insensitive = (condition as { mode?: string }).mode === 'insensitive';
+      const text = (x: unknown) => (insensitive ? String(x).toLowerCase() : String(x));
+      if (typeof value !== 'string' || !text(value).includes(text(operand))) return false;
+    }
     if (['lt', 'lte', 'gt', 'gte'].includes(op)) {
       if (value === null || value === undefined) return false;
       const diff = compare(value, operand);
@@ -596,6 +654,8 @@ export class FakeBillingDb {
       editorSpellcheck: false,
       lastSpace: null,
       trialUsedAt: null,
+      businessTrialUsedAt: null,
+      emailNotifications: [],
       isSuperAdmin: false,
       disabledAt: null,
       ...data,
@@ -613,6 +673,19 @@ export class FakeBillingDb {
         volumeDiscountPercent: null,
         trialDays: null,
         isActive: true,
+        // Quotas of the grid (docs/spec.md), FREE values by default
+        maxProjects: 3,
+        maxCollaboratorsPerProject: 1,
+        maxCompileSeconds: 20,
+        maxCompilesPerHour: 30,
+        storageBytes: 100n * 1024n * 1024n,
+        historyDays: 1,
+        autoCompile: false,
+        supervisionDashboard: false,
+        maxSupervisedStudents: null,
+        aiRequestsPerDay: 5,
+        compilePriority: 'LOW',
+        maxAdmins: 0,
         ...values,
       });
     plan('FREE', { priceMonthlyXof: 0, priceYearlyXof: 0, minSeats: 1, maxSeats: 1 });
@@ -622,16 +695,61 @@ export class FakeBillingDb {
       minSeats: 1,
       maxSeats: 1,
       trialDays: 14,
+      maxProjects: null,
+      maxCollaboratorsPerProject: 5,
+      maxCompileSeconds: 120,
+      maxCompilesPerHour: 120,
+      storageBytes: 2n * 1024n * 1024n * 1024n,
+      historyDays: 90,
+      autoCompile: true,
+      aiRequestsPerDay: 50,
+      compilePriority: 'NORMAL',
     });
-    plan('TEAM', { priceMonthlyXof: 2500, priceYearlyXof: 25000, minSeats: 2, maxSeats: 10 });
+    plan('TEAM', {
+      priceMonthlyXof: 2500,
+      priceYearlyXof: 25000,
+      minSeats: 2,
+      maxSeats: 10,
+      maxProjects: null,
+      maxCollaboratorsPerProject: null,
+      maxCompileSeconds: 240,
+      maxCompilesPerHour: 200,
+      storageBytes: 5n * 1024n * 1024n * 1024n,
+      historyDays: null,
+      autoCompile: true,
+      aiRequestsPerDay: 100,
+      compilePriority: 'HIGH',
+    });
     plan('BUSINESS', {
       priceMonthlyXof: 2000,
       priceYearlyXof: 20000,
       minSeats: 10,
       maxSeats: null,
       volumeDiscountFromSeats: 100,
+      maxProjects: null,
+      maxCollaboratorsPerProject: null,
+      maxCompileSeconds: 240,
+      maxCompilesPerHour: 200,
+      storageBytes: 5n * 1024n * 1024n * 1024n,
+      historyDays: null,
+      autoCompile: true,
+      supervisionDashboard: true,
+      maxSupervisedStudents: 30,
+      aiRequestsPerDay: 100,
+      compilePriority: 'HIGH',
+      maxAdmins: 5,
     });
     this.insert('billingCounter', { id: 'receipt', value: 0 });
+    // Version 1 of each plan (step 14), as the migration writes it.
+    for (const row of this.tables.plan) {
+      this.insert('planRevision', {
+        id: `rev1_${row.id as string}`,
+        planId: row.id,
+        version: 1,
+        terms: planTermsOf(row as unknown as Parameters<typeof planTermsOf>[0]),
+        reason: 'initial',
+      });
+    }
   }
 
   rows(model: Model, where?: Where): Row[] {

@@ -507,6 +507,17 @@ describe('submissions', () => {
       });
       expect(fileAt('ch2.tex')!.lockedBySubmissionId).toBe(created.id);
       expect(fileAt('main.tex')!.lockedBySubmissionId).toBe(created.id);
+      // Notified in the application (and by SMS): reviewers on each sending, the author on
+      // feedback and validation.
+      const notices = ctx.db.notifications.filter((row) => row.channel === 'IN_APP');
+      expect(notices.map((row) => [row.type, row.userId])).toEqual([
+        ['SUBMISSION_RECEIVED', supervisor.id],
+        ['SUBMISSION_RECEIVED', reviewer.id],
+        ['SUBMISSION_FEEDBACK', student.id],
+        ['SUBMISSION_RECEIVED', supervisor.id],
+        ['SUBMISSION_RECEIVED', reviewer.id],
+        ['SUBMISSION_VALIDATED', student.id],
+      ]);
       expect(ctx.db.records).toEqual([
         expect.objectContaining({
           submissionId: created.id,

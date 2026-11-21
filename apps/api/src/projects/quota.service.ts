@@ -6,6 +6,7 @@ import {
   usagePeriodStart,
 } from '@integris/shared';
 import { Injectable } from '@nestjs/common';
+import { effectivePlan } from '../plans/plan-terms.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.service.js';
 
@@ -104,8 +105,9 @@ export function combineQuotas(plans: readonly Plan[]): EffectiveQuotas {
 }
 
 /**
- * Quotas of a user, read from the `Plan` table: the FREE plan, the personal subscription and every
- * seat held in a TEAM or BUSINESS. Quotas are per seat and never pooled; usage is charged to the
+ * Quotas of a user, read from the `Plan` table: the FREE plan (current version), the personal
+ * subscription and every seat held in a TEAM or BUSINESS (version frozen by the paid period, a
+ * higher current quota winning; see effectivePlan). Quotas are per seat and never pooled; usage is charged to the
  * owner of the project.
  */
 @Injectable()
@@ -122,12 +124,18 @@ export class QuotaService {
       db.plan.findUniqueOrThrow({ where: { code: 'FREE' } }),
       db.subscription.findMany({
         where: { userId, status: { in: LIVE_STATUSES } },
-        include: { plan: true },
+        include: { plan: true, planRevision: true },
       }),
       db.seat.findMany({
         where: { userId, releasedAt: null, subscription: { status: { in: LIVE_STATUSES } } },
         include: {
-          subscription: { include: { plan: true, organization: { select: { name: true } } } },
+          subscription: {
+            include: {
+              plan: true,
+              planRevision: true,
+              organization: { select: { name: true } },
+            },
+          },
         },
       }),
     ]);
@@ -137,7 +145,7 @@ export class QuotaService {
         .filter((subscription) => isSubscriptionLive(subscription, now))
         .map((subscription) => ({
           kind: 'personal' as const,
-          plan: subscription.plan,
+          plan: effectivePlan(subscription.plan, subscription.planRevision),
           organizationName: null,
           periodEnd: subscription.currentPeriodEnd,
         })),
@@ -145,7 +153,7 @@ export class QuotaService {
         .filter((seat) => isSubscriptionLive(seat.subscription, now))
         .map((seat) => ({
           kind: 'seat' as const,
-          plan: seat.subscription.plan,
+          plan: effectivePlan(seat.subscription.plan, seat.subscription.planRevision),
           organizationName: seat.subscription.organization?.name ?? null,
           periodEnd: seat.subscription.currentPeriodEnd,
         })),

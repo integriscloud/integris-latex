@@ -419,6 +419,7 @@ describe('auth API', () => {
           ifu: null,
           joinCode: null,
           membersChooseGroup: false,
+          pilotTrialStartedAt: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },

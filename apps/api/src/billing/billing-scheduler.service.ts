@@ -1,6 +1,7 @@
 import type { Subscription } from '@integris/db';
 import {
   addPeriod,
+  BUSINESS_TRIAL_REMINDER_DAYS,
   GRACE_REMINDER_DAYS,
   RENEWAL_REMINDER_DAYS,
   SUBSCRIPTION_GRACE_DAYS,
@@ -13,6 +14,7 @@ import {
   type OnModuleDestroy,
 } from '@nestjs/common';
 import { ApiConfig } from '../config/api-config.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { OwnerLockService } from '../projects/owner-lock.service.js';
 import { PlanLimitsService } from '../projects/plan-limits.service.js';
@@ -20,6 +22,7 @@ import { RedisService } from '../redis/redis.service.js';
 import { billingSms, formatDate } from './billing-messages.js';
 import { BillingNotifier } from './billing-notifier.service.js';
 import { payerOf } from './billing-orders.js';
+import { latestRevisionId } from '../plans/plan-terms.js';
 import { resizeSeats } from './seat-resize.js';
 import { billingLockKey, PaymentProcessor } from './payment-processor.service.js';
 import { ReceiptsService } from './receipts.service.js';
@@ -53,6 +56,7 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
     private readonly receipts: ReceiptsService,
     private readonly pause: SubscriptionPauseService,
     private readonly notifier: BillingNotifier,
+    private readonly notifications: NotificationsService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -83,6 +87,7 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
       ['grace', () => this.startGrace(now)],
       ['renewal reminders', () => this.renewalReminders(now)],
       ['trial reminders', () => this.trialReminders(now)],
+      ['business trial reminders', () => this.businessTrialReminders(now)],
       ['grace reminders', () => this.graceReminders(now)],
       ['pauses', () => this.syncPauses(now)],
       ['receipts', () => this.receipts.deliverPending(now)],
@@ -136,6 +141,10 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
               currentPeriodEnd: addPeriod(start, period),
               paidValueXof: current.pendingValueXof ?? 0,
               paidFromAt: start,
+              // The version paid in advance (step 14), else the current one.
+              planRevisionId:
+                current.pendingPlanRevisionId ?? (await latestRevisionId(tx, plan.id)),
+              pendingPlanRevisionId: null,
               pendingPlanId: null,
               pendingBillingPeriod: null,
               pendingSeatCount: null,
@@ -206,7 +215,7 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
       const payer = await payerOf(db, subscription);
       if (!payer) continue;
       const key = `grace:${subscription.id}:${subscription.currentPeriodEnd.toISOString()}`;
-      await this.notifier.inApp(
+      await this.notifier.notice(
         db,
         payer,
         'GRACE_STARTED',
@@ -216,13 +225,12 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
           subscriptionId: subscription.id,
         },
         key,
-      );
-      await this.notifier.smsOnce(payer, 'GRACE_STARTED', key, (locale) =>
-        billingSms.graceStarted[locale](
-          planName(subscription, locale),
-          formatDate(graceEndsAt),
-          this.link(locale, subscription.id),
-        ),
+        (locale) =>
+          billingSms.graceStarted[locale](
+            planName(subscription, locale),
+            formatDate(graceEndsAt),
+            this.link(locale, subscription.id),
+          ),
       );
     }
     return ended.length;
@@ -249,7 +257,7 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
       const payer = await payerOf(db, subscription);
       if (!payer) continue;
       const key = `renewal:${subscription.id}:${subscription.currentPeriodEnd.toISOString()}:${days}`;
-      const fresh = await this.notifier.inApp(
+      const fresh = await this.notifier.notice(
         db,
         payer,
         'RENEWAL_REMINDER',
@@ -259,16 +267,14 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
           subscriptionId: subscription.id,
         },
         key,
+        (locale) =>
+          billingSms.renewal[locale](
+            planName(subscription, locale),
+            formatDate(subscription.currentPeriodEnd),
+            this.link(locale, subscription.id),
+          ),
       );
-      if (!fresh) continue;
-      sent++;
-      await this.notifier.smsOnce(payer, 'RENEWAL_REMINDER', key, (locale) =>
-        billingSms.renewal[locale](
-          planName(subscription, locale),
-          formatDate(subscription.currentPeriodEnd),
-          this.link(locale, subscription.id),
-        ),
-      );
+      if (fresh) sent++;
     }
     return sent;
   }
@@ -287,7 +293,7 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
     for (const trial of trials) {
       if (!trial.userId) continue;
       const key = `trial:${trial.id}`;
-      const fresh = await this.notifier.inApp(
+      const fresh = await this.notifier.notice(
         db,
         trial.userId,
         'TRIAL_REMINDER',
@@ -297,12 +303,10 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
           subscriptionId: trial.id,
         },
         key,
+        (locale) =>
+          billingSms.trialEnding[locale](formatDate(trial.currentPeriodEnd), this.link(locale)),
       );
-      if (!fresh) continue;
-      sent++;
-      await this.notifier.smsOnce(trial.userId, 'TRIAL_REMINDER', key, (locale) =>
-        billingSms.trialEnding[locale](formatDate(trial.currentPeriodEnd), this.link(locale)),
-      );
+      if (fresh) sent++;
     }
     // Trials that ended (expired by PlanLimitsService.sweep, or about to be): told once.
     const ended = await db.subscription.findMany({
@@ -316,7 +320,7 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
       // Converted to a paid STANDARD: the trial end is not the end of the plan.
       if (!trial.userId || trial.currentPeriodEnd.getTime() !== trial.trialEndsAt?.getTime())
         continue;
-      await this.notifier.inApp(
+      await this.notifier.notice(
         db,
         trial.userId,
         'TRIAL_ENDED',
@@ -327,6 +331,52 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
         },
         `trial-ended:${trial.id}`,
       );
+    }
+    return sent;
+  }
+
+  /**
+   * BUSINESS pilot trials (step 14): the owner and the admins are reminded 7 and 3 days before the
+   * end (an extension moves the end, so the reminders come again before the new one).
+   */
+  async businessTrialReminders(now: Date): Promise<number> {
+    const db = this.prisma.client;
+    const horizon = Math.max(...BUSINESS_TRIAL_REMINDER_DAYS);
+    const trials = await db.subscription.findMany({
+      where: {
+        status: 'TRIALING',
+        organizationId: { not: null },
+        currentPeriodEnd: { gt: now, lte: new Date(now.getTime() + horizon * DAY_MS) },
+      },
+      include: { organization: true },
+      take: 200,
+    });
+    let sent = 0;
+    for (const trial of trials) {
+      const left = trial.currentPeriodEnd.getTime() - now.getTime();
+      const days = Math.min(...BUSINESS_TRIAL_REMINDER_DAYS.filter((day) => left <= day * DAY_MS));
+      const managers = await db.membership.findMany({
+        where: {
+          organizationId: trial.organizationId!,
+          status: 'ACTIVE',
+          role: { in: ['OWNER', 'ADMIN'] },
+        },
+      });
+      const told = await this.notifications.notify(
+        db,
+        managers.map((manager) => manager.userId),
+        {
+          type: 'BUSINESS_TRIAL_REMINDER',
+          payload: {
+            organizationId: trial.organizationId,
+            name: trial.organization?.name ?? '',
+            date: trial.currentPeriodEnd.toISOString(),
+            subscriptionId: trial.id,
+          },
+          key: `business-trial:${trial.id}:${trial.currentPeriodEnd.toISOString()}:${days}`,
+        },
+      );
+      sent += told.length;
     }
     return sent;
   }
@@ -350,19 +400,21 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
           (id): id is string => id !== null,
         ),
       );
-      for (const userId of people) {
-        const key = `grace-ending:${subscription.id}:${subscription.graceEndsAt!.toISOString()}:${userId}`;
-        if (
-          await this.notifier.smsOnce(userId, 'GRACE_STARTED', key, (locale) =>
-            billingSms.graceEnding[locale](
-              planName(subscription, locale),
-              formatDate(subscription.graceEndsAt!),
-            ),
-          )
-        ) {
-          sent++;
-        }
-      }
+      const told = await this.notifications.notify(db, [...people], {
+        type: 'GRACE_ENDING',
+        payload: {
+          planCode: subscription.plan.code,
+          date: subscription.graceEndsAt!.toISOString(),
+          subscriptionId: subscription.id,
+        },
+        key: `grace-ending:${subscription.id}:${subscription.graceEndsAt!.toISOString()}`,
+        sms: (locale) =>
+          billingSms.graceEnding[locale](
+            planName(subscription, locale),
+            formatDate(subscription.graceEndsAt!),
+          ),
+      });
+      sent += told.length;
     }
     return sent;
   }

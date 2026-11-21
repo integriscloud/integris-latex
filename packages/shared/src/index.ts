@@ -1,3 +1,4 @@
+export * from './admin.js';
 export * from './auth.js';
 export * from './billing.js';
 export * from './collab.js';
@@ -8,6 +9,7 @@ export * from './exam-papers.js';
 export * from './errors.js';
 export * from './history.js';
 export * from './line-diff.js';
+export * from './notifications.js';
 export * from './organizations.js';
 export * from './i18n.js';
 export * from './plans.js';

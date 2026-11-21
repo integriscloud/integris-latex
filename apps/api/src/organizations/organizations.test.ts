@@ -923,7 +923,11 @@ describe('supervision', () => {
     await as(teacher).post(`/supervisions/${requested.id}/accept`).expect(204);
     expect(t.db.rows('supervision', { id: requested.id })[0]!.status).toBe('ACTIVE');
 
+    // A period bought with this limit (a lower current quota alone waits for the next period).
     t.db.rows('plan', { code: 'BUSINESS' })[0]!.maxSupervisedStudents = 1;
+    (
+      t.db.rows('planRevision', { planId: 'BUSINESS' })[0]!.terms as Record<string, unknown>
+    ).maxSupervisedStudents = 1;
     const second = person('Étudiant');
     await join(second, { kind: 'STUDENT' });
     const refused = await assign({ supervisorId: teacher.id, studentId: second.id }).expect(409);

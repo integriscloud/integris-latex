@@ -142,11 +142,14 @@ export function BillingView({
                 </p>
               )}
               <div className={styles.actions}>
-                {['ACTIVE', 'GRACE', 'EXPIRED'].includes(row.status) && !row.pending && (
-                  <ButtonLink href={checkout(`?renew=${row.id}`)} variant="primary">
-                    {t('renew')}
-                  </ButtonLink>
-                )}
+                {/* A BUSINESS pilot trial is paid by renewing it (period from its end). */}
+                {(['ACTIVE', 'GRACE', 'EXPIRED'].includes(row.status) ||
+                  (row.status === 'TRIALING' && row.organization)) &&
+                  !row.pending && (
+                    <ButtonLink href={checkout(`?renew=${row.id}`)} variant="primary">
+                      {t('renew')}
+                    </ButtonLink>
+                  )}
                 {['ACTIVE', 'GRACE'].includes(row.status) &&
                   !row.pending &&
                   (row.organization

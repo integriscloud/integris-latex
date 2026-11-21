@@ -44,6 +44,8 @@ export class FakePrisma {
       editorSpellcheck: false,
       lastSpace: null,
       trialUsedAt: null,
+      businessTrialUsedAt: null,
+      emailNotifications: [],
       isSuperAdmin: false,
       disabledAt: null,
       createdAt: new Date(),

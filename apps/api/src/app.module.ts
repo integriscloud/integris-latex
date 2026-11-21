@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
+import { AdminModule } from './admin/admin.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { CollabModule } from './collab/collab.module.js';
@@ -11,6 +12,7 @@ import { ConfigModule } from './config/api-config.js';
 import { HealthModule } from './health/health.module.js';
 import { HistoryModule } from './history/history.module.js';
 import { MailModule } from './mail/mail.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PlansModule } from './plans/plans.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -40,6 +42,7 @@ import { SubmissionsModule } from './submissions/submissions.module.js';
     RedisModule,
     SmsModule,
     MailModule,
+    NotificationsModule,
     StorageModule,
     HealthModule,
     PlansModule,
@@ -53,6 +56,7 @@ import { SubmissionsModule } from './submissions/submissions.module.js';
     BillingModule,
     OrganizationsModule,
     ExamPapersModule,
+    AdminModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
 })
