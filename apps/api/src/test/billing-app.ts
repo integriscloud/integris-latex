@@ -1,6 +1,6 @@
 import '../load-env.js';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { CanActivate, ExecutionContext } from '@nestjs/common';
+import type { CanActivate, ExecutionContext, Type } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { AuthGuard } from '../auth/auth.guard.js';
@@ -105,9 +105,13 @@ export interface BillingTestApp {
   reconciled: string[];
 }
 
-/** The billing API wired as in production, with fakes for the database, LigdiCash and messages. */
+/**
+ * The billing API (and the given modules: organizations) wired as in production, with fakes for
+ * the database, LigdiCash and messages.
+ */
 export async function createBillingTestApp(
   overrides: Record<string, string> = {},
+  modules: Type[] = [],
 ): Promise<BillingTestApp> {
   const env = testEnv(overrides);
   const db = new FakeBillingDb();
@@ -133,6 +137,7 @@ export async function createBillingTestApp(
       SmsModule,
       MailModule,
       BillingModule,
+      ...modules,
     ],
     providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
   })

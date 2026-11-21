@@ -20,6 +20,7 @@ import { RedisService } from '../redis/redis.service.js';
 import { billingSms, formatDate } from './billing-messages.js';
 import { BillingNotifier } from './billing-notifier.service.js';
 import { payerOf } from './billing-orders.js';
+import { resizeSeats } from './seat-resize.js';
 import { billingLockKey, PaymentProcessor } from './payment-processor.service.js';
 import { ReceiptsService } from './receipts.service.js';
 import { SubscriptionPauseService } from './subscription-pause.service.js';
@@ -117,7 +118,6 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
         db.$transaction(async (tx) => {
           const current = await tx.subscription.findUnique({
             where: { id: subscription.id },
-            include: { seats: { where: { releasedAt: null } } },
           });
           if (!current?.pendingPlanId || current.currentPeriodEnd > now) return;
           const period = current.pendingBillingPeriod ?? current.billingPeriod;
@@ -148,25 +148,16 @@ export class BillingScheduler implements OnApplicationBootstrap, OnModuleDestroy
               data: { type: plan.code === 'TEAM' ? 'TEAM' : 'BUSINESS' },
             });
           }
-          // Free seats beyond the new count are removed (held seats were checked at payment).
-          const free = current.seats.filter((seat) => seat.userId === null && !seat.assignedAt);
-          const extra = current.seats.length - seats;
-          if (extra > 0) {
-            await tx.seat.deleteMany({
-              where: { id: { in: free.slice(0, extra).map((seat) => seat.id) } },
-            });
-          } else if (extra < 0) {
-            await tx.seat.createMany({
-              data: Array.from({ length: -extra }, () => ({ subscriptionId: current.id })),
-            });
-          }
+          // Seats beyond the new count are removed if nobody holds nor reserves them (held and
+          // reserved seats were checked at payment, and invitations respect the pending count).
+          const { removed } = await resizeSeats(tx, current.id, seats);
           await tx.auditLog.create({
             data: {
               actorId: null,
               action: 'SUBSCRIPTION_CHANGE_APPLIED',
               targetType: 'Subscription',
               targetId: current.id,
-              metadata: { planCode: plan.code, period, seats },
+              metadata: { planCode: plan.code, period, seats, removedSeatIds: removed },
             },
           });
         }),

@@ -147,7 +147,8 @@
 .link {
   /* Block, not flex: the ellipsis of long names needs it. Full row height: 44 px target. */
   display: block;
-  flex: 1 1 0;
+  /* Sized on the name first: the size column gives way before the name is cut. */
+  flex: 1 1 auto;
   min-width: 0;
   line-height: var(--cible-tactile);
   color: var(--texte);
@@ -170,6 +171,7 @@
 }
 
 .marker {
+  position: relative;
   display: inline-flex;
   flex: none;
   gap: 2px;
@@ -178,12 +180,18 @@
   color: var(--or-600);
 }
 
+/* The marker shows its icon only, its name goes to the tooltip and screen readers: a file name
+   is never cut to make room for "Fichier principal" (main.tex once showed as "m"). */
 .markerText {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (min-width: 600px) {
-  .markerText,
   .size {
     display: inline;
   }
@@ -191,8 +199,14 @@
 
 .size {
   display: none;
-  flex: none;
+  /* Shrinks (and is cut) long before the file name does. */
+  flex: 0 1000 auto;
+  min-width: 0;
+  overflow: hidden;
   margin-left: auto;
+  padding-left: var(--espace-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font: var(--t-legende);
   color: var(--texte-3);
   font-variant-numeric: tabular-nums;

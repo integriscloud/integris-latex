@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-// In-memory stand-in for the Prisma calls of the billing module. Unlike FakeProjectsDb, whose
+// In-memory stand-in for the Prisma calls of the billing and organization modules. Unlike FakeProjectsDb, whose
 // methods match the exact call shapes of the projects module, this one interprets the Prisma
 // arguments it is given (where with operators, AND/OR, include of the relations listed below,
 // increments, unique constraints), because payments touch many tables in one transaction.
@@ -26,6 +26,30 @@ const RELATIONS: Record<string, Record<string, Relation>> = {
   seat: {
     subscription: { model: 'subscription', local: 'subscriptionId', foreign: 'id', many: false },
   },
+  membership: {
+    user: { model: 'user', local: 'userId', foreign: 'id', many: false },
+    organization: { model: 'organization', local: 'organizationId', foreign: 'id', many: false },
+  },
+  invitation: {
+    organization: { model: 'organization', local: 'organizationId', foreign: 'id', many: false },
+    invitedBy: { model: 'user', local: 'invitedById', foreign: 'id', many: false },
+  },
+  supervision: {
+    supervisor: { model: 'user', local: 'supervisorId', foreign: 'id', many: false },
+    student: { model: 'user', local: 'studentId', foreign: 'id', many: false },
+    projectAccesses: {
+      model: 'projectMember',
+      local: 'id',
+      foreign: 'viaSupervisionId',
+      many: true,
+    },
+  },
+  projectMember: {
+    project: { model: 'project', local: 'projectId', foreign: 'id', many: false },
+  },
+  projectFile: {
+    project: { model: 'project', local: 'projectId', foreign: 'id', many: false },
+  },
   payment: {
     receipt: { model: 'receipt', local: 'id', foreign: 'paymentId', many: false },
     credits: { model: 'creditEntry', local: 'id', foreign: 'paymentId', many: true },
@@ -48,6 +72,10 @@ const UNIQUE: Record<string, string[][]> = {
   promoRedemption: [['paymentId'], ['promoCodeId', 'userId']],
   notification: [['dedupeKey']],
   membership: [['organizationId', 'userId']],
+  organization: [['joinCode']],
+  invitation: [['tokenHash']],
+  seat: [['invitationId']],
+  projectMember: [['projectId', 'userId']],
 };
 
 const DEFAULTS: Record<string, () => Row> = {
@@ -66,7 +94,55 @@ const DEFAULTS: Record<string, () => Row> = {
     paidFromAt: null,
     trialEndsAt: null,
   }),
-  seat: () => ({ userId: null, assignedAt: null, releasedAt: null, reassignableAt: null }),
+  seat: () => ({
+    userId: null,
+    assignedAt: null,
+    releasedAt: null,
+    reassignableAt: null,
+    invitationId: null,
+  }),
+  invitation: () => ({
+    phone: null,
+    email: null,
+    role: 'MEMBER',
+    kind: 'OTHER',
+    status: 'PENDING',
+    displayName: null,
+    groupId: null,
+    importId: null,
+    locale: 'fr',
+    acceptedById: null,
+    decidedAt: null,
+  }),
+  orgGroup: () => ({ parentId: null }),
+  supervision: () => ({
+    organizationId: null,
+    status: 'PENDING',
+    assignedById: null,
+    startsAt: new Date(),
+    endsAt: null,
+    endedAt: null,
+    endedById: null,
+  }),
+  userImport: () => ({
+    fileKey: null,
+    fileName: null,
+    status: 'PENDING',
+    totalRows: 0,
+    invitedCount: 0,
+    errorRows: null,
+    finishedAt: null,
+  }),
+  project: () => ({
+    kind: 'DOCUMENT',
+    readOnlyReason: null,
+    deletedAt: null,
+    lastActivityAt: new Date(),
+  }),
+  projectMember: () => ({ viaSupervisionId: null }),
+  projectFile: () => ({ sizeBytes: 0 }),
+  usageCounter: () => ({ compileCount: 0, compileSeconds: 0 }),
+  submission: () => ({ title: null, dueAt: null, status: 'DRAFT' }),
   payment: () => ({
     subscriptionId: null,
     seats: 1,
@@ -85,13 +161,14 @@ const DEFAULTS: Record<string, () => Row> = {
   }),
   receipt: () => ({ emailedAt: null }),
   creditEntry: () => ({ paymentId: null }),
-  organization: () => ({ ifu: null }),
+  organization: () => ({ ifu: null, joinCode: null, membersChooseGroup: false }),
   membership: () => ({
     kind: 'OTHER',
     status: 'ACTIVE',
     approvedById: null,
     approvedAt: null,
     groupId: null,
+    teacherRequestedAt: null,
   }),
   notification: () => ({ channel: 'IN_APP', dedupeKey: null, sentAt: null, readAt: null }),
   promoCode: () => ({
@@ -119,6 +196,15 @@ const MODELS = [
   'promoRedemption',
   'notification',
   'auditLog',
+  'invitation',
+  'orgGroup',
+  'supervision',
+  'userImport',
+  'project',
+  'projectMember',
+  'projectFile',
+  'usageCounter',
+  'submission',
 ] as const;
 type Model = (typeof MODELS)[number];
 
@@ -288,6 +374,27 @@ export class FakeBillingDb {
       findFirst: async (args: Args = {}) => {
         const row = find(args)[0];
         return row ? shape(row, args) : null;
+      },
+      findFirstOrThrow: async (args: Args) => {
+        const row = find(args)[0];
+        if (!row) throw Object.assign(new Error(`${model} not found`), { code: 'P2025' });
+        return shape(row, args);
+      },
+      groupBy: async (args: { by: string[]; where?: Where; _sum?: Record<string, boolean> }) => {
+        const groups = new Map<string, Row[]>();
+        for (const row of find(args)) {
+          const key = JSON.stringify(args.by.map((field) => row[field]));
+          groups.set(key, [...(groups.get(key) ?? []), row]);
+        }
+        return [...groups.values()].map((rows) => ({
+          ...Object.fromEntries(args.by.map((field) => [field, rows[0]![field]])),
+          _sum: Object.fromEntries(
+            Object.keys(args._sum ?? {}).map((field) => [
+              field,
+              rows.reduce((total, row) => total + (row[field] as number), 0),
+            ]),
+          ),
+        }));
       },
       findUniqueOrThrow: async (args: Args) => {
         const row = find(args)[0];

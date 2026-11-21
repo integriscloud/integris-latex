@@ -239,7 +239,12 @@ export class AuthService {
   ): Promise<MeResponse> {
     const pending = await this.redis.client.get(pendingEmailKey(user.id));
     const pendingEmail = pending ? (JSON.parse(pending) as { email: string }).email : null;
-    const current = spaces.some((space) => space.id === session.spaceId) ? session.spaceId : null;
+    // A space the user no longer belongs to (removed from an organization, left it) is closed:
+    // with a single space left, it opens by itself, as at sign-in; else the user chooses again.
+    const current = spaces.some((space) => space.id === session.spaceId)
+      ? session.spaceId
+      : this.spaces.initialSpace(spaces);
+    if (current !== session.spaceId) await this.sessions.update(session, { spaceId: current });
     return {
       user: {
         id: user.id,

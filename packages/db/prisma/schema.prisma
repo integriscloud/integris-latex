@@ -259,6 +259,7 @@ model User {
   auditLogs             AuditLog[]
   validationRecords     ValidationRecord[]
   invitationsSent       Invitation[]         @relation("InvitedBy")
+  invitationsAccepted   Invitation[]         @relation("OrgInvitationAcceptedBy")
   projectInvitesSent    ProjectInvitation[]  @relation("ProjectInvitedBy")
   projectInvitesTaken   ProjectInvitation[]  @relation("ProjectInvitationAcceptedBy")
   shareLinksCreated     ShareLink[]
@@ -344,6 +345,9 @@ model Seat {
   assignedAt     DateTime?
   releasedAt     DateTime?
   reassignableAt DateTime? // releasedAt + 30 days
+  // Reserved for a pending invitation (step 12): given back at once if it is not accepted.
+  invitationId   String?      @unique
+  invitation     Invitation?  @relation(fields: [invitationId], references: [id])
   createdAt      DateTime     @default(now())
 
   @@index([subscriptionId])
@@ -450,12 +454,16 @@ model Receipt {
 // ───────────── Organizations (TEAM / BUSINESS) ─────────────
 
 model Organization {
-  id        String   @id @default(cuid())
-  type      OrgType
-  name      String
-  ifu       String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  type               OrgType
+  name               String
+  ifu                String?
+  // BUSINESS: code a teacher types to ask to join (confirmed by an admin); null = none yet.
+  joinCode           String?  @unique
+  // BUSINESS: members may choose their own group ("Classes et filières"), set by the admins.
+  membersChooseGroup Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   subscription Subscription?
   memberships  Membership[]
@@ -472,30 +480,38 @@ model UserImport {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   createdById    String
-  fileKey        String
+  // The CSV itself is not kept (personal data): only its name and the report.
+  fileKey        String?
+  fileName       String?
   status         ImportStatus @default(PENDING)
   totalRows      Int          @default(0)
   invitedCount   Int          @default(0)
   errorRows      Json? // [{ row, reason }]
   createdAt      DateTime     @default(now())
   finishedAt     DateTime?
+
+  invitations Invitation[]
+
+  @@index([organizationId, createdAt])
 }
 
 model Membership {
-  id                String             @id @default(cuid())
-  organizationId    String
-  organization      Organization       @relation(fields: [organizationId], references: [id])
-  userId            String
-  user              User               @relation(fields: [userId], references: [id])
-  role              OrgRole
-  kind              MemberKind         @default(OTHER)
-  status            MembershipStatus   @default(ACTIVE)
-  approvedById      String?
-  approvedAt        DateTime?
-  groupId           String?
-  group             OrgGroup?          @relation(fields: [groupId], references: [id])
-  secretariatScopes SecretariatScope[]
-  createdAt         DateTime           @default(now())
+  id                 String             @id @default(cuid())
+  organizationId     String
+  organization       Organization       @relation(fields: [organizationId], references: [id])
+  userId             String
+  user               User               @relation(fields: [userId], references: [id])
+  role               OrgRole
+  kind               MemberKind         @default(OTHER)
+  status             MembershipStatus   @default(ACTIVE)
+  approvedById       String?
+  approvedAt         DateTime?
+  groupId            String?
+  group              OrgGroup?          @relation(fields: [groupId], references: [id])
+  // An active member (student) asked, with the join code, to become a teacher: an admin confirms.
+  teacherRequestedAt DateTime?
+  secretariatScopes  SecretariatScope[]
+  createdAt          DateTime           @default(now())
 
   @@unique([organizationId, userId])
 }
@@ -512,6 +528,10 @@ model OrgGroup {
   memberships    Membership[]
   secretariats   SecretariatScope[]
   printRequests  PrintRequest[]
+  invitations    Invitation[]
+  createdAt      DateTime           @default(now())
+
+  @@index([organizationId])
 }
 
 // Groups a SECRETARY membership serves
@@ -538,7 +558,21 @@ model Invitation {
   tokenHash      String           @unique
   status         InvitationStatus @default(PENDING)
   expiresAt      DateTime
+  // Name typed by the inviter (CSV import), shown until the account accepts.
+  displayName    String?
+  groupId        String?
+  group          OrgGroup?        @relation(fields: [groupId], references: [id])
+  importId       String?
+  userImport     UserImport?      @relation(fields: [importId], references: [id])
+  locale         Locale           @default(fr)
+  acceptedById   String?
+  acceptedBy     User?            @relation("OrgInvitationAcceptedBy", fields: [acceptedById], references: [id])
+  decidedAt      DateTime?
   createdAt      DateTime         @default(now())
+
+  seat Seat?
+
+  @@index([organizationId, status])
 }
 
 // ───────────── Projects & files ─────────────
@@ -618,13 +652,17 @@ model FileDocument {
 }
 
 model ProjectMember {
-  id        String      @id @default(cuid())
-  projectId String
-  project   Project     @relation(fields: [projectId], references: [id])
-  userId    String
-  user      User        @relation(fields: [userId], references: [id])
-  role      ProjectRole
-  createdAt DateTime    @default(now())
+  id               String       @id @default(cuid())
+  projectId        String
+  project          Project      @relation(fields: [projectId], references: [id])
+  userId           String
+  user             User         @relation(fields: [userId], references: [id])
+  role             ProjectRole
+  // Supervisor role opened by the student to a supervisor of their organization (step 12):
+  // removed when the supervision ends.
+  viaSupervisionId String?
+  viaSupervision   Supervision? @relation(fields: [viaSupervisionId], references: [id], onDelete: SetNull)
+  createdAt        DateTime     @default(now())
 
   @@unique([projectId, userId])
 }
@@ -779,11 +817,20 @@ model Supervision {
   organizationId String?
   organization   Organization?     @relation(fields: [organizationId], references: [id])
   status         SupervisionStatus @default(PENDING)
+  // Admin who assigned the supervisor; null when the student invited them.
+  assignedById   String?
   startsAt       DateTime          @default(now())
+  // End date set by the organization: the link ends by itself then.
   endsAt         DateTime?
+  endedAt        DateTime?
+  endedById      String?
   createdAt      DateTime          @default(now())
 
-  @@unique([supervisorId, studentId, organizationId])
+  projectAccesses ProjectMember[]
+
+  // One live link per pair and organization: partial unique index in SQL (status <> 'ENDED').
+  @@index([supervisorId, organizationId, status])
+  @@index([studentId, status])
 }
 
 // A submission (docs/spec.md, "Encadrement"): files to review, sent to one or more reviewers.

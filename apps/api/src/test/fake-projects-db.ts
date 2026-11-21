@@ -189,7 +189,14 @@ export class FakeProjectsDb {
   }
 
   share(projectId: string, userId: string, role: ProjectRole): void {
-    this.members.push({ id: randomUUID(), projectId, userId, role, createdAt: new Date() });
+    this.members.push({
+      id: randomUUID(),
+      projectId,
+      userId,
+      role,
+      viaSupervisionId: null,
+      createdAt: new Date(),
+    });
   }
 
   private person(id: string | null) {
@@ -1125,7 +1132,12 @@ export class FakeProjectsDb {
         return row ? { ...row } : null;
       },
       create: async ({ data }: { data: Pick<ProjectMember, 'projectId' | 'userId' | 'role'> }) => {
-        const row: ProjectMember = { id: randomUUID(), createdAt: new Date(), ...data };
+        const row: ProjectMember = {
+          id: randomUUID(),
+          createdAt: new Date(),
+          viaSupervisionId: null,
+          ...data,
+        };
         this.members.push(row);
         return { ...row };
       },

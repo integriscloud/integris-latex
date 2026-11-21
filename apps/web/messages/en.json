@@ -180,8 +180,8 @@
     },
     "trial": "{days}-day free trial",
     "seats": {
-      "range": "{min} to {max} seats, owner included",
-      "atLeast": "{min} seats or more, owner included"
+      "range": "{min} to {max, plural, one {# seat} other {# seats}}, owner included",
+      "atLeast": "{min, plural, one {# seat} other {# seats}} or more, owner included"
     },
     "projects": {
       "limited": "{count, plural, one {# project} other {# projects}}",
@@ -199,13 +199,13 @@
     },
     "history": {
       "hours": "Version history: {hours} h",
-      "days": "Version history: {days} days",
+      "days": "Version history: {days, plural, one {# day} other {# days}}",
       "unlimited": "Unlimited version history"
     },
     "compile": {
       "seconds": "Compiles up to {seconds} s",
       "minutes": "Compiles up to {minutes} min",
-      "perHour": "{count} compiles per hour"
+      "perHour": "{count, plural, one {# compile} other {# compiles}} per hour"
     },
     "autoCompile": "Automatic compilation",
     "priority": {
@@ -213,7 +213,7 @@
       "NORMAL": "Normal compile priority",
       "LOW": "Low compile priority"
     },
-    "supervision": "Supervision dashboard ({count} students per supervisor)",
+    "supervision": "Supervision dashboard ({count, plural, one {# student} other {# students}} per supervisor)",
     "cta": {
       "free": "Start for free",
       "paid": "Choose {name}"
@@ -258,7 +258,7 @@
       "optional": "(optional)",
       "code": "Code received by SMS",
       "codeDigit": "Digit {index} of {length}",
-      "passwordHelp": "At least {min} characters. An easy-to-remember sentence is a good choice."
+      "passwordHelp": "At least {min, plural, one {# character} other {# characters}}. An easy-to-remember sentence is a good choice."
     },
     "login": {
       "metaTitle": "Log in",
@@ -285,7 +285,7 @@
       "resend": "Send the code again",
       "resendIn": "Send the code again in {seconds} s",
       "resent": "A new code has been sent to you.",
-      "incomplete": "Enter the {length} digits of the code."
+      "incomplete": "Enter {length, plural, one {the digit} other {the # digits}} of the code."
     },
     "signup": {
       "metaTitle": "Create an account",
@@ -442,7 +442,14 @@
       "trash": "Trash",
       "account": "My account",
       "usage": "My usage",
-      "billing": "Subscription"
+      "billing": "Subscription",
+      "organization": "Organization",
+      "members": "Users",
+      "groups": "Classes and programs",
+      "supervision": "Supervision",
+      "students": "My students",
+      "supervisors": "My supervisors",
+      "join": "Join an institution"
     },
     "switchSpace": "Switch space",
     "openMenu": "Open the menu",
@@ -467,7 +474,7 @@
       "projectLimit": "You have reached the limit of {max, plural, one {# project} other {# projects}} of the {plan} plan. Move a project to the trash or upgrade to create another one.",
       "storageLimit": "Your {plan} plan storage is full. Delete files or upgrade to add more.",
       "upgrade": "See plans",
-      "projectWarn": "You are using {count} of the {max} projects of the {plan} plan. Beyond that, you will not be able to create more.",
+      "projectWarn": "You are using {count} of the {max, plural, one {# project} other {# projects}} of the {plan} plan. Beyond that, you will not be able to create more.",
       "storageWarn": "You have used more than 80% of the storage of the {plan} plan."
     }
   },
@@ -544,7 +551,7 @@
   "Trash": {
     "metaTitle": "Trash",
     "title": "Trash",
-    "subtitle": "Projects are erased for good {days} days after being moved to the trash.",
+    "subtitle": "Projects are erased for good {days, plural, one {# day} other {# days}} after being moved to the trash.",
     "listTitle": "Projects in the trash",
     "emptyTitle": "The trash is empty",
     "emptyText": "Projects you delete stay here 30 days before being erased.",
@@ -644,9 +651,9 @@
     "name_dots": "“.” and “..” cannot be used as a name.",
     "name_char": "The character “{char}” is not allowed in a name.",
     "name_char_invisible": "This name contains an invisible character (tab, line break…), which is not allowed.",
-    "name_too_long": "This name is too long: {max} characters at most.",
-    "path_too_long": "The full path would exceed {max} characters: choose a shorter name or a less deeply nested folder.",
-    "path_too_deep": "Too many nested folders: {max} levels at most.",
+    "name_too_long": "This name is too long: {max, plural, one {# character} other {# characters}} at most.",
+    "path_too_long": "The full path would exceed {max, plural, one {# character} other {# characters}}: choose a shorter name or a less deeply nested folder.",
+    "path_too_deep": "Too many nested folders: {max, plural, one {# level} other {# levels}} at most.",
     "name_extension": "The extension “{extension}” is not accepted. Allowed extensions: {extensions}.",
     "name_taken": "“{name}” already exists in {folder}."
   },
@@ -768,7 +775,7 @@
     "replaceLabel": "Replace with",
     "replaceAll": "Replace all",
     "searchCount": "{count, plural, =0 {No results.} one {# result} other {# results}}{count, plural, =0 {} other { in {files, plural, one {# file} other {# files}}.}}",
-    "searchTooMany": "More than {count} results: narrow the search.",
+    "searchTooMany": "More than {count, plural, one {# result} other {# results}}: narrow the search.",
     "replaceDone": "{count, plural, =0 {No replacement.} one {# replacement} other {# replacements}}{count, plural, =0 {} other { in {files, plural, one {# file} other {# files}}.}}",
     "replaceFailed": "Not changed (changed elsewhere or read-only): {paths}.",
     "pdfTitle": "PDF preview",
@@ -818,10 +825,10 @@
     "spellcheckHelp": "Underlines mistakes in the code with the browser's spell checker. Off by default because it also underlines LaTeX commands; comments and text fields always keep it. Saved to your account.",
     "settingsFailed": "The setting could not be saved. Try again.",
     "autoCompileFree": "Automatic compilation is for paid plans.",
-    "compileLimits": "Your plan: {seconds} s per compilation, {perHour} compilations per hour.",
+    "compileLimits": "Your plan: {seconds} s per compilation, {perHour, plural, one {# compilation} other {# compilations}} per hour.",
     "compileReadOnly": "You can read the last PDF; only the owner and editors compile.",
     "compileSaveFirst": "Some changes are not saved: the compilation uses the last saved version.",
-    "compileLimit": "You have used the {perHour} compilations per hour of your plan. Try again in {minutes, plural, one {# minute} other {# minutes}} or move to a higher plan.",
+    "compileLimit": "You have used {perHour, plural, one {the compilation} other {the # compilations}} per hour of your plan. Try again in {minutes, plural, one {# minute} other {# minutes}} or move to a higher plan.",
     "pdfEmpty": "No PDF yet",
     "pdfEmptyHint": "Compile the project to see its PDF here.",
     "pdfEmptyReader": "The project has not been compiled yet.",
@@ -875,7 +882,7 @@
     "share": "Share",
     "commentSelection": "Comment on the selection",
     "commentSelectFirst": "First select a passage of the code, then comment on it.",
-    "commentTooLong": "The selection is longer than {max} characters: comment on a shorter passage.",
+    "commentTooLong": "The selection is longer than {max, plural, one {# character} other {# characters}}: comment on a shorter passage.",
     "readOnlyCommenter": "You can comment and propose changes, without changing the files.",
     "commentLine": "Comment on line {line}",
     "commentEmptyLine": "This line is empty: choose a line with text, or select a passage.",
@@ -889,8 +896,8 @@
     "wordCountNoMain": "The main file {path} cannot be found.",
     "wordCountLoading": "Counting…",
     "wordCountRecount": "Count again",
-    "hourWarn": "{used} of {perHour} compilations this hour.",
-    "hourFull": "The {perHour} compilations of this hour are used.",
+    "hourWarn": "{used} of {perHour, plural, one {# compilation} other {# compilations}} this hour.",
+    "hourFull": "{perHour, plural, one {The compilation of this hour is used.} other {The # compilations of this hour are used.}}",
     "storageWarn": "More than 80% of your plan's storage is used.",
     "storageFull": "Your plan's storage is full: additions are blocked."
   },
@@ -1227,7 +1234,7 @@
     },
     "message": "Message",
     "optional": "(optional)",
-    "messageHelp": "{count}/{max} characters · in the e-mail and on the invitation page, never in the SMS",
+    "messageHelp": "{count}/{max, plural, one {# character} other {# characters}} · in the e-mail and on the invitation page, never in the SMS",
     "collaborators": "Collaborators: {used} of {max} (the owner and supervisors do not count)",
     "collaboratorsUnlimited": "Collaborators: {used} (no limit with your plan)",
     "limitReached": "Your plan allows {max, plural, one {# collaborator} other {# collaborators}} per project, pending invitations included. Supervisors do not count.",
@@ -1547,7 +1554,7 @@
       "autoCompile": "Automatic compilation",
       "priority": "Compilation priority",
       "supervision": "Supervision dashboard",
-      "supervisionValue": "{max} students followed per supervisor"
+      "supervisionValue": "{max, plural, one {# student followed} other {# students followed}} per supervisor"
     },
     "priority": {
       "HIGH": "High",
@@ -1608,7 +1615,7 @@
     },
     "personal": "Personal plan",
     "organization": "Organization “{name}”",
-    "seats": "{used} of {total} seats taken",
+    "seats": "{used} of {total, plural, one {# seat taken} other {# seats taken}}",
     "periodEnd": "Paid until {date}",
     "trialEnd": "Trial until {date}, then back to Free unless you pay",
     "graceEnd": "Due date passed: the plan stays active until {date}, then goes back to Free. Nothing is deleted.",
@@ -1621,7 +1628,7 @@
     "choosePlan": "Choose a plan",
     "noSubscription": "You are on the Free plan.",
     "trialTitle": "Free Standard trial",
-    "trialText": "{days} days of Standard without paying, once. At the end, you go back to Free (reminder 3 days before); nothing is deleted.",
+    "trialText": "{days, plural, one {# day} other {# days}} of Standard without paying, once. At the end, you go back to Free (reminder 3 days before); nothing is deleted.",
     "trialStart": "Start the trial",
     "trialStarted": "Your Standard trial has started.",
     "emailRequired": "Receipts are sent by e-mail only: add and confirm your e-mail address before paying.",
@@ -1668,8 +1675,8 @@
       "yearlySavingSingle": "Yearly: save {amount} over a year",
       "monthlyHelp": "Paid every month",
       "seats": "Number of seats",
-      "seatsHelpRange": "From {min} to {max} seats, you included",
-      "seatsHelpMin": "{min} seats or more, you included",
+      "seatsHelpRange": "From {min} to {max, plural, one {# seat} other {# seats}}, you included",
+      "seatsHelpMin": "{min, plural, one {# seat} other {# seats}} or more, you included",
       "addSeats": "Seats to add",
       "addSeatsHelp": "Prorated until the due date of {date}, then renewed with the others.",
       "organization": "Name of the organization",
@@ -1732,7 +1739,7 @@
       "subscribed": "You already have a Standard subscription."
     },
     "trialOfferTitle": "Or try it for free first",
-    "trialOfferText": "{days} days of Standard without paying, once per account. At the end, back to Free unless you pay (reminder 3 days before).",
+    "trialOfferText": "{days, plural, one {# day} other {# days}} of Standard without paying, once per account. At the end, back to Free unless you pay (reminder 3 days before).",
     "trialPaidAfter": "You are on trial until {date}: the paid period will start at the end of the trial."
   },
   "BillingErrors": {
@@ -1751,5 +1758,331 @@
     "seats_in_use": "Some seats are taken: choose at least as many seats.",
     "payment_not_found": "Payment not found.",
     "payment_unavailable": "LigdiCash is not answering right now. Try again in a few minutes: nothing was charged."
+  },
+  "Organization": {
+    "metaTitle": "Organization",
+    "subtitleManager": "{plan} plan · members and seats",
+    "subtitleMember": "{plan} plan · you hold a seat",
+    "plans": {
+      "TEAM": "Team",
+      "BUSINESS": "Business"
+    },
+    "kinds": {
+      "TEACHER": "Teacher",
+      "STUDENT": "Student",
+      "SECRETARY": "Secretariat",
+      "OTHER": "Member"
+    },
+    "roles": {
+      "OWNER": "Owner",
+      "ADMIN": "Admin",
+      "MEMBER": "Member"
+    },
+    "inactive": "The organization's subscription is no longer active: its members no longer get its quotas and no seat can be given. The owner can renew it from \"Subscription\".",
+    "seats": {
+      "title": "Seats",
+      "add": "Add seats",
+      "used": "Held",
+      "usedOf": "{used} of {total}",
+      "reserved": "Reserved by an invitation",
+      "waiting": "Released, 30-day wait",
+      "free": "Free",
+      "nextFree": "Next released seat can be given again on {date}.",
+      "full": "Every seat is taken: the owner can add seats to invite more members."
+    },
+    "members": {
+      "title": "Members",
+      "manage": "Manage members",
+      "teachers": "Teachers",
+      "students": "Students",
+      "all": "Members",
+      "invitations": "Pending invitations",
+      "joinRequests": "Join requests to confirm",
+      "admins": "{count, plural, =0 {No admin} one {# admin} other {# admins}} of {max} allowed."
+    },
+    "joinCode": {
+      "title": "Institution code",
+      "regenerate": "New code",
+      "help": "Give this code to teachers: they type it in \"Join an institution\" and their request waits for an admin's confirmation. A new code makes the old one unusable."
+    },
+    "subscription": {
+      "title": "Subscription",
+      "text": "{plan} plan, current period until {date}.",
+      "manage": "See the subscription"
+    },
+    "leave": {
+      "title": "Leave the organization",
+      "text": "You keep your account and your projects. You lose this seat's quotas and your supervision links in this organization end.",
+      "button": "Leave the organization",
+      "confirmTitle": "Leave \"{name}\"?",
+      "confirm": "Leave",
+      "confirmText": "Your seat is released and you go back to the Free plan (or your paused Standard). To come back, you will need a new invitation."
+    },
+    "settings": {
+      "title": "Settings",
+      "membersChooseGroup": "Members choose their own class or program",
+      "membersChooseGroupHelp": "Otherwise, only the owner and the admins place them in a class or program."
+    },
+    "myGroup": {
+      "title": "My class or program",
+      "label": "Class or program",
+      "none": "None"
+    },
+    "becomeTeacher": {
+      "title": "Become a teacher",
+      "text": "Do you teach at this institution? Type its code: an admin will confirm your teacher profile. Until then, you stay a student.",
+      "button": "Type the institution code",
+      "pending": "Your request to become a teacher waits for an admin's confirmation."
+    }
+  },
+  "Members": {
+    "metaTitle": "Users",
+    "title": "Users",
+    "noGroup": "None",
+    "seats": "{held, plural, one {# seat held} other {# seats held}} of {total} · {reserved, plural, =0 {none reserved} one {# reserved by an invitation} other {# reserved by invitations}} · {free} free.",
+    "waiting": "{count, plural, one {# released seat} other {# released seats}} can be given again from {date}.",
+    "invite": {
+      "title": "Invite a member",
+      "channel": "Send the invitation",
+      "byPhone": "By SMS",
+      "byEmail": "By e-mail",
+      "phone": "Phone number",
+      "dialCode": "Country code",
+      "email": "E-mail address",
+      "kind": "Profile",
+      "group": "Class or program",
+      "help": "The invitation reserves a seat for 14 days. If it is declined or expires, the seat is free again at once.",
+      "sent": "Invitation sent. The seat is reserved until the answer.",
+      "submit": "Send the invitation"
+    },
+    "import": {
+      "title": "Import a list (CSV)",
+      "help": "Each valid line gets an invitation and reserves a seat. Lines with errors are listed after the import.",
+      "columns": "CSV file in UTF-8, \";\" or \",\" separator, with a header line: nom (name), telephone, email, profil (etudiant or enseignant, student or teacher), classe (optional, exact name of an existing class).",
+      "choose": "Choose a CSV file",
+      "hint": "or drop it here · 1 MB and 2,000 lines at most",
+      "running": "Import in progress ({count, plural, one {# line} other {# lines}})…",
+      "done": "Import done: {invited, plural, =0 {no invitation sent} one {# invitation sent} other {# invitations sent}}, {errors, plural, =0 {no line with errors} one {# line with errors} other {# lines with errors}}.",
+      "failed": "The import stopped. Invitations already sent stay valid; try again with the remaining lines.",
+      "errorsTitle": "Lines with errors",
+      "errorLine": "Line {line} ({contact}): {reason}",
+      "reasons": {
+        "contact_missing": "no phone nor e-mail",
+        "contact_invalid": "invalid phone or e-mail",
+        "country_not_allowed": "country of the number not accepted",
+        "kind_invalid": "unknown profile (student or teacher)",
+        "group_unknown": "unknown class",
+        "duplicate_row": "same contact as an earlier line",
+        "already_member": "already a member or join request pending",
+        "already_invited": "already invited",
+        "no_free_seat": "no free seat left",
+        "not_sent": "SMS or e-mail not sent"
+      }
+    },
+    "requests": {
+      "title": "{count, plural, one {# join request to confirm} other {# join requests to confirm}}",
+      "help": "These teachers declared themselves members of the institution. Check their identity before confirming: the confirmation takes a seat.",
+      "since": "{contact} · asked on {date}",
+      "reject": "Refuse",
+      "approve": "Confirm as teacher",
+      "teacherRequest": "Already a member as a student: asks for the teacher profile (no new seat)."
+    },
+    "invitations": {
+      "title": "{count, plural, one {# pending invitation} other {# pending invitations}}",
+      "until": "valid until {date}",
+      "revoke": "Cancel"
+    },
+    "list": {
+      "title": "{count, plural, one {# member} other {# members}}",
+      "kind": "Profile of {name}",
+      "group": "Class or program of {name}",
+      "setAdmin": "Make admin",
+      "unsetAdmin": "Remove admin role",
+      "remove": "Remove"
+    },
+    "remove": {
+      "title": "Remove {name}?",
+      "confirm": "Remove",
+      "text": "This member keeps their account and projects. Their seat is released but can be given again only after 30 days. Their supervision links in the organization end."
+    },
+    "usage": {
+      "projects": "Projects",
+      "storage": "Storage",
+      "compiles": "Compilations this month",
+      "compilesValue": "{count} ({minutes, plural, one {# min} other {# min}})"
+    }
+  },
+  "Groups": {
+    "metaTitle": "Classes and programs",
+    "pageTitle": "Classes and programs",
+    "subtitle": "Faculties, departments and classes of the institution",
+    "topLevel": "None (top level)",
+    "members": "{count, plural, =0 {No member} one {# member} other {# members}}",
+    "edit": "Edit",
+    "delete": "Delete",
+    "create": "New class or program",
+    "name": "Name",
+    "parent": "Inside",
+    "add": "Add",
+    "title": "{count, plural, =0 {No class nor program} one {# class or program} other {# classes and programs}}",
+    "empty": "Create a first class or program, for example a faculty, then its departments and classes.",
+    "editTitle": "Edit \"{name}\"",
+    "save": "Save"
+  },
+  "SupervisionAdmin": {
+    "metaTitle": "Supervision",
+    "title": "Supervision",
+    "subtitle": "Supervisors assigned to students",
+    "choose": "Choose…",
+    "teacherWithCount": "{name} ({count}/{max, plural, one {# student} other {# students}})",
+    "optional": "optional",
+    "assign": {
+      "title": "Assign a supervisor",
+      "supervisor": "Supervisor",
+      "student": "Student",
+      "endsAt": "End of supervision",
+      "help": "Supervision starts at once. It opens no project: the student chooses the projects they open to their supervisor. On the end date, the accesses are removed; comments stay.",
+      "submit": "Assign"
+    },
+    "links": {
+      "title": "{count, plural, =0 {No supervision} one {# supervision} other {# supervisions}}",
+      "empty": "No supervision in progress.",
+      "pair": "{supervisor} supervises {student}",
+      "pending": "Student's request pending",
+      "until": "until {date}",
+      "since": "since {date}",
+      "reassign": "Reassign",
+      "setDate": "End date",
+      "confirm": "Confirm the supervision",
+      "end": "End"
+    },
+    "reassign": {
+      "title": "Reassign {name}",
+      "to": "New supervisor",
+      "help": "The former supervisor loses access to the projects the student opened; their comments stay. The student opens their projects to the new supervisor."
+    },
+    "date": {
+      "title": "End of supervision of {name}"
+    },
+    "save": "Save"
+  },
+  "SupervisionDashboard": {
+    "metaTitle": "My students",
+    "title": "My students",
+    "count": "{count, plural, one {# student followed} other {# students followed}} of {max} allowed",
+    "countUnlimited": "{count, plural, =0 {No student followed} one {# student followed} other {# students followed}}",
+    "requests": {
+      "title": "{count, plural, one {# supervision request} other {# supervision requests}}",
+      "since": "asked on {date}",
+      "decline": "Decline",
+      "accept": "Accept"
+    },
+    "empty": {
+      "title": "No student followed",
+      "text": "Your students show here when an admin assigns them to you or when you accept their request."
+    },
+    "rowsLabel": "Students followed, by urgency",
+    "noProject": "no project opened",
+    "urgency": {
+      "overdue": "Deadline passed",
+      "to_review": "To review",
+      "due_soon": "Deadline soon"
+    },
+    "due": "due on {date}",
+    "submissions": "{count, plural, =0 {no submission} one {# submission} other {# submissions}}",
+    "activity": "last activity {when}",
+    "openSubmission": "Review",
+    "openProject": "Open the project"
+  },
+  "MySupervisors": {
+    "metaTitle": "My supervisors",
+    "pageTitle": "My supervisors",
+    "subtitle": "Your supervisors and the projects you open to them",
+    "title": "{count, plural, =0 {No supervisor} one {# supervisor} other {# supervisors}}",
+    "empty": "You have no supervisor yet. Ask a teacher of the institution to supervise you, or wait for the administration to assign one.",
+    "pending": "Waiting for their answer",
+    "active": "Supervision active",
+    "until": "until {date}",
+    "opened": "Projects opened to this supervisor:",
+    "noneOpened": "No project opened: choose the ones they can review.",
+    "close": "Stop opening \"{project}\" to this supervisor",
+    "project": "Project to open to {name}",
+    "chooseProject": "Choose a project…",
+    "open": "Open to the supervisor",
+    "cancel": "Cancel the request",
+    "ask": {
+      "title": "Ask for a supervisor",
+      "none": "No other teacher of the institution to ask.",
+      "teacher": "Teacher",
+      "choose": "Choose…",
+      "submit": "Send the request",
+      "help": "The teacher accepts or declines. Once the supervision is active, you choose the projects they can read and comment on (Supervisor role)."
+    }
+  },
+  "JoinOrganization": {
+    "title": "Join an institution",
+    "subtitle": "Teachers: link your account to your institution",
+    "help": "Type the institution code given by your administration. Your request waits for an admin's confirmation; the institution's space then shows in \"Switch space\".",
+    "code": "Institution code",
+    "send": "Send the request",
+    "sent": "Request sent to \"{organization}\". You will be linked as soon as an admin confirms it.",
+    "pendingTitle": "Requests waiting for confirmation",
+    "pendingSince": "sent on {date}"
+  },
+  "OrgInvitation": {
+    "metaTitle": "Invitation",
+    "title": "Invitation to join an organization",
+    "loading": "Reading the invitation…",
+    "invalid": "This invitation link is not valid. Ask for a new invitation.",
+    "declined": "Invitation declined. Nothing changed for you.",
+    "text": "{inviter} invites you to join \"{organization}\".",
+    "as": "Profile: {kind}.",
+    "seat": "You will hold a seat: its quotas add to your account (the best quota applies), your projects stay yours and the organization never sees their content.",
+    "sentToPhone": "Invitation sent to {contact}, valid until {date}.",
+    "sentToEmail": "Invitation sent to {contact}, valid until {date}.",
+    "status": {
+      "PENDING": "Invitation pending.",
+      "ACCEPTED": "This invitation was already accepted.",
+      "EXPIRED": "This invitation expired: ask for a new one.",
+      "DECLINED": "This invitation was declined.",
+      "REVOKED": "This invitation was canceled by the organization."
+    },
+    "signedInAs": "Signed in as {name}.",
+    "otherPhone": "This invitation was sent to {contact}. Sign in with the account of that number to accept it.",
+    "otherEmail": "This invitation was sent to {contact}. Add and confirm that address in your account, or sign in with the account that uses it.",
+    "accept": "Accept and join",
+    "decline": "Decline",
+    "signInPhone": "To accept, sign in with the account of the number {contact}, or create it.",
+    "signInEmail": "To accept, sign in with an account whose address {contact} is confirmed, or create one.",
+    "signIn": "Sign in",
+    "signUp": "Create an account"
+  },
+  "OrgErrors": {
+    "org_not_found": "Organization not found, or you are no longer a member.",
+    "org_forbidden": "Only the owner and the admins can do this.",
+    "business_only": "Business plan only.",
+    "subscription_inactive": "The organization's subscription is no longer active: renew it to give seats.",
+    "no_free_seat": "No free seat left. The owner can add seats from \"Subscription\" (a released seat can be given again only after 30 days).",
+    "already_org_member": "This person is already a member of the organization.",
+    "already_org_invited": "An invitation is already pending for this contact.",
+    "admin_limit": "Maximum number of admins reached for this plan.",
+    "cannot_remove_owner": "The owner cannot be removed nor change role.",
+    "owner_cannot_leave": "The owner cannot leave their organization.",
+    "member_not_found": "This member or request no longer exists.",
+    "join_code_invalid": "Unknown institution code. Check it with your administration.",
+    "join_pending": "A join request is already pending for this account.",
+    "group_not_found": "This class or program no longer exists.",
+    "group_name_taken": "A class or program already has this name here.",
+    "group_not_empty": "Remove its members and sub-groups first.",
+    "group_cycle": "A class or program cannot be placed inside itself or one of its sub-groups.",
+    "csv_invalid": "This file is not a valid member CSV (UTF-8, header line with at least a telephone or email column).",
+    "csv_too_large": "File too large: 1 MB and 2,000 lines at most.",
+    "import_not_found": "This import cannot be found.",
+    "not_teacher": "This person is not a teacher in the organization.",
+    "not_student": "This person is not a student in the organization.",
+    "supervision_limit": "This supervisor already follows the plan's maximum number of students.",
+    "supervision_exists": "This supervision already exists.",
+    "supervision_not_found": "This supervision no longer exists.",
+    "end_date_past": "The end date must be in the future."
   }
 }

@@ -3,6 +3,7 @@
 //   pnpm dev:otp <phone>
 //   pnpm dev:plan <phone> [FREE|STANDARD|TEAM|BUSINESS] [--lapsed]
 //   pnpm dev:pay [<payment id or phone>] [completed|notcompleted|pending] [--twice]
+//   pnpm dev:org [--reset]
 // Sharing is done in the app since step 8 (invitation accepted by the invitee). This tool stays
 // for tests: it gives an account a role at once, without invitation nor audit entry. The account
 // is created when the phone number has none (sign-in by SMS code, the code being read with
@@ -16,6 +17,10 @@
 // outcome the simulated status API answers, then calls the API callback like LigdiCash (JSON then
 // form); --twice sends them twice (idempotency). Without argument: the pending payments. The API
 // still checks the status itself before activating, as with LigdiCash.
+// dev:org creates a test BUSINESS of 10 seats, without payment, with fixed test accounts
+// (+226 79 98 00 00 to 09): the owner, an admin, two teachers, five students in two groups, one
+// free seat, a teacher's join request waiting for an admin, two assigned supervision links and a
+// student's request. --reset deletes it first (and its seats, links and invitations).
 import { createPrismaClient } from '@integris/db';
 import {
   COLLAB_EVENTS_CHANNEL,
@@ -424,11 +429,195 @@ async function pay() {
   }
 }
 
+const DEV_ORG_NAME = '[dev:org] Université de test';
+const DEV_ORG_ACCOUNTS = [
+  { name: 'Titulaire Test', role: 'OWNER', kind: 'OTHER' },
+  { name: 'Administratrice Test', role: 'ADMIN', kind: 'TEACHER' },
+  { name: 'Enseignant Un', role: 'MEMBER', kind: 'TEACHER' },
+  { name: 'Enseignante Deux', role: 'MEMBER', kind: 'TEACHER' },
+  { name: 'Étudiante Une', role: 'MEMBER', kind: 'STUDENT', group: 'Master 2 Environnement' },
+  { name: 'Étudiant Deux', role: 'MEMBER', kind: 'STUDENT', group: 'Master 2 Environnement' },
+  { name: 'Étudiante Trois', role: 'MEMBER', kind: 'STUDENT', group: 'Master 2 Environnement' },
+  { name: 'Étudiant Quatre', role: 'MEMBER', kind: 'STUDENT', group: 'Licence 3 Hydrologie' },
+  { name: 'Étudiante Cinq', role: 'MEMBER', kind: 'STUDENT', group: 'Licence 3 Hydrologie' },
+  { name: 'Enseignant En Attente', role: 'MEMBER', kind: 'TEACHER', pending: true },
+];
+const devOrgPhone = (index) => `+2267998000${index}`;
+
+/** Deletes the test organization and what hangs on it (audit entries stay, append-only). */
+async function deleteDevOrg(prisma, organization) {
+  await prisma.$transaction(async (tx) => {
+    const links = await tx.supervision.findMany({ where: { organizationId: organization.id } });
+    const linkIds = links.map((link) => link.id);
+    await tx.projectMember.deleteMany({ where: { viaSupervisionId: { in: linkIds } } });
+    await tx.supervision.deleteMany({ where: { id: { in: linkIds } } });
+    const subscription = await tx.subscription.findUnique({
+      where: { organizationId: organization.id },
+    });
+    if (subscription) {
+      await tx.seat.deleteMany({ where: { subscriptionId: subscription.id } });
+      await tx.payment.updateMany({
+        where: { subscriptionId: subscription.id },
+        data: { subscriptionId: null },
+      });
+      await tx.subscription.delete({ where: { id: subscription.id } });
+    }
+    await tx.invitation.deleteMany({ where: { organizationId: organization.id } });
+    await tx.userImport.deleteMany({ where: { organizationId: organization.id } });
+    await tx.membership.deleteMany({ where: { organizationId: organization.id } });
+    await tx.orgGroup.deleteMany({
+      where: { organizationId: organization.id, parentId: { not: null } },
+    });
+    await tx.orgGroup.deleteMany({ where: { organizationId: organization.id } });
+    await tx.organization.delete({ where: { id: organization.id } });
+  });
+}
+
+async function devOrg() {
+  const reset = args.includes('--reset');
+  const prisma = createPrismaClient(process.env.DATABASE_URL);
+  try {
+    const existing = await prisma.organization.findFirst({ where: { name: DEV_ORG_NAME } });
+    if (existing && !reset) {
+      console.error(`"${DEV_ORG_NAME}" already exists: pnpm dev:org --reset recreates it.`);
+      process.exitCode = 1;
+      return;
+    }
+    if (existing) await deleteDevOrg(prisma, existing);
+    const now = new Date();
+    const users = [];
+    for (const [index, account] of DEV_ORG_ACCOUNTS.entries()) {
+      const phone = devOrgPhone(index);
+      users.push(
+        await prisma.user.upsert({
+          where: { phone },
+          create: { phone, phoneVerifiedAt: now, displayName: account.name },
+          update: {},
+        }),
+      );
+    }
+    const plan = await prisma.plan.findUniqueOrThrow({ where: { code: 'BUSINESS' } });
+    const seatCount = 10;
+    let joinCode = '';
+    await prisma.$transaction(async (tx) => {
+      const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+      joinCode = Array.from({ length: 10 }, () => alphabet[Math.floor(Math.random() * 32)]).join(
+        '',
+      );
+      const organization = await tx.organization.create({
+        data: { type: 'BUSINESS', name: DEV_ORG_NAME, joinCode },
+      });
+      const subscription = await tx.subscription.create({
+        data: {
+          planId: plan.id,
+          organizationId: organization.id,
+          status: 'ACTIVE',
+          billingPeriod: 'MONTHLY',
+          seatCount,
+          currentPeriodStart: now,
+          currentPeriodEnd: new Date(now.getTime() + 30 * DAY_MS),
+        },
+      });
+      const ufr = await tx.orgGroup.create({
+        data: { organizationId: organization.id, name: 'UFR SVT' },
+      });
+      const groups = {};
+      for (const name of ['Master 2 Environnement', 'Licence 3 Hydrologie']) {
+        groups[name] = await tx.orgGroup.create({
+          data: { organizationId: organization.id, name, parentId: ufr.id },
+        });
+      }
+      for (const [index, account] of DEV_ORG_ACCOUNTS.entries()) {
+        const user = users[index];
+        await tx.membership.create({
+          data: {
+            organizationId: organization.id,
+            userId: user.id,
+            role: account.role,
+            kind: account.kind,
+            status: account.pending ? 'PENDING_APPROVAL' : 'ACTIVE',
+            approvedAt: account.pending ? null : now,
+            groupId: account.group ? groups[account.group].id : null,
+          },
+        });
+        if (account.pending) continue;
+        const seat = await tx.seat.create({
+          data: { subscriptionId: subscription.id, userId: user.id, assignedAt: now },
+        });
+        // Seats are audited; no actor (a tool), so test accounts stay erasable.
+        await tx.auditLog.create({
+          data: {
+            actorId: null,
+            action: 'SEAT_ASSIGNED',
+            targetType: 'Seat',
+            targetId: seat.id,
+            metadata: { subscriptionId: subscription.id, userId: user.id, via: 'dev-tools' },
+          },
+        });
+      }
+      const held = DEV_ORG_ACCOUNTS.filter((account) => !account.pending).length;
+      await tx.seat.createMany({
+        data: Array.from({ length: seatCount - held }, () => ({ subscriptionId: subscription.id })),
+      });
+      const links = [
+        { supervisor: 2, student: 4, status: 'ACTIVE', assigned: true },
+        { supervisor: 2, student: 5, status: 'ACTIVE', assigned: true },
+        { supervisor: 3, student: 6, status: 'PENDING', assigned: false },
+      ];
+      for (const link of links) {
+        const row = await tx.supervision.create({
+          data: {
+            organizationId: organization.id,
+            supervisorId: users[link.supervisor].id,
+            studentId: users[link.student].id,
+            status: link.status,
+            assignedById: link.assigned ? users[1].id : null,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            actorId: null,
+            action: link.assigned ? 'SUPERVISION_ASSIGNED' : 'SUPERVISION_REQUESTED',
+            targetType: 'Supervision',
+            targetId: row.id,
+            metadata: { organizationId: organization.id, via: 'dev-tools' },
+          },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: 'DEV_ORG_CREATED',
+          targetType: 'Organization',
+          targetId: organization.id,
+          metadata: { seats: seatCount, via: 'dev-tools' },
+        },
+      });
+    });
+    for (const user of users) await applyLimits(user.id);
+    console.log(`"${DEV_ORG_NAME}": BUSINESS, ${seatCount} seats (9 held, 1 free), 30 days.`);
+    console.log(`Teachers' join code: ${joinCode.slice(0, 5)}-${joinCode.slice(5)}\n`);
+    for (const [index, account] of DEV_ORG_ACCOUNTS.entries()) {
+      const what = account.pending
+        ? 'join request waiting for an admin (no seat)'
+        : `${account.role.toLowerCase()}, ${account.kind.toLowerCase()}${account.group ? `, ${account.group}` : ''}`;
+      console.log(`  ${devOrgPhone(index)}  ${account.name.padEnd(24)} ${what}`);
+    }
+    console.log(
+      '\nSupervision: Enseignant Un follows Étudiante Une and Étudiant Deux; Étudiante Trois asked Enseignante Deux.',
+    );
+    console.log('Sign in with an SMS code: pnpm dev:otp <phone> prints it.');
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 if (command === 'share') await share();
 else if (command === 'otp') await otp();
 else if (command === 'plan') await plan();
 else if (command === 'pay') await pay();
+else if (command === 'org') await devOrg();
 else {
-  console.error('Commands: share, otp, plan, pay');
+  console.error('Commands: share, otp, plan, pay, org');
   process.exitCode = 1;
 }

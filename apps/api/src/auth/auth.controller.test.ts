@@ -410,12 +410,15 @@ describe('auth API', () => {
         approvedById: null,
         approvedAt: null,
         groupId: null,
+        teacherRequestedAt: null,
         createdAt: new Date(),
         organization: {
           id: orgId,
           type: 'BUSINESS',
           name: `Org ${orgId}`,
           ifu: null,
+          joinCode: null,
+          membersChooseGroup: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -448,13 +451,18 @@ describe('auth API', () => {
     it('drops the current space when the membership is removed', async () => {
       const user = ctx.prisma.addUser({ phone: PHONE });
       addMembership(user.id, 'org-1');
+      addMembership(user.id, 'org-2');
       await post('otp', { ...LOCAL, purpose: 'login', locale: 'fr' }).expect(200);
       const cookie = sessionCookie(
         await post('login/otp', { ...LOCAL, code: await lastCode() }).expect(200),
       );
       await post('space', { spaceId: 'org-1' }, cookie).expect(200);
-      ctx.prisma.memberships = [];
+      ctx.prisma.memberships = ctx.prisma.memberships.filter((m) => m.organizationId !== 'org-1');
+      // Two spaces left: the user chooses again.
       expect((await get('me', cookie)).body.currentSpaceId).toBeNull();
+      // A single space left opens by itself (never a loop between /app and /spaces).
+      ctx.prisma.memberships = [];
+      expect((await get('me', cookie)).body.currentSpaceId).toBe('personal');
     });
   });
 

@@ -23,6 +23,7 @@
     "dev:otp": "node apps/api/scripts/dev-tools.mjs otp",
     "dev:plan": "node apps/api/scripts/dev-tools.mjs plan",
     "dev:pay": "node apps/api/scripts/dev-tools.mjs pay",
+    "dev:org": "node apps/api/scripts/dev-tools.mjs org",
     "dev:check-env": "node scripts/check-env.mjs"
   },
   "devDependencies": {

@@ -10,6 +10,7 @@ import { ConfigModule } from './config/api-config.js';
 import { HealthModule } from './health/health.module.js';
 import { HistoryModule } from './history/history.module.js';
 import { MailModule } from './mail/mail.module.js';
+import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PlansModule } from './plans/plans.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
@@ -49,6 +50,7 @@ import { SubmissionsModule } from './submissions/submissions.module.js';
     SharingModule,
     SubmissionsModule,
     BillingModule,
+    OrganizationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: OriginGuard }],
 })

@@ -286,3 +286,102 @@ export async function lastMailAttachments(
 ): Promise<{ filename: string; size: number }[]> {
   return JSON.parse((await redis().get(`dev:mail-attachments:${email}`)) ?? '[]');
 }
+
+/** Name prefix of the organizations bought by the end-to-end tests (step 12). */
+export const E2E_ORG_PREFIX = '[e2e] ';
+
+/**
+ * Organization tests (step 12) use kept accounts (seats, roles and links are audited). Before each
+ * run: the test organizations they own are deleted with their seats, invitations, imports,
+ * groups and supervision links; their other memberships, join requests, projects and
+ * notifications go; each gets the given display name.
+ */
+export async function resetOrganizationAccounts(
+  accounts: { e164: string; name: string }[],
+): Promise<void> {
+  const db = prisma();
+  const phones = accounts.map((account) => account.e164);
+  const users = await db.user.findMany({ where: { phone: { in: phones } } });
+  const userIds = users.map((user) => user.id);
+  const organizations = await db.organization.findMany({
+    where: {
+      name: { startsWith: E2E_ORG_PREFIX },
+      memberships: { some: { userId: { in: userIds }, role: 'OWNER' } },
+    },
+    select: { id: true },
+  });
+  const orgIds = organizations.map((org) => org.id);
+  const links = await db.supervision.findMany({
+    where: {
+      OR: [
+        { organizationId: { in: orgIds } },
+        { supervisorId: { in: userIds } },
+        { studentId: { in: userIds } },
+      ],
+    },
+    select: { id: true },
+  });
+  const linkIds = links.map((link) => link.id);
+  await db.projectMember.deleteMany({
+    where: {
+      OR: [{ viaSupervisionId: { in: linkIds } }, { project: { ownerId: { in: userIds } } }],
+    },
+  });
+  await db.supervision.deleteMany({ where: { id: { in: linkIds } } });
+  const subscriptions = await db.subscription.findMany({
+    where: { organizationId: { in: orgIds } },
+    select: { id: true },
+  });
+  const subscriptionIds = subscriptions.map((row) => row.id);
+  // Seats held elsewhere are released (they are never deleted outside the test organizations).
+  await db.seat.updateMany({
+    where: {
+      userId: { in: userIds },
+      releasedAt: null,
+      subscriptionId: { notIn: subscriptionIds },
+    },
+    data: { releasedAt: new Date() },
+  });
+  await db.seat.deleteMany({ where: { subscriptionId: { in: subscriptionIds } } });
+  await db.payment.updateMany({
+    where: { subscriptionId: { in: subscriptionIds } },
+    data: { subscriptionId: null },
+  });
+  await db.subscription.deleteMany({ where: { id: { in: subscriptionIds } } });
+  await db.invitation.deleteMany({
+    where: { OR: [{ organizationId: { in: orgIds } }, { phone: { in: phones } }] },
+  });
+  await db.userImport.deleteMany({ where: { organizationId: { in: orgIds } } });
+  await db.membership.deleteMany({
+    where: { OR: [{ organizationId: { in: orgIds } }, { userId: { in: userIds } }] },
+  });
+  await db.orgGroup.deleteMany({ where: { organizationId: { in: orgIds } } });
+  await db.organization.deleteMany({ where: { id: { in: orgIds } } });
+  await db.project.deleteMany({ where: { ownerId: { in: userIds } } });
+  await db.notification.deleteMany({ where: { userId: { in: userIds } } });
+  for (const account of accounts) {
+    await db.user.updateMany({
+      where: { phone: account.e164 },
+      data: { displayName: account.name, lastSpace: null },
+    });
+  }
+}
+
+/**
+ * A credit balance that pays a monthly BUSINESS of `seats` seats (price read from the Plan
+ * table): the order is then activated without LigdiCash, like any order covered by credit.
+ */
+export async function creditForBusiness(e164: string, seats: number): Promise<void> {
+  const user = await prisma().user.findUniqueOrThrow({ where: { phone: e164 } });
+  const plan = await prisma().plan.findUniqueOrThrow({ where: { code: 'BUSINESS' } });
+  await prisma().creditEntry.create({
+    data: { userId: user.id, amountXof: plan.priceMonthlyXof * seats, reason: 'PRORATION_SURPLUS' },
+  });
+}
+
+/** A bare project of an account (no file): enough to be listed and opened to a supervisor. */
+export async function createBareProject(e164: string, name: string): Promise<string> {
+  const user = await prisma().user.findUniqueOrThrow({ where: { phone: e164 } });
+  const project = await prisma().project.create({ data: { ownerId: user.id, name } });
+  return project.id;
+}

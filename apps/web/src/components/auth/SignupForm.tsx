@@ -22,7 +22,7 @@ import styles from './auth-forms.module.css';
 import { CaptchaNotice } from './CaptchaNotice';
 import { CodeStep } from './CodeStep';
 import { useAuthRequest, useErrorMessage } from './use-auth-request';
-import { inviteFromHash } from './token-from-hash';
+import { invitationReturnFromHash } from './token-from-hash';
 
 type Step = 0 | 1 | 2;
 
@@ -40,7 +40,9 @@ export function SignupForm({ config, locale, brand, barEnd }: SignupFormProps) {
   const { send, captchaRequired, captchaState } = useAuthRequest();
 
   // Signing up from an invitation: the invitation opens again once the account exists.
-  const [invite] = useState(() => (typeof window === 'undefined' ? null : inviteFromHash()));
+  const [invite] = useState(() =>
+    typeof window === 'undefined' ? null : invitationReturnFromHash(),
+  );
   const [step, setStep] = useState<Step>(0);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -236,7 +238,7 @@ export function SignupForm({ config, locale, brand, barEnd }: SignupFormProps) {
             <div>
               {invite ? (
                 <ButtonLink
-                  href={`${getPathname({ href: '/invite', locale })}#token=${invite}`}
+                  href={`${getPathname({ href: invite.split('#')[0]!, locale })}#${invite.split('#')[1]}`}
                   size="large"
                   arrow
                 >

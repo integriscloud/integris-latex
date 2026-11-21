@@ -132,6 +132,16 @@ test('editor: new file in the folder of the open file by name, precise errors, f
   if (phone) await page.getByRole('button', { name: 'Fermer ce message' }).click();
   await showFiles(page);
   const tree = page.getByRole('group', { name: 'Fichiers du projet' });
+  // The file name comes first: the main file marker is a star, its label in a tooltip and for
+  // screen readers, and the name is never cut for it (main.tex once showed as "m").
+  const mainName = tree.getByRole('link', { name: 'main.tex', exact: true });
+  await expect(mainName).toHaveText('main.tex');
+  expect(await mainName.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  const marker = tree.locator('[title="Fichier principal"]');
+  await expect(marker).toBeVisible();
+  // Icon only (14 px star): the label takes no room on screen.
+  expect((await marker.boundingBox())!.width).toBeLessThan(24);
+  await expect(marker).toContainText('Fichier principal');
 
   // The folder of the open file is the current folder.
   await tree.getByRole('link', { name: 'introduction.tex' }).click();

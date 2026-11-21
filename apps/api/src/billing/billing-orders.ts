@@ -79,9 +79,14 @@ export async function creditBalanceOf(db: Db, userId: string): Promise<number> {
   return Math.max(0, sum._sum.amountXof ?? 0);
 }
 
-/** Seats of a subscription held by someone. */
+/** Seats of a subscription held by someone or reserved by a pending invitation (step 12). */
 export function seatsUsedOf(db: Db, subscriptionId: string): Promise<number> {
-  return db.seat.count({ where: { subscriptionId, userId: { not: null }, releasedAt: null } });
+  return db.seat.count({
+    where: {
+      subscriptionId,
+      OR: [{ userId: { not: null }, releasedAt: null }, { invitationId: { not: null } }],
+    },
+  });
 }
 
 /** Subscription paid by the user: their personal one, or one of an organization they own. */

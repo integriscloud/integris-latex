@@ -7,6 +7,7 @@ export * from './env.js';
 export * from './errors.js';
 export * from './history.js';
 export * from './line-diff.js';
+export * from './organizations.js';
 export * from './i18n.js';
 export * from './plans.js';
 export * from './ports.js';

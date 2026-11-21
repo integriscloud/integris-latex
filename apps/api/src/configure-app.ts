@@ -39,7 +39,16 @@ export function configureApp(app: NestExpressApplication): void {
   // Uploads (a ZIP archive, one project file) are raw bodies, never multipart. No global parser
   // reads them: the route handler does, after the guards (common/raw-body.ts).
   // Answers carrying personal data or user content must never be cached.
-  for (const path of ['auth', 'projects', 'templates', 'billing', 'payments']) {
+  for (const path of [
+    'auth',
+    'projects',
+    'templates',
+    'billing',
+    'payments',
+    'organizations',
+    'supervisions',
+    'org-invitations',
+  ]) {
     app.use(`/${API_PREFIX}/${path}`, noStore);
   }
 }

@@ -9,6 +9,7 @@ import { BillingNotifier } from './billing-notifier.service.js';
 import { expectedState, payerOf, sameState, type StoredOrder } from './billing-orders.js';
 import { PAYMENT_PROVIDER, type PaymentProvider } from './payment-provider.js';
 import { type BilledTo, ReceiptsService } from './receipts.service.js';
+import { resizeSeats } from './seat-resize.js';
 import { SubscriptionPauseService } from './subscription-pause.service.js';
 
 type Tx = Prisma.TransactionClient;
@@ -472,7 +473,7 @@ export class PaymentProcessor {
           data: { type: plan.code === 'TEAM' ? 'TEAM' : 'BUSINESS' },
         });
       }
-      await this.resizeSeats(tx, current.id, current.seats.length, order.seats);
+      await this.resizeSeats(tx, current.id, order.seats);
       await this.audit(tx, 'SUBSCRIPTION_UPGRADED', 'Subscription', current.id, {
         from: {
           planCode: current.plan.code,
@@ -533,7 +534,7 @@ export class PaymentProcessor {
             data: { type: plan.code === 'TEAM' ? 'TEAM' : 'BUSINESS' },
           });
         }
-        await this.resizeSeats(tx, current.id, current.seats.length, order.seats);
+        await this.resizeSeats(tx, current.id, order.seats);
       }
       await this.audit(tx, 'SUBSCRIPTION_RENEWED', 'Subscription', current.id, {
         planCode: plan.code,
@@ -547,21 +548,11 @@ export class PaymentProcessor {
     return { subscription, holders, organization };
   }
 
-  /** Adds seats, or removes free ones (never a held seat: the order was checked against them). */
-  private async resizeSeats(tx: Tx, subscriptionId: string, current: number, wanted: number) {
-    if (wanted > current) {
-      await tx.seat.createMany({
-        data: Array.from({ length: wanted - current }, () => ({ subscriptionId })),
-      });
-    } else if (wanted < current) {
-      const free = await tx.seat.findMany({
-        where: { subscriptionId, userId: null, releasedAt: null, assignedAt: null },
-        take: current - wanted,
-      });
-      await tx.seat.deleteMany({ where: { id: { in: free.map((seat) => seat.id) } } });
-      await this.audit(tx, 'SEATS_REMOVED', 'Subscription', subscriptionId, {
-        seatIds: free.map((seat) => seat.id),
-      });
+  /** Adds seats, or removes seats nobody holds nor reserves (see seat-resize.ts). */
+  private async resizeSeats(tx: Tx, subscriptionId: string, wanted: number) {
+    const { removed } = await resizeSeats(tx, subscriptionId, wanted);
+    if (removed.length) {
+      await this.audit(tx, 'SEATS_REMOVED', 'Subscription', subscriptionId, { seatIds: removed });
     }
   }
 

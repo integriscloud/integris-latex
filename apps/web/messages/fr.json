@@ -178,10 +178,10 @@
       "monthly": "ou {amount} {unit} en paiement annuel",
       "yearly": "ou {amount} {unit} en paiement mensuel"
     },
-    "trial": "{days} jours d'essai gratuit",
+    "trial": "{days, plural, one {# jour d'essai gratuit} other {# jours d'essai gratuit}}",
     "seats": {
-      "range": "De {min} à {max} sièges, titulaire inclus",
-      "atLeast": "{min} sièges et plus, titulaire inclus"
+      "range": "De {min} à {max, plural, one {# siège} other {# sièges}}, titulaire inclus",
+      "atLeast": "{min, plural, one {# siège et plus} other {# sièges et plus}}, titulaire inclus"
     },
     "projects": {
       "limited": "{count, plural, one {# projet} other {# projets}}",
@@ -199,13 +199,13 @@
     },
     "history": {
       "hours": "Historique des versions : {hours} h",
-      "days": "Historique des versions : {days} jours",
+      "days": "Historique des versions : {days, plural, one {# jour} other {# jours}}",
       "unlimited": "Historique des versions illimité"
     },
     "compile": {
       "seconds": "Compilations jusqu'à {seconds} s",
       "minutes": "Compilations jusqu'à {minutes} min",
-      "perHour": "{count} compilations par heure"
+      "perHour": "{count, plural, one {# compilation} other {# compilations}} par heure"
     },
     "autoCompile": "Compilation automatique",
     "priority": {
@@ -213,7 +213,7 @@
       "NORMAL": "Priorité de compilation normale",
       "LOW": "Priorité de compilation basse"
     },
-    "supervision": "Tableau de bord d'encadrement ({count} étudiants suivis par encadrant)",
+    "supervision": "Tableau de bord d'encadrement ({count, plural, one {# étudiant suivi} other {# étudiants suivis}} par encadrant)",
     "cta": {
       "free": "Commencer gratuitement",
       "paid": "Choisir {name}"
@@ -258,7 +258,7 @@
       "optional": "(facultatif)",
       "code": "Code reçu par SMS",
       "codeDigit": "Chiffre {index} sur {length}",
-      "passwordHelp": "Au moins {min} caractères. Une phrase facile à retenir est un bon choix."
+      "passwordHelp": "Au moins {min, plural, one {# caractère} other {# caractères}}. Une phrase facile à retenir est un bon choix."
     },
     "login": {
       "metaTitle": "Se connecter",
@@ -267,7 +267,7 @@
       "modes": "Mode de connexion",
       "phoneTab": "Téléphone",
       "emailTab": "E-mail",
-      "codeHelp": "Un code à {length} chiffres vous sera envoyé par SMS.",
+      "codeHelp": "Un code à {length, plural, one {# chiffre} other {# chiffres}} vous sera envoyé par SMS.",
       "sendCode": "Recevoir le code",
       "sendingCode": "Envoi du code…",
       "submit": "Se connecter",
@@ -285,7 +285,7 @@
       "resend": "Renvoyer le code",
       "resendIn": "Renvoyer le code dans {seconds} s",
       "resent": "Un nouveau code vous a été envoyé.",
-      "incomplete": "Saisissez les {length} chiffres du code."
+      "incomplete": "Saisissez {length, plural, one {le chiffre} other {les # chiffres}} du code."
     },
     "signup": {
       "metaTitle": "Créer un compte",
@@ -442,7 +442,14 @@
       "trash": "Corbeille",
       "account": "Mon compte",
       "usage": "Ma consommation",
-      "billing": "Abonnement"
+      "billing": "Abonnement",
+      "organization": "Organisation",
+      "members": "Utilisateurs",
+      "groups": "Classes et filières",
+      "supervision": "Encadrement",
+      "students": "Mes étudiants",
+      "supervisors": "Mes encadreurs",
+      "join": "Rejoindre un établissement"
     },
     "switchSpace": "Changer d'espace",
     "openMenu": "Ouvrir le menu",
@@ -467,7 +474,7 @@
       "projectLimit": "Vous avez atteint la limite de {max, plural, one {# projet} other {# projets}} de l'offre {plan}. Mettez un projet à la corbeille ou passez à une offre supérieure pour en créer un autre.",
       "storageLimit": "Votre espace de stockage de l'offre {plan} est plein. Supprimez des fichiers ou passez à une offre supérieure pour en ajouter.",
       "upgrade": "Voir les offres",
-      "projectWarn": "Vous utilisez {count} des {max} projets de l'offre {plan}. Au-delà, vous ne pourrez plus en créer.",
+      "projectWarn": "Vous utilisez {count} des {max, plural, one {# projet} other {# projets}} de l'offre {plan}. Au-delà, vous ne pourrez plus en créer.",
       "storageWarn": "Vous avez utilisé plus de 80 % du stockage de l'offre {plan}."
     }
   },
@@ -544,7 +551,7 @@
   "Trash": {
     "metaTitle": "Corbeille",
     "title": "Corbeille",
-    "subtitle": "Les projets sont effacés définitivement {days} jours après leur mise à la corbeille.",
+    "subtitle": "Les projets sont effacés définitivement {days, plural, one {# jour} other {# jours}} après leur mise à la corbeille.",
     "listTitle": "Projets dans la corbeille",
     "emptyTitle": "La corbeille est vide",
     "emptyText": "Les projets que vous supprimez restent ici 30 jours avant d'être effacés.",
@@ -644,9 +651,9 @@
     "name_dots": "« . » et « .. » ne peuvent pas servir de nom.",
     "name_char": "Le caractère « {char} » n'est pas autorisé dans un nom.",
     "name_char_invisible": "Ce nom contient un caractère invisible (tabulation, retour à la ligne…), qui n'est pas autorisé.",
-    "name_too_long": "Ce nom est trop long : {max} caractères au plus.",
-    "path_too_long": "Le chemin complet dépasserait {max} caractères : choisissez un nom plus court ou un dossier moins profond.",
-    "path_too_deep": "Trop de dossiers imbriqués : {max} niveaux au plus.",
+    "name_too_long": "Ce nom est trop long : {max, plural, one {# caractère} other {# caractères}} au plus.",
+    "path_too_long": "Le chemin complet dépasserait {max, plural, one {# caractère} other {# caractères}} : choisissez un nom plus court ou un dossier moins profond.",
+    "path_too_deep": "Trop de dossiers imbriqués : {max, plural, one {# niveau} other {# niveaux}} au plus.",
     "name_extension": "L'extension « {extension} » n'est pas acceptée. Extensions permises : {extensions}.",
     "name_taken": "« {name} » existe déjà dans {folder}."
   },
@@ -768,7 +775,7 @@
     "replaceLabel": "Remplacer par",
     "replaceAll": "Tout remplacer",
     "searchCount": "{count, plural, =0 {Aucun résultat.} one {# résultat} other {# résultats}}{count, plural, =0 {} other { dans {files, plural, one {# fichier} other {# fichiers}}.}}",
-    "searchTooMany": "Plus de {count} résultats : précisez la recherche.",
+    "searchTooMany": "Plus de {count, plural, one {# résultat} other {# résultats}} : précisez la recherche.",
     "replaceDone": "{count, plural, =0 {Aucun remplacement.} one {# remplacement} other {# remplacements}}{count, plural, =0 {} other { dans {files, plural, one {# fichier} other {# fichiers}}.}}",
     "replaceFailed": "Non modifiés (changés ailleurs ou en lecture seule) : {paths}.",
     "pdfTitle": "Aperçu PDF",
@@ -818,10 +825,10 @@
     "spellcheckHelp": "Souligne les fautes dans le code, avec le correcteur du navigateur. Désactivé par défaut car il souligne aussi les commandes LaTeX ; les commentaires et les champs de texte le gardent toujours. Réglage mémorisé sur votre compte.",
     "settingsFailed": "Le réglage n'a pas pu être enregistré. Réessayez.",
     "autoCompileFree": "La compilation automatique est réservée aux offres payantes.",
-    "compileLimits": "Votre offre : {seconds} s par compilation, {perHour} compilations par heure.",
+    "compileLimits": "Votre offre : {seconds} s par compilation, {perHour, plural, one {# compilation} other {# compilations}} par heure.",
     "compileReadOnly": "Vous pouvez consulter le dernier PDF ; seuls le propriétaire et les éditeurs compilent.",
     "compileSaveFirst": "Certaines modifications ne sont pas enregistrées : la compilation utilisera la dernière version enregistrée.",
-    "compileLimit": "Vous avez atteint les {perHour} compilations par heure de votre offre. Réessayez dans {minutes, plural, one {# minute} other {# minutes}} ou passez à une offre supérieure.",
+    "compileLimit": "Vous avez atteint {perHour, plural, one {la compilation} other {les # compilations}} par heure de votre offre. Réessayez dans {minutes, plural, one {# minute} other {# minutes}} ou passez à une offre supérieure.",
     "pdfEmpty": "Pas encore de PDF",
     "pdfEmptyHint": "Compilez le projet pour voir son PDF ici.",
     "pdfEmptyReader": "Le projet n'a pas encore été compilé.",
@@ -875,7 +882,7 @@
     "share": "Partager",
     "commentSelection": "Commenter la sélection",
     "commentSelectFirst": "Sélectionnez d'abord un passage du code, puis commentez-le.",
-    "commentTooLong": "La sélection dépasse {max} caractères : commentez un passage plus court.",
+    "commentTooLong": "La sélection dépasse {max, plural, one {# caractère} other {# caractères}} : commentez un passage plus court.",
     "readOnlyCommenter": "Vous pouvez commenter et proposer des modifications, sans modifier les fichiers.",
     "commentLine": "Commenter la ligne {line}",
     "commentEmptyLine": "Cette ligne est vide : choisissez une ligne avec du texte, ou sélectionnez un passage.",
@@ -889,8 +896,8 @@
     "wordCountNoMain": "Le fichier principal {path} est introuvable.",
     "wordCountLoading": "Comptage…",
     "wordCountRecount": "Recompter",
-    "hourWarn": "{used} compilations sur {perHour} cette heure-ci.",
-    "hourFull": "Les {perHour} compilations de l'heure sont utilisées.",
+    "hourWarn": "{used, plural, one {# compilation} other {# compilations}} sur {perHour} cette heure-ci.",
+    "hourFull": "{perHour, plural, one {La compilation de l'heure est utilisée.} other {Les # compilations de l'heure sont utilisées.}}",
     "storageWarn": "Le stockage de votre offre est utilisé à plus de 80 %.",
     "storageFull": "Le stockage de votre offre est plein : les ajouts sont bloqués."
   },
@@ -1227,7 +1234,7 @@
     },
     "message": "Message",
     "optional": "(facultatif)",
-    "messageHelp": "{count}/{max} caractères · dans l'e-mail et sur la page d'invitation, jamais dans le SMS",
+    "messageHelp": "{count}/{max, plural, one {# caractère} other {# caractères}} · dans l'e-mail et sur la page d'invitation, jamais dans le SMS",
     "collaborators": "Collaborateurs : {used} sur {max} (le propriétaire et les encadrants ne comptent pas)",
     "collaboratorsUnlimited": "Collaborateurs : {used} (sans limite avec votre offre)",
     "limitReached": "Votre offre permet {max, plural, one {# collaborateur} other {# collaborateurs}} par projet, invitations en attente comprises. Les encadrants ne comptent pas.",
@@ -1547,7 +1554,7 @@
       "autoCompile": "Compilation automatique",
       "priority": "Priorité de compilation",
       "supervision": "Tableau de bord d'encadrement",
-      "supervisionValue": "{max} étudiants suivis par encadreur"
+      "supervisionValue": "{max, plural, one {# étudiant suivi} other {# étudiants suivis}} par encadreur"
     },
     "priority": {
       "HIGH": "Haute",
@@ -1608,7 +1615,7 @@
     },
     "personal": "Offre personnelle",
     "organization": "Organisation « {name} »",
-    "seats": "{used} sur {total} sièges occupés",
+    "seats": "{used} sur {total, plural, one {# siège occupé} other {# sièges occupés}}",
     "periodEnd": "Payé jusqu'au {date}",
     "trialEnd": "Essai jusqu'au {date}, puis retour en Gratuit si vous ne payez pas",
     "graceEnd": "Échéance passée : l'offre reste active jusqu'au {date}, puis repasse en Gratuit. Rien n'est supprimé.",
@@ -1621,7 +1628,7 @@
     "choosePlan": "Choisir une offre",
     "noSubscription": "Vous utilisez l'offre Gratuit.",
     "trialTitle": "Essai Standard gratuit",
-    "trialText": "{days} jours de Standard sans paiement, une seule fois. À la fin, vous repassez en Gratuit (rappel 3 jours avant) ; rien n'est supprimé.",
+    "trialText": "{days, plural, one {# jour} other {# jours}} de Standard sans paiement, une seule fois. À la fin, vous repassez en Gratuit (rappel 3 jours avant) ; rien n'est supprimé.",
     "trialStart": "Commencer l'essai",
     "trialStarted": "Votre essai Standard a commencé.",
     "emailRequired": "Les reçus sont envoyés par e-mail uniquement : ajoutez et confirmez votre adresse e-mail avant de payer.",
@@ -1668,8 +1675,8 @@
       "yearlySavingSingle": "Annuel : économisez {amount} sur un an",
       "monthlyHelp": "Payé chaque mois",
       "seats": "Nombre de sièges",
-      "seatsHelpRange": "De {min} à {max} sièges, vous compris",
-      "seatsHelpMin": "{min} sièges et plus, vous compris",
+      "seatsHelpRange": "De {min} à {max, plural, one {# siège} other {# sièges}}, vous compris",
+      "seatsHelpMin": "{min, plural, one {# siège et plus} other {# sièges et plus}}, vous compris",
       "addSeats": "Sièges à ajouter",
       "addSeatsHelp": "Payés au prorata jusqu'à l'échéance du {date}, puis renouvelés avec les autres.",
       "organization": "Nom de l'organisation",
@@ -1732,7 +1739,7 @@
       "subscribed": "Vous avez déjà un abonnement Standard."
     },
     "trialOfferTitle": "Ou essayez d'abord gratuitement",
-    "trialOfferText": "{days} jours de Standard sans paiement, une seule fois par compte. À la fin, retour en Gratuit si vous ne payez pas (rappel 3 jours avant).",
+    "trialOfferText": "{days, plural, one {# jour} other {# jours}} de Standard sans paiement, une seule fois par compte. À la fin, retour en Gratuit si vous ne payez pas (rappel 3 jours avant).",
     "trialPaidAfter": "Vous êtes en essai jusqu'au {date} : la période payée commencera à la fin de l'essai."
   },
   "BillingErrors": {
@@ -1751,5 +1758,331 @@
     "seats_in_use": "Des sièges sont occupés : choisissez au moins autant de sièges.",
     "payment_not_found": "Paiement introuvable.",
     "payment_unavailable": "LigdiCash ne répond pas pour l'instant. Réessayez dans quelques minutes : rien n'a été prélevé."
+  },
+  "Organization": {
+    "metaTitle": "Organisation",
+    "subtitleManager": "Offre {plan} · gestion des membres et des sièges",
+    "subtitleMember": "Offre {plan} · vous occupez un siège",
+    "plans": {
+      "TEAM": "Team",
+      "BUSINESS": "Business"
+    },
+    "kinds": {
+      "TEACHER": "Enseignant",
+      "STUDENT": "Étudiant",
+      "SECRETARY": "Secrétariat",
+      "OTHER": "Membre"
+    },
+    "roles": {
+      "OWNER": "Titulaire",
+      "ADMIN": "Administrateur",
+      "MEMBER": "Membre"
+    },
+    "inactive": "L'abonnement de l'organisation n'est plus actif : ses membres n'ont plus ses quotas et aucun siège ne peut être attribué. Le titulaire peut le renouveler depuis « Abonnement ».",
+    "seats": {
+      "title": "Sièges",
+      "add": "Ajouter des sièges",
+      "used": "Occupés",
+      "usedOf": "{used} sur {total}",
+      "reserved": "Réservés par une invitation",
+      "waiting": "Libérés, en attente de 30 jours",
+      "free": "Libres",
+      "nextFree": "Prochain siège libéré réattribuable le {date}.",
+      "full": "Tous les sièges sont pris : le titulaire peut en ajouter pour inviter d'autres membres."
+    },
+    "members": {
+      "title": "Membres",
+      "manage": "Gérer les membres",
+      "teachers": "Enseignants",
+      "students": "Étudiants",
+      "all": "Membres",
+      "invitations": "Invitations en attente",
+      "joinRequests": "Rattachements à confirmer",
+      "admins": "{count, plural, =0 {Aucun administrateur} one {# administrateur} other {# administrateurs}} sur {max, plural, one {# possible} other {# possibles}}."
+    },
+    "joinCode": {
+      "title": "Code d'établissement",
+      "regenerate": "Nouveau code",
+      "help": "Donnez ce code aux enseignants : ils le saisissent dans « Rejoindre un établissement » et leur demande attend la confirmation d'un administrateur. Un nouveau code rend l'ancien inutilisable."
+    },
+    "subscription": {
+      "title": "Abonnement",
+      "text": "Offre {plan}, période en cours jusqu'au {date}.",
+      "manage": "Voir l'abonnement"
+    },
+    "leave": {
+      "title": "Quitter l'organisation",
+      "text": "Vous gardez votre compte et vos projets. Vous perdez les quotas de ce siège et vos encadrements dans cette organisation prennent fin.",
+      "button": "Quitter l'organisation",
+      "confirmTitle": "Quitter « {name} » ?",
+      "confirm": "Quitter",
+      "confirmText": "Votre siège est libéré et vous revenez à l'offre Gratuit (ou à votre Standard mis en pause). Pour revenir, il faudra une nouvelle invitation."
+    },
+    "settings": {
+      "title": "Réglages",
+      "membersChooseGroup": "Les membres choisissent eux-mêmes leur classe ou filière",
+      "membersChooseGroupHelp": "Sinon, seuls le titulaire et les administrateurs les placent dans une classe ou filière."
+    },
+    "myGroup": {
+      "title": "Ma classe ou filière",
+      "label": "Classe ou filière",
+      "none": "Aucune"
+    },
+    "becomeTeacher": {
+      "title": "Devenir enseignant",
+      "text": "Vous enseignez dans cet établissement ? Saisissez son code : un administrateur confirmera votre profil d'enseignant. D'ici là, vous restez étudiant.",
+      "button": "Saisir le code d'établissement",
+      "pending": "Votre demande pour devenir enseignant attend la confirmation d'un administrateur."
+    }
+  },
+  "Members": {
+    "metaTitle": "Utilisateurs",
+    "title": "Utilisateurs",
+    "noGroup": "Aucune",
+    "seats": "{held, plural, one {# siège occupé} other {# sièges occupés}} sur {total} · {reserved, plural, =0 {aucun réservé} one {# réservé par une invitation} other {# réservés par une invitation}} · {free, plural, =0 {aucun libre} one {# libre} other {# libres}}.",
+    "waiting": "{count, plural, one {# siège libéré redevient} other {# sièges libérés redeviennent}} attribuable(s) à partir du {date}.",
+    "invite": {
+      "title": "Inviter un membre",
+      "channel": "Envoyer l'invitation",
+      "byPhone": "Par SMS",
+      "byEmail": "Par e-mail",
+      "phone": "Numéro de téléphone",
+      "dialCode": "Indicatif du pays",
+      "email": "Adresse e-mail",
+      "kind": "Profil",
+      "group": "Classe ou filière",
+      "help": "L'invitation réserve un siège pendant 14 jours. S'il est refusé ou expire, le siège redevient libre aussitôt.",
+      "sent": "Invitation envoyée. Le siège est réservé jusqu'à sa réponse.",
+      "submit": "Envoyer l'invitation"
+    },
+    "import": {
+      "title": "Importer une liste (CSV)",
+      "help": "Chaque ligne valide reçoit une invitation et réserve un siège. Les lignes en erreur sont listées après l'import.",
+      "columns": "Fichier CSV en UTF-8, séparateur « ; » ou « , », avec une ligne d'en-tête : nom, telephone, email, profil (etudiant ou enseignant), classe (facultative, nom exact d'une classe existante).",
+      "choose": "Choisir un fichier CSV",
+      "hint": "ou déposez-le ici · 1 Mo et 2 000 lignes au plus",
+      "running": "Import en cours ({count, plural, one {# ligne} other {# lignes}})…",
+      "done": "Import terminé : {invited, plural, =0 {aucune invitation envoyée} one {# invitation envoyée} other {# invitations envoyées}}, {errors, plural, =0 {aucune ligne en erreur} one {# ligne en erreur} other {# lignes en erreur}}.",
+      "failed": "L'import s'est arrêté. Les invitations déjà envoyées restent valables ; réessayez avec les lignes restantes.",
+      "errorsTitle": "Lignes en erreur",
+      "errorLine": "Ligne {line} ({contact}) : {reason}",
+      "reasons": {
+        "contact_missing": "ni téléphone ni e-mail",
+        "contact_invalid": "téléphone ou e-mail invalide",
+        "country_not_allowed": "pays du numéro non accepté",
+        "kind_invalid": "profil inconnu (etudiant ou enseignant)",
+        "group_unknown": "classe inconnue",
+        "duplicate_row": "même contact qu'une ligne précédente",
+        "already_member": "déjà membre ou rattachement en attente",
+        "already_invited": "déjà invité",
+        "no_free_seat": "plus de siège libre",
+        "not_sent": "SMS ou e-mail non envoyé"
+      }
+    },
+    "requests": {
+      "title": "{count, plural, one {# rattachement à confirmer} other {# rattachements à confirmer}}",
+      "help": "Ces enseignants se sont déclarés membres de l'établissement. Vérifiez leur identité avant de les rattacher : la confirmation prend un siège.",
+      "since": "{contact} · demande du {date}",
+      "reject": "Refuser",
+      "approve": "Rattacher comme enseignant",
+      "teacherRequest": "Déjà membre comme étudiant : demande le profil d'enseignant (aucun nouveau siège)."
+    },
+    "invitations": {
+      "title": "{count, plural, one {# invitation en attente} other {# invitations en attente}}",
+      "until": "valable jusqu'au {date}",
+      "revoke": "Annuler"
+    },
+    "list": {
+      "title": "{count, plural, one {# membre} other {# membres}}",
+      "kind": "Profil de {name}",
+      "group": "Classe ou filière de {name}",
+      "setAdmin": "Nommer administrateur",
+      "unsetAdmin": "Retirer le rôle d'administrateur",
+      "remove": "Retirer"
+    },
+    "remove": {
+      "title": "Retirer {name} ?",
+      "confirm": "Retirer",
+      "text": "Ce membre garde son compte et ses projets. Son siège est libéré mais ne pourra être réattribué qu'après 30 jours. Ses encadrements dans l'organisation prennent fin."
+    },
+    "usage": {
+      "projects": "Projets",
+      "storage": "Stockage",
+      "compiles": "Compilations du mois",
+      "compilesValue": "{count} ({minutes, plural, one {# min} other {# min}})"
+    }
+  },
+  "Groups": {
+    "metaTitle": "Classes et filières",
+    "pageTitle": "Classes et filières",
+    "subtitle": "UFR, départements et promotions de l'établissement",
+    "topLevel": "Aucun (premier niveau)",
+    "members": "{count, plural, =0 {Aucun membre} one {# membre} other {# membres}}",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "create": "Nouvelle classe ou filière",
+    "name": "Nom",
+    "parent": "Dans",
+    "add": "Ajouter",
+    "title": "{count, plural, =0 {Aucune classe ni filière} one {# classe ou filière} other {# classes et filières}}",
+    "empty": "Créez une première classe ou filière, par exemple une UFR, puis ses départements et promotions.",
+    "editTitle": "Modifier « {name} »",
+    "save": "Enregistrer"
+  },
+  "SupervisionAdmin": {
+    "metaTitle": "Encadrement",
+    "title": "Encadrement",
+    "subtitle": "Affectation des encadreurs aux étudiants",
+    "choose": "Choisir…",
+    "teacherWithCount": "{name} ({count}/{max, plural, one {# étudiant} other {# étudiants}})",
+    "optional": "facultatif",
+    "assign": {
+      "title": "Affecter un encadreur",
+      "supervisor": "Encadreur",
+      "student": "Étudiant",
+      "endsAt": "Fin de l'encadrement",
+      "help": "L'encadrement commence aussitôt. Il ne donne accès à aucun projet : l'étudiant choisit les projets qu'il ouvre à son encadreur. À la date de fin, les accès sont retirés ; les commentaires restent.",
+      "submit": "Affecter"
+    },
+    "links": {
+      "title": "{count, plural, =0 {Aucun encadrement} one {# encadrement} other {# encadrements}}",
+      "empty": "Aucun encadrement en cours.",
+      "pair": "{supervisor} encadre {student}",
+      "pending": "Demande de l'étudiant en attente",
+      "until": "jusqu'au {date}",
+      "since": "depuis le {date}",
+      "reassign": "Réaffecter",
+      "setDate": "Date de fin",
+      "confirm": "Confirmer l'encadrement",
+      "end": "Terminer"
+    },
+    "reassign": {
+      "title": "Réaffecter {name}",
+      "to": "Nouvel encadreur",
+      "help": "L'ancien encadreur perd l'accès aux projets ouverts par l'étudiant ; ses commentaires restent. L'étudiant ouvre ses projets au nouvel encadreur."
+    },
+    "date": {
+      "title": "Fin de l'encadrement de {name}"
+    },
+    "save": "Enregistrer"
+  },
+  "SupervisionDashboard": {
+    "metaTitle": "Mes étudiants",
+    "title": "Mes étudiants",
+    "count": "{count, plural, one {# étudiant suivi} other {# étudiants suivis}} sur {max, plural, one {# possible} other {# possibles}}",
+    "countUnlimited": "{count, plural, =0 {Aucun étudiant suivi} one {# étudiant suivi} other {# étudiants suivis}}",
+    "requests": {
+      "title": "{count, plural, one {# demande d'encadrement} other {# demandes d'encadrement}}",
+      "since": "demande du {date}",
+      "decline": "Refuser",
+      "accept": "Accepter"
+    },
+    "empty": {
+      "title": "Aucun étudiant suivi",
+      "text": "Vos étudiants apparaissent ici quand un administrateur vous les affecte ou quand vous acceptez leur demande."
+    },
+    "rowsLabel": "Étudiants suivis, par urgence",
+    "noProject": "aucun projet ouvert",
+    "urgency": {
+      "overdue": "Date limite dépassée",
+      "to_review": "À relire",
+      "due_soon": "Date limite proche"
+    },
+    "due": "date limite le {date}",
+    "submissions": "{count, plural, =0 {aucune soumission} one {# soumission} other {# soumissions}}",
+    "activity": "dernière activité {when}",
+    "openSubmission": "Relire",
+    "openProject": "Ouvrir le projet"
+  },
+  "MySupervisors": {
+    "metaTitle": "Mes encadreurs",
+    "pageTitle": "Mes encadreurs",
+    "subtitle": "Vos encadreurs et les projets que vous leur ouvrez",
+    "title": "{count, plural, =0 {Aucun encadreur} one {# encadreur} other {# encadreurs}}",
+    "empty": "Vous n'avez pas encore d'encadreur. Demandez à un enseignant de l'établissement de vous encadrer, ou attendez l'affectation par l'administration.",
+    "pending": "En attente de sa réponse",
+    "active": "Encadrement actif",
+    "until": "jusqu'au {date}",
+    "opened": "Projets ouverts à cet encadreur :",
+    "noneOpened": "Aucun projet ouvert : choisissez ceux qu'il peut relire.",
+    "close": "Ne plus ouvrir « {project} » à cet encadreur",
+    "project": "Projet à ouvrir à {name}",
+    "chooseProject": "Choisir un projet…",
+    "open": "Ouvrir à l'encadreur",
+    "cancel": "Annuler la demande",
+    "ask": {
+      "title": "Demander un encadreur",
+      "none": "Aucun autre enseignant de l'établissement à qui le demander.",
+      "teacher": "Enseignant",
+      "choose": "Choisir…",
+      "submit": "Envoyer la demande",
+      "help": "L'enseignant accepte ou refuse. Une fois l'encadrement actif, vous choisissez les projets qu'il peut lire et commenter (rôle Encadrant)."
+    }
+  },
+  "JoinOrganization": {
+    "title": "Rejoindre un établissement",
+    "subtitle": "Enseignants : rattachez votre compte à votre établissement",
+    "help": "Saisissez le code d'établissement donné par votre administration. Votre demande attend la confirmation d'un administrateur ; l'espace de l'établissement apparaît ensuite dans « Changer d'espace ».",
+    "code": "Code d'établissement",
+    "send": "Envoyer la demande",
+    "sent": "Demande envoyée à « {organization} ». Vous serez rattaché(e) dès qu'un administrateur l'aura confirmée.",
+    "pendingTitle": "Demandes en attente de confirmation",
+    "pendingSince": "envoyée le {date}"
+  },
+  "OrgInvitation": {
+    "metaTitle": "Invitation",
+    "title": "Invitation à rejoindre une organisation",
+    "loading": "Lecture de l'invitation…",
+    "invalid": "Ce lien d'invitation n'est pas valide. Demandez une nouvelle invitation.",
+    "declined": "Invitation refusée. Rien n'a changé pour vous.",
+    "text": "{inviter} vous invite à rejoindre « {organization} ».",
+    "as": "Profil : {kind}.",
+    "seat": "Vous occuperez un siège : ses quotas s'ajoutent à votre compte (le meilleur quota s'applique), vos projets restent les vôtres et l'organisation n'en voit jamais le contenu.",
+    "sentToPhone": "Invitation envoyée au {contact}, valable jusqu'au {date}.",
+    "sentToEmail": "Invitation envoyée à {contact}, valable jusqu'au {date}.",
+    "status": {
+      "PENDING": "Invitation en attente.",
+      "ACCEPTED": "Cette invitation a déjà été acceptée.",
+      "EXPIRED": "Cette invitation a expiré : demandez-en une nouvelle.",
+      "DECLINED": "Cette invitation a été refusée.",
+      "REVOKED": "Cette invitation a été annulée par l'organisation."
+    },
+    "signedInAs": "Connecté en tant que {name}.",
+    "otherPhone": "Cette invitation a été envoyée au {contact}. Connectez-vous avec le compte de ce numéro pour l'accepter.",
+    "otherEmail": "Cette invitation a été envoyée à {contact}. Ajoutez et confirmez cette adresse dans votre compte, ou connectez-vous avec le compte qui l'utilise.",
+    "accept": "Accepter et rejoindre",
+    "decline": "Refuser",
+    "signInPhone": "Pour accepter, connectez-vous avec le compte du numéro {contact}, ou créez-le.",
+    "signInEmail": "Pour accepter, connectez-vous avec un compte dont l'adresse {contact} est confirmée, ou créez-en un.",
+    "signIn": "Se connecter",
+    "signUp": "Créer un compte"
+  },
+  "OrgErrors": {
+    "org_not_found": "Organisation introuvable, ou vous n'en êtes plus membre.",
+    "org_forbidden": "Seuls le titulaire et les administrateurs peuvent faire cela.",
+    "business_only": "Réservé à l'offre Business.",
+    "subscription_inactive": "L'abonnement de l'organisation n'est plus actif : renouvelez-le pour attribuer des sièges.",
+    "no_free_seat": "Plus de siège libre. Le titulaire peut ajouter des sièges depuis « Abonnement » (un siège libéré n'est réattribuable qu'après 30 jours).",
+    "already_org_member": "Cette personne est déjà membre de l'organisation.",
+    "already_org_invited": "Une invitation est déjà en attente pour ce contact.",
+    "admin_limit": "Nombre maximal d'administrateurs atteint pour cette offre.",
+    "cannot_remove_owner": "Le titulaire ne peut pas être retiré ni changer de rôle.",
+    "owner_cannot_leave": "Le titulaire ne peut pas quitter son organisation.",
+    "member_not_found": "Ce membre ou cette demande n'existe plus.",
+    "join_code_invalid": "Code d'établissement inconnu. Vérifiez-le auprès de votre administration.",
+    "join_pending": "Une demande de rattachement est déjà en attente pour ce compte.",
+    "group_not_found": "Cette classe ou filière n'existe plus.",
+    "group_name_taken": "Une classe ou filière porte déjà ce nom à cet endroit.",
+    "group_not_empty": "Retirez d'abord ses membres et ses sous-groupes.",
+    "group_cycle": "Une classe ou filière ne peut pas être placée dans elle-même ni dans un de ses sous-groupes.",
+    "csv_invalid": "Ce fichier n'est pas un CSV de membres valide (UTF-8, ligne d'en-tête avec au moins une colonne telephone ou email).",
+    "csv_too_large": "Fichier trop volumineux : 1 Mo et 2 000 lignes au plus.",
+    "import_not_found": "Cet import est introuvable.",
+    "not_teacher": "Cette personne n'est pas enseignante dans l'organisation.",
+    "not_student": "Cette personne n'est pas étudiante dans l'organisation.",
+    "supervision_limit": "Cet encadreur suit déjà le nombre maximal d'étudiants de l'offre.",
+    "supervision_exists": "Cet encadrement existe déjà.",
+    "supervision_not_found": "Cet encadrement n'existe plus.",
+    "end_date_past": "La date de fin doit être dans le futur."
   }
 }
